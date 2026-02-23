@@ -5,7 +5,7 @@ Tags: storage, booking, woocommerce
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.25
+Stable tag: 1.0.26
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Requires Plugins: woocommerce, jcc-payment-gateway-for-wc
@@ -58,6 +58,7 @@ Current implemented milestone includes:
 - Added an Overview admin screen with a setup checklist for required and recommended plugin configuration
 - Added a one-click admin action to auto-create/reuse the WooCommerce booking container product from Overview/Settings
 - Added a defensive Storage Units admin menu URL normalization fix to prevent `Invalid post type` on some setups
+- Capacity-managed units (using unit size in m2) now support partial bookings with prorated pricing and only become unavailable when fully booked
 
 == Installation ==
 
@@ -86,6 +87,14 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 3. Admin booking management screen.
 
 == Changelog ==
+
+= 1.0.26 =
+* Added partial-capacity booking for storage units using the unit size (`_csu_size_m2`) as total available m2.
+* Booking form now accepts a requested area (m2) for capacity-managed units and validates against remaining capacity.
+* Capacity-managed unit prices are prorated at checkout based on requested m2 vs total unit capacity (configured duration prices remain full-unit prices).
+* Units are only marked unavailable/reserved when their full capacity is booked out; partial bookings leave remaining capacity bookable.
+* Added booked-area m2 data to booking records, cart/order metadata, and Bookings admin list/detail/CSV export.
+* Added frontend UI updates to show available/reserved m2 on unit cards and collect requested area.
 
 = 1.0.25 =
 * Fixed plugin admin screen detection so the Overview page reliably loads the plugin admin CSS/JS (restoring the intended card-based UI on affected WordPress setups).
@@ -220,6 +229,9 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 * Added activation/runtime dependency checks for WooCommerce and JCC Payment Gateway for WooCommerce.
 
 == Upgrade Notice ==
+
+= 1.0.26 =
+Adds partial m2 booking for capacity-managed units with prorated pricing and full-capacity locking behavior (includes DB schema update for booked area fields).
 
 = 1.0.25 =
 Fixes Overview admin asset loading on some WordPress setups so the styled card UI renders consistently.

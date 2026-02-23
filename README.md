@@ -48,6 +48,7 @@ Implemented in the codebase so far:
 - Admin configuration warnings for missing/invalid booking container product setup
 - Booking summary panel on WooCommerce order admin pages
 - Audit log entries for manual booking/unit status actions
+- Capacity-managed units (size in m2) now support partial-area bookings with checkout price proration and full-capacity-only locking
 
 Not implemented yet (next milestones):
 
@@ -111,3 +112,4 @@ If you deploy from source, include `vendor/` (or run `composer install` as part 
 17. Open `CoMarine Storage > Overview` and confirm the setup checklist reports container product, dependencies, storage units/pricing, and key configuration status.
 18. If the container product is missing, use the `Create Container Product` action and confirm the setting is populated automatically.
 19. Click `CoMarine Storage > Storage Units` and `CoMarine Storage > Add New` and confirm both open the correct CPT screens (no `Invalid post type` message).
+20. For a unit with `Size (m2)` set (for example `1000`), book a partial area (for example `250`) and confirm the checkout price is prorated and the unit remains bookable until total reserved area reaches full capacity.

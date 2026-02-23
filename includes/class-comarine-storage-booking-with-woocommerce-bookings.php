@@ -141,6 +141,8 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 			duration_key varchar(16) NOT NULL DEFAULT '',
 			start_ts datetime DEFAULT NULL,
 			end_ts datetime DEFAULT NULL,
+			requested_area_m2 decimal(12,2) NOT NULL DEFAULT 0.00,
+			unit_capacity_m2 decimal(12,2) NOT NULL DEFAULT 0.00,
 			price_total decimal(12,2) NOT NULL DEFAULT 0.00,
 			currency varchar(8) NOT NULL DEFAULT 'EUR',
 			status varchar(20) NOT NULL DEFAULT 'pending',
@@ -726,14 +728,121 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 	}
 
 	/**
-	 * Determine if a unit has an active lock or paid booking.
+	 * Get the configured capacity (size) for a storage unit in m2.
 	 *
-	 * @since 1.0.3
+	 * @since 1.0.26
+	 *
+	 * @param int $unit_post_id Unit post ID.
+	 * @return float
+	 */
+	public static function get_unit_capacity_m2( $unit_post_id ) {
+		$unit_post_id = absint( $unit_post_id );
+		if ( $unit_post_id <= 0 ) {
+			return 0.0;
+		}
+
+		$raw_capacity = get_post_meta( $unit_post_id, '_csu_size_m2', true );
+		if ( '' === $raw_capacity || ! is_numeric( $raw_capacity ) ) {
+			return 0.0;
+		}
+
+		$capacity = round( (float) $raw_capacity, 2 );
+
+		return $capacity > 0 ? $capacity : 0.0;
+	}
+
+	/**
+	 * Get reserved vs remaining capacity for a unit based on active bookings/locks.
+	 *
+	 * For legacy bookings created before capacity support, rows with no stored
+	 * `requested_area_m2` are treated as consuming the full current unit capacity.
+	 *
+	 * @since 1.0.26
+	 *
+	 * @param int $unit_post_id Unit post ID.
+	 * @return array<string, float|bool>
+	 */
+	public static function get_unit_capacity_availability( $unit_post_id ) {
+		global $wpdb;
+
+		$unit_post_id = absint( $unit_post_id );
+		$capacity_m2  = self::get_unit_capacity_m2( $unit_post_id );
+		$result       = array(
+			'is_capacity_managed' => $capacity_m2 > 0,
+			'capacity_m2'         => $capacity_m2,
+			'reserved_m2'         => 0.0,
+			'remaining_m2'        => $capacity_m2 > 0 ? $capacity_m2 : 0.0,
+			'is_full'             => false,
+		);
+
+		if ( $unit_post_id <= 0 || $capacity_m2 <= 0 || ! self::table_exists() ) {
+			return $result;
+		}
+
+		self::expire_stale_locks();
+
+		$table_name = self::get_table_name();
+		$now        = current_time( 'mysql' );
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$sql = $wpdb->prepare(
+			"SELECT requested_area_m2, unit_capacity_m2
+			FROM {$table_name}
+			WHERE unit_post_id = %d
+			  AND (
+					status = 'paid'
+					OR status = 'reserved'
+					OR status = 'occupied'
+					OR (status IN ('locked','pending') AND (lock_expires_ts IS NULL OR lock_expires_ts >= %s))
+			  )",
+			$unit_post_id,
+			$now
+		);
+
+		$rows = $wpdb->get_results( $sql );
+		if ( empty( $rows ) ) {
+			return $result;
+		}
+
+		$reserved_m2 = 0.0;
+		foreach ( $rows as $row ) {
+			if ( ! is_object( $row ) ) {
+				continue;
+			}
+
+			$row_requested = isset( $row->requested_area_m2 ) && is_numeric( $row->requested_area_m2 ) ? (float) $row->requested_area_m2 : 0.0;
+			if ( $row_requested > 0 ) {
+				$reserved_m2 += $row_requested;
+				continue;
+			}
+
+			// Legacy rows had no requested-area field: treat them as full-unit bookings.
+			$row_capacity = isset( $row->unit_capacity_m2 ) && is_numeric( $row->unit_capacity_m2 ) ? (float) $row->unit_capacity_m2 : 0.0;
+			if ( $row_capacity <= 0 ) {
+				$row_capacity = $capacity_m2;
+			}
+
+			$reserved_m2 += max( 0.0, $row_capacity );
+		}
+
+		$reserved_m2            = round( $reserved_m2, 2 );
+		$remaining_m2           = max( 0.0, round( $capacity_m2 - $reserved_m2, 2 ) );
+		$result['reserved_m2']  = $reserved_m2;
+		$result['remaining_m2'] = $remaining_m2;
+		$result['is_full']      = $remaining_m2 <= 0;
+
+		return $result;
+	}
+
+	/**
+	 * Determine if a unit has any active booking/lock in non-capacity mode.
+	 *
+	 * @since 1.0.26
 	 *
 	 * @param int $unit_post_id Unit post ID.
 	 * @return bool
 	 */
-	public static function has_conflicting_booking( $unit_post_id ) {
+	private static function has_any_active_booking_conflict( $unit_post_id ) {
 		global $wpdb;
 
 		$unit_post_id = absint( $unit_post_id );
@@ -767,6 +876,28 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 	}
 
 	/**
+	 * Determine if a unit has an active lock or paid booking.
+	 *
+	 * @since 1.0.3
+	 *
+	 * @param int $unit_post_id Unit post ID.
+	 * @return bool
+	 */
+	public static function has_conflicting_booking( $unit_post_id ) {
+		$unit_post_id = absint( $unit_post_id );
+		if ( $unit_post_id <= 0 ) {
+			return false;
+		}
+
+		$capacity_snapshot = self::get_unit_capacity_availability( $unit_post_id );
+		if ( ! empty( $capacity_snapshot['is_capacity_managed'] ) ) {
+			return ! empty( $capacity_snapshot['is_full'] );
+		}
+
+		return self::has_any_active_booking_conflict( $unit_post_id );
+	}
+
+	/**
 	 * Create a locked booking row before checkout.
 	 *
 	 * @since 1.0.3
@@ -784,6 +915,8 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 		$unit_post_id  = isset( $args['unit_post_id'] ) ? absint( $args['unit_post_id'] ) : 0;
 		$unit_code     = isset( $args['unit_code'] ) ? sanitize_text_field( (string) $args['unit_code'] ) : '';
 		$duration_key  = isset( $args['duration_key'] ) ? sanitize_key( (string) $args['duration_key'] ) : '';
+		$requested_area_m2 = isset( $args['requested_area_m2'] ) && is_numeric( $args['requested_area_m2'] ) ? round( (float) $args['requested_area_m2'], 2 ) : 0.0;
+		$unit_capacity_m2  = isset( $args['unit_capacity_m2'] ) && is_numeric( $args['unit_capacity_m2'] ) ? round( (float) $args['unit_capacity_m2'], 2 ) : 0.0;
 		$price_total   = isset( $args['price_total'] ) ? (float) $args['price_total'] : 0.0;
 		$currency      = isset( $args['currency'] ) ? strtoupper( sanitize_text_field( (string) $args['currency'] ) ) : 'EUR';
 		$user_id       = isset( $args['user_id'] ) ? absint( $args['user_id'] ) : 0;
@@ -801,7 +934,41 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 			return new WP_Error( 'comarine_invalid_price', __( 'Invalid booking price.', 'comarine-storage-booking-with-woocommerce' ) );
 		}
 
-		if ( self::has_conflicting_booking( $unit_post_id ) ) {
+		if ( $unit_capacity_m2 <= 0 ) {
+			$unit_capacity_m2 = self::get_unit_capacity_m2( $unit_post_id );
+		}
+
+		if ( $unit_capacity_m2 > 0 ) {
+			if ( $requested_area_m2 <= 0 ) {
+				return new WP_Error( 'comarine_invalid_area', __( 'Please enter the area (m2) you want to book.', 'comarine-storage-booking-with-woocommerce' ) );
+			}
+
+			if ( $requested_area_m2 > $unit_capacity_m2 ) {
+				return new WP_Error(
+					'comarine_area_exceeds_unit_capacity',
+					sprintf(
+						/* translators: %s: unit capacity in m2 */
+						__( 'Requested area exceeds the unit capacity (%s m2).', 'comarine-storage-booking-with-woocommerce' ),
+						number_format_i18n( $unit_capacity_m2, 2 )
+					)
+				);
+			}
+
+			$capacity_snapshot = self::get_unit_capacity_availability( $unit_post_id );
+			$remaining_m2      = isset( $capacity_snapshot['remaining_m2'] ) ? (float) $capacity_snapshot['remaining_m2'] : $unit_capacity_m2;
+			$unit_capacity_m2  = isset( $capacity_snapshot['capacity_m2'] ) ? (float) $capacity_snapshot['capacity_m2'] : $unit_capacity_m2;
+
+			if ( $remaining_m2 + 0.0001 < $requested_area_m2 ) {
+				return new WP_Error(
+					'comarine_unit_capacity_unavailable',
+					sprintf(
+						/* translators: %s: remaining area in m2 */
+						__( 'Only %s m2 is currently available for this unit.', 'comarine-storage-booking-with-woocommerce' ),
+						number_format_i18n( max( 0, $remaining_m2 ), 2 )
+					)
+				);
+			}
+		} elseif ( self::has_any_active_booking_conflict( $unit_post_id ) ) {
 			return new WP_Error( 'comarine_unit_unavailable', __( 'This unit is no longer available for booking.', 'comarine-storage-booking-with-woocommerce' ) );
 		}
 
@@ -821,6 +988,8 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 				'duration_key'     => $duration_key,
 				'start_ts'         => $now_dt->format( 'Y-m-d H:i:s' ),
 				'end_ts'           => $end_dt->format( 'Y-m-d H:i:s' ),
+				'requested_area_m2'=> $requested_area_m2 > 0 ? number_format( $requested_area_m2, 2, '.', '' ) : '0.00',
+				'unit_capacity_m2' => $unit_capacity_m2 > 0 ? number_format( $unit_capacity_m2, 2, '.', '' ) : '0.00',
 				'price_total'      => number_format( $price_total, 2, '.', '' ),
 				'currency'         => $currency ?: 'EUR',
 				'status'           => 'locked',
@@ -837,6 +1006,8 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 				'%s',
 				'%s',
 				'%s',
+				'%f',
+				'%f',
 				'%f',
 				'%s',
 				'%s',
@@ -856,6 +1027,8 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 			'lock_token'       => $lock_token,
 			'lock_expires_ts'  => $lock_expires_dt->format( 'Y-m-d H:i:s' ),
 			'duration_key'     => $duration_key,
+			'requested_area_m2'=> $requested_area_m2 > 0 ? number_format( $requested_area_m2, 2, '.', '' ) : '0.00',
+			'unit_capacity_m2' => $unit_capacity_m2 > 0 ? number_format( $unit_capacity_m2, 2, '.', '' ) : '0.00',
 			'price_total'      => number_format( $price_total, 2, '.', '' ),
 			'currency'         => $currency ?: 'EUR',
 		);

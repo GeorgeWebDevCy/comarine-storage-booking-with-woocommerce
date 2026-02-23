@@ -761,24 +761,51 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 				if ( $success && (int) $booking->unit_post_id > 0 ) {
 					$paid_unit_status = (string) comarine_storage_booking_with_woocommerce_get_setting( 'paid_unit_status', 'reserved' );
 					$requested_unit_status = in_array( $paid_unit_status, array( 'reserved', 'occupied' ), true ) ? $paid_unit_status : 'reserved';
-					$paid_unit_status_synced = false !== update_post_meta( (int) $booking->unit_post_id, '_csu_status', $requested_unit_status );
+					$capacity_unit_sync = $this->sync_capacity_managed_unit_status_after_booking_change( $booking, $requested_unit_status );
+					if ( ! empty( $capacity_unit_sync['handled'] ) ) {
+						$requested_unit_status   = (string) $capacity_unit_sync['new_unit_status'];
+						$paid_unit_status_synced = ! empty( $capacity_unit_sync['updated'] );
+					} else {
+						$paid_unit_status_synced = false !== update_post_meta( (int) $booking->unit_post_id, '_csu_status', $requested_unit_status );
+					}
 				}
 				break;
 
 			case 'mark_cancelled':
 				$success = Comarine_Storage_Booking_With_Woocommerce_Bookings::mark_booking_cancelled( $booking_id, (int) $booking->order_id );
 				$requested_status = 'cancelled';
+				if ( $success && (int) $booking->unit_post_id > 0 ) {
+					$capacity_unit_sync = $this->sync_capacity_managed_unit_status_after_booking_change( $booking );
+					if ( ! empty( $capacity_unit_sync['handled'] ) ) {
+						$requested_unit_status   = (string) $capacity_unit_sync['new_unit_status'];
+						$paid_unit_status_synced = ! empty( $capacity_unit_sync['updated'] );
+					}
+				}
 				break;
 
 			case 'mark_refunded':
 				$success = Comarine_Storage_Booking_With_Woocommerce_Bookings::mark_booking_refunded( $booking_id, (int) $booking->order_id );
 				$requested_status = 'refunded';
+				if ( $success && (int) $booking->unit_post_id > 0 ) {
+					$capacity_unit_sync = $this->sync_capacity_managed_unit_status_after_booking_change( $booking );
+					if ( ! empty( $capacity_unit_sync['handled'] ) ) {
+						$requested_unit_status   = (string) $capacity_unit_sync['new_unit_status'];
+						$paid_unit_status_synced = ! empty( $capacity_unit_sync['updated'] );
+					}
+				}
 				break;
 
 			case 'set_booking_status':
 				$status  = isset( $_GET['status'] ) ? sanitize_key( wp_unslash( $_GET['status'] ) ) : '';
 				$success = Comarine_Storage_Booking_With_Woocommerce_Bookings::set_booking_status( $booking_id, $status );
 				$requested_status = $status;
+				if ( $success && (int) $booking->unit_post_id > 0 ) {
+					$capacity_unit_sync = $this->sync_capacity_managed_unit_status_after_booking_change( $booking );
+					if ( ! empty( $capacity_unit_sync['handled'] ) ) {
+						$requested_unit_status   = (string) $capacity_unit_sync['new_unit_status'];
+						$paid_unit_status_synced = ! empty( $capacity_unit_sync['updated'] );
+					}
+				}
 				break;
 
 			case 'set_unit_status':
@@ -1003,18 +1030,38 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 				if ( $success && isset( $booking->unit_post_id ) && (int) $booking->unit_post_id > 0 ) {
 					$paid_unit_status     = (string) comarine_storage_booking_with_woocommerce_get_setting( 'paid_unit_status', 'reserved' );
 					$requested_unit_status = in_array( $paid_unit_status, array( 'reserved', 'occupied' ), true ) ? $paid_unit_status : 'reserved';
-					$paid_unit_status_synced = false !== update_post_meta( (int) $booking->unit_post_id, '_csu_status', $requested_unit_status );
+					$capacity_unit_sync   = $this->sync_capacity_managed_unit_status_after_booking_change( $booking, $requested_unit_status );
+					if ( ! empty( $capacity_unit_sync['handled'] ) ) {
+						$requested_unit_status   = (string) $capacity_unit_sync['new_unit_status'];
+						$paid_unit_status_synced = ! empty( $capacity_unit_sync['updated'] );
+					} else {
+						$paid_unit_status_synced = false !== update_post_meta( (int) $booking->unit_post_id, '_csu_status', $requested_unit_status );
+					}
 				}
 				break;
 
 			case 'bulk_mark_cancelled':
 				$success          = Comarine_Storage_Booking_With_Woocommerce_Bookings::mark_booking_cancelled( $booking_id, $order_id );
 				$requested_status = 'cancelled';
+				if ( $success && isset( $booking->unit_post_id ) && (int) $booking->unit_post_id > 0 ) {
+					$capacity_unit_sync = $this->sync_capacity_managed_unit_status_after_booking_change( $booking );
+					if ( ! empty( $capacity_unit_sync['handled'] ) ) {
+						$requested_unit_status   = (string) $capacity_unit_sync['new_unit_status'];
+						$paid_unit_status_synced = ! empty( $capacity_unit_sync['updated'] );
+					}
+				}
 				break;
 
 			case 'bulk_mark_refunded':
 				$success          = Comarine_Storage_Booking_With_Woocommerce_Bookings::mark_booking_refunded( $booking_id, $order_id );
 				$requested_status = 'refunded';
+				if ( $success && isset( $booking->unit_post_id ) && (int) $booking->unit_post_id > 0 ) {
+					$capacity_unit_sync = $this->sync_capacity_managed_unit_status_after_booking_change( $booking );
+					if ( ! empty( $capacity_unit_sync['handled'] ) ) {
+						$requested_unit_status   = (string) $capacity_unit_sync['new_unit_status'];
+						$paid_unit_status_synced = ! empty( $capacity_unit_sync['updated'] );
+					}
+				}
 				break;
 		}
 
@@ -1237,6 +1284,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		echo '<th>' . esc_html__( 'Unit Status', 'comarine-storage-booking-with-woocommerce' ) . '</th>';
 		echo '<th>' . esc_html__( 'Order', 'comarine-storage-booking-with-woocommerce' ) . '</th>';
 		echo '<th>' . esc_html__( 'Duration', 'comarine-storage-booking-with-woocommerce' ) . '</th>';
+		echo '<th>' . esc_html__( 'Area (m2)', 'comarine-storage-booking-with-woocommerce' ) . '</th>';
 		echo '<th>' . esc_html__( 'Status', 'comarine-storage-booking-with-woocommerce' ) . '</th>';
 		echo '<th>' . esc_html__( 'Price', 'comarine-storage-booking-with-woocommerce' ) . '</th>';
 		echo '<th>' . esc_html__( 'Lock Expires', 'comarine-storage-booking-with-woocommerce' ) . '</th>';
@@ -1272,6 +1320,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			}
 			echo '</td>';
 			echo '<td>' . esc_html( (string) $row->duration_key ) . '</td>';
+			echo '<td>' . esc_html( $this->format_booking_area_summary( $row ) ) . '</td>';
 			echo '<td>' . esc_html( Comarine_Storage_Booking_With_Woocommerce_Bookings::get_status_label( (string) $row->status ) ) . '</td>';
 			echo '<td>' . esc_html( $price_display ) . '</td>';
 			echo '<td>' . esc_html( $this->format_admin_datetime_display( isset( $row->lock_expires_ts ) ? (string) $row->lock_expires_ts : '', '-' ) ) . '</td>';
@@ -1901,6 +1950,10 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		$this->render_booking_detail_row_html( __( 'Order', 'comarine-storage-booking-with-woocommerce' ), $order_html );
 
 		$this->render_booking_detail_row( __( 'Duration', 'comarine-storage-booking-with-woocommerce' ), isset( $booking->duration_key ) && '' !== (string) $booking->duration_key ? (string) $booking->duration_key : '-' );
+		$booked_area_display = $this->format_booking_area_summary( $booking, true );
+		if ( '-' !== $booked_area_display ) {
+			$this->render_booking_detail_row( __( 'Booked Area', 'comarine-storage-booking-with-woocommerce' ), $booked_area_display );
+		}
 		$this->render_booking_detail_row(
 			__( 'Price', 'comarine-storage-booking-with-woocommerce' ),
 			trim( (string) ( isset( $booking->price_total ) ? $booking->price_total : '' ) . ' ' . (string) ( isset( $booking->currency ) ? $booking->currency : '' ) )
@@ -3128,6 +3181,8 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 				'order_id',
 				'user_id',
 				'duration_key',
+				'requested_area_m2',
+				'unit_capacity_m2',
 				'start_ts',
 				'end_ts',
 				'price_total',
@@ -3177,6 +3232,8 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 						isset( $row->order_id ) ? (int) $row->order_id : 0,
 						isset( $row->user_id ) ? (int) $row->user_id : 0,
 						isset( $row->duration_key ) ? (string) $row->duration_key : '',
+						isset( $row->requested_area_m2 ) ? (string) $row->requested_area_m2 : '',
+						isset( $row->unit_capacity_m2 ) ? (string) $row->unit_capacity_m2 : '',
 						isset( $row->start_ts ) ? (string) $row->start_ts : '',
 						isset( $row->end_ts ) ? (string) $row->end_ts : '',
 						isset( $row->price_total ) ? (string) $row->price_total : '',
@@ -3500,6 +3557,113 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		}
 
 		return $updated;
+	}
+
+	/**
+	 * Sync capacity-managed unit status after booking status changes in wp-admin actions.
+	 *
+	 * Capacity-managed units are only marked reserved/occupied when fully booked.
+	 * Units manually set to maintenance/archived are left unchanged.
+	 *
+	 * @since    1.0.26
+	 *
+	 * @param object $booking     Booking row.
+	 * @param string $full_status Status to use when the unit is fully booked.
+	 * @return array<string, mixed>
+	 */
+	private function sync_capacity_managed_unit_status_after_booking_change( $booking, $full_status = 'reserved' ) {
+		$result = array(
+			'handled'         => false,
+			'updated'         => false,
+			'new_unit_status' => '',
+		);
+
+		if ( ! class_exists( 'Comarine_Storage_Booking_With_Woocommerce_Bookings' ) || ! is_object( $booking ) ) {
+			return $result;
+		}
+
+		$unit_post_id = isset( $booking->unit_post_id ) ? absint( $booking->unit_post_id ) : 0;
+		if ( $unit_post_id <= 0 || ! method_exists( 'Comarine_Storage_Booking_With_Woocommerce_Bookings', 'get_unit_capacity_availability' ) ) {
+			return $result;
+		}
+
+		$snapshot = Comarine_Storage_Booking_With_Woocommerce_Bookings::get_unit_capacity_availability( $unit_post_id );
+		if ( empty( $snapshot['is_capacity_managed'] ) ) {
+			return $result;
+		}
+
+		$result['handled'] = true;
+
+		$current_status = sanitize_key( (string) get_post_meta( $unit_post_id, '_csu_status', true ) );
+		if ( in_array( $current_status, array( 'maintenance', 'archived' ), true ) ) {
+			$result['new_unit_status'] = $current_status;
+			return $result;
+		}
+
+		$full_status = sanitize_key( (string) $full_status );
+		if ( ! in_array( $full_status, array( 'reserved', 'occupied' ), true ) ) {
+			$full_status = 'reserved';
+		}
+
+		$new_unit_status             = ! empty( $snapshot['is_full'] ) ? $full_status : 'available';
+		$result['new_unit_status']   = $new_unit_status;
+
+		if ( $current_status === $new_unit_status ) {
+			return $result;
+		}
+
+		$result['updated'] = false !== update_post_meta( $unit_post_id, '_csu_status', $new_unit_status );
+
+		return $result;
+	}
+
+	/**
+	 * Format booking area summary for admin list/detail output.
+	 *
+	 * @since    1.0.26
+	 *
+	 * @param object $booking       Booking row object.
+	 * @param bool   $include_units Whether to append `m2` units in the rendered value.
+	 * @return string
+	 */
+	private function format_booking_area_summary( $booking, $include_units = false ) {
+		if ( ! is_object( $booking ) ) {
+			return '-';
+		}
+
+		$requested_area_m2 = ( isset( $booking->requested_area_m2 ) && is_numeric( $booking->requested_area_m2 ) ) ? (float) $booking->requested_area_m2 : 0.0;
+		$unit_capacity_m2  = ( isset( $booking->unit_capacity_m2 ) && is_numeric( $booking->unit_capacity_m2 ) ) ? (float) $booking->unit_capacity_m2 : 0.0;
+
+		if ( $requested_area_m2 <= 0 && $unit_capacity_m2 <= 0 ) {
+			return '-';
+		}
+
+		if ( $requested_area_m2 <= 0 && $unit_capacity_m2 > 0 ) {
+			return sprintf(
+				/* translators: %s: unit capacity in m2 */
+				$include_units ? __( 'Full unit (%s m2)', 'comarine-storage-booking-with-woocommerce' ) : __( 'Full unit (%s)', 'comarine-storage-booking-with-woocommerce' ),
+				$this->format_area_m2_value( $unit_capacity_m2 )
+			);
+		}
+
+		$requested_label = $this->format_area_m2_value( $requested_area_m2 ) . ( $include_units ? ' m2' : '' );
+		if ( $unit_capacity_m2 > 0 ) {
+			return $requested_label . ' / ' . $this->format_area_m2_value( $unit_capacity_m2 ) . ( $include_units ? ' m2' : '' );
+		}
+
+		return $requested_label;
+	}
+
+	/**
+	 * Format an area value in m2 for admin display.
+	 *
+	 * @since    1.0.26
+	 *
+	 * @param float $area Area in square meters.
+	 * @return string
+	 */
+	private function format_area_m2_value( $area ) {
+		return number_format_i18n( (float) $area, 2 );
 	}
 
 	/**
