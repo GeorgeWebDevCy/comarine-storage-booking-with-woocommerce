@@ -2,7 +2,7 @@
 
 WordPress plugin for CoMarine storage unit bookings with WooCommerce checkout integration.
 
-## Current Status (Milestone 9)
+## Current Status (Milestone 10)
 
 Implemented in the codebase so far:
 
@@ -23,6 +23,9 @@ Implemented in the codebase so far:
 - Audit logging for bulk booking status changes and bulk unit status overrides
 - Destructive row actions now require confirmation prompts (cancel/refund/unit available)
 - Bulk actions support optional audit notes and require explicit confirmation for destructive bulk actions
+- Frontend shortcode now includes filter controls (search/status/floor/size/price/bookable-now)
+- Frontend unit cards now show richer details (status badge, dimensions, features, pricing summary)
+- Frontend availability messaging improved (locked/reserved/configuration/pricing reasons)
 - Settings page for booking container product, lock TTL, paid unit status, and currency
 - Shortcode `[comarine_storage_units]` for initial frontend booking entry
 - Booking lock creation + cart item metadata + price snapshot handling
@@ -86,3 +89,4 @@ If you deploy from source, include `vendor/` (or run `composer install` as part 
 9. Use a manual booking/unit action and confirm the new audit entry appears.
 10. Select multiple bookings, apply a bulk action (for example `Cancel Booking`), and verify the result notice + audit log rows.
 11. Test a destructive row action (`Cancel`, `Mark Refunded`, or `Unit: Available`) and confirm the browser prompt appears before the action runs.
+12. Open a page with `[comarine_storage_units]`, test filters, and verify card availability messages / booking button states.

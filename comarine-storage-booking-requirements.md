@@ -597,8 +597,14 @@ Create settings page:
 - Destructive bulk actions now require explicit confirmation before running
 - Fixed bulk action toolbar submission so top/bottom controls submit reliably
 
+### Milestone 10 (Implemented - Frontend UX Improvements, Phase 1)
+- Shortcode `[comarine_storage_units]` now renders frontend filters (search/status/floor/size/price/bookable-now)
+- Unit cards now show richer detail layout (status badge, size/dimensions/floor chips, pricing summary, optional features)
+- Improved availability messaging on cards (locked/reserved/configuration/pricing reasons)
+- Added public CSS styling for the frontend filter form and unit cards (mobile-responsive)
+
 ### Next Milestone (Planned)
-- Frontend UX improvements (availability messaging, clearer unit details, add-ons UI)
+- Frontend UX improvements (add-ons UI, images/gallery support, better empty/loading states)
 - Stronger concurrency controls / atomic locking for unit reservation conflicts
 - Reporting enhancements (exports beyond admin table filters, richer analytics summaries)
 - Admin workflow refinements (reason-required policies, safer destructive action confirmations)

@@ -5,7 +5,7 @@ Tags: storage, booking, woocommerce
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.10
+Stable tag: 1.0.11
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Requires Plugins: woocommerce, jcc-payment-gateway-for-wc
@@ -42,6 +42,8 @@ Current implemented milestone includes:
 - Bulk booking status changes write audit log entries with per-booking tracking
 - Destructive row actions now show confirmation prompts before execution
 - Bulk actions now support optional audit notes and require explicit confirmation for destructive actions
+- Frontend shortcode now supports filtering (search/status/floor/size/price/bookable-now)
+- Frontend storage unit cards now show richer details and clearer availability messages
 - Booking summary block in WooCommerce order admin screen
 
 == Installation ==
@@ -71,6 +73,12 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 3. Admin booking management screen.
 
 == Changelog ==
+
+= 1.0.11 =
+* Added frontend shortcode filter UI (search/status/floor/size/price/bookable-now).
+* Added richer frontend unit card layout with status badges, meta chips, pricing summary, and features support.
+* Improved availability messaging for locked/reserved/configuration/pricing conditions.
+* Added public CSS styling for the shortcode filters, cards, and booking form layout.
 
 = 1.0.10 =
 * Added confirmation prompts for destructive row actions (cancel/refund/unit available).
@@ -136,6 +144,9 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 * Added activation/runtime dependency checks for WooCommerce and JCC Payment Gateway for WooCommerce.
 
 == Upgrade Notice ==
+
+= 1.0.11 =
+Adds the first major frontend UX improvement pass for `[comarine_storage_units]` (filters + richer unit cards).
 
 = 1.0.10 =
 Adds safer admin workflows: confirmations for destructive actions and audit notes for bulk updates.

@@ -2,3 +2,356 @@
  * All of the CSS for your public-facing functionality should be
  * included in this file.
  */
+
+.comarine-storage-units {
+	--comarine-card-bg: #fbfcf7;
+	--comarine-surface: #ffffff;
+	--comarine-border: #d6ddd4;
+	--comarine-border-strong: #9db2a8;
+	--comarine-text: #1f2a28;
+	--comarine-muted: #5f6f6a;
+	--comarine-accent: #1f6f61;
+	--comarine-accent-strong: #165348;
+	--comarine-warning-bg: #fff2d7;
+	--comarine-warning-text: #785300;
+	--comarine-danger-bg: #ffe3de;
+	--comarine-danger-text: #7a2d1f;
+	--comarine-ok-bg: #e4f4ea;
+	--comarine-ok-text: #1f5d36;
+	color: var(--comarine-text);
+}
+
+.comarine-storage-units__filters {
+	background:
+		linear-gradient(135deg, rgba(31, 111, 97, 0.08), rgba(31, 111, 97, 0)),
+		var(--comarine-surface);
+	border: 1px solid var(--comarine-border);
+	border-radius: 14px;
+	padding: 14px;
+	margin: 0 0 18px;
+}
+
+.comarine-storage-units__filters-grid {
+	display: grid;
+	grid-template-columns: repeat(6, minmax(0, 1fr));
+	gap: 10px;
+}
+
+.comarine-storage-units__filter-field {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	font-size: 0.92rem;
+	color: var(--comarine-muted);
+}
+
+.comarine-storage-units__filter-field span {
+	font-weight: 600;
+	color: var(--comarine-text);
+}
+
+.comarine-storage-units__filter-field input,
+.comarine-storage-units__filter-field select {
+	width: 100%;
+	border: 1px solid var(--comarine-border);
+	border-radius: 10px;
+	padding: 9px 10px;
+	background: #fff;
+	color: var(--comarine-text);
+}
+
+.comarine-storage-units__filter-field input:focus,
+.comarine-storage-units__filter-field select:focus {
+	outline: 2px solid color-mix(in srgb, var(--comarine-accent) 35%, white);
+	outline-offset: 1px;
+	border-color: var(--comarine-border-strong);
+}
+
+.comarine-storage-units__filters-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px 14px;
+	margin-top: 12px;
+}
+
+.comarine-storage-units__checkbox {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	color: var(--comarine-text);
+	font-size: 0.92rem;
+}
+
+.comarine-storage-units__filter-button {
+	border: 0;
+	border-radius: 10px;
+	padding: 10px 14px;
+	background: var(--comarine-accent);
+	color: #fff;
+	font-weight: 700;
+	cursor: pointer;
+}
+
+.comarine-storage-units__filter-button:hover,
+.comarine-storage-units__filter-button:focus-visible {
+	background: var(--comarine-accent-strong);
+}
+
+.comarine-storage-units__reset-link {
+	color: var(--comarine-accent-strong);
+	font-weight: 600;
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+.comarine-storage-units-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 16px;
+}
+
+.comarine-storage-unit-card {
+	background:
+		radial-gradient(circle at top right, rgba(31, 111, 97, 0.08), transparent 48%),
+		var(--comarine-card-bg);
+	border: 1px solid var(--comarine-border);
+	border-radius: 16px;
+	padding: 16px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	box-shadow: 0 2px 0 rgba(31, 42, 40, 0.03);
+}
+
+.comarine-storage-unit-card__header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.comarine-storage-unit-card__title {
+	margin: 0;
+	font-size: 1.12rem;
+	line-height: 1.2;
+}
+
+.comarine-storage-unit-card__code {
+	margin: 4px 0 0;
+	color: var(--comarine-muted);
+	font-size: 0.92rem;
+}
+
+.comarine-storage-unit-card__status-badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 6px 10px;
+	border-radius: 999px;
+	font-size: 0.8rem;
+	font-weight: 700;
+	border: 1px solid transparent;
+	background: #eef4f2;
+	color: var(--comarine-accent-strong);
+	white-space: nowrap;
+}
+
+.comarine-status-available .comarine-storage-unit-card__status-badge {
+	background: var(--comarine-ok-bg);
+	color: var(--comarine-ok-text);
+	border-color: #b7dfc5;
+}
+
+.comarine-status-reserved .comarine-storage-unit-card__status-badge,
+.comarine-status-occupied .comarine-storage-unit-card__status-badge {
+	background: var(--comarine-warning-bg);
+	color: var(--comarine-warning-text);
+	border-color: #efd39c;
+}
+
+.comarine-status-maintenance .comarine-storage-unit-card__status-badge,
+.comarine-status-archived .comarine-storage-unit-card__status-badge {
+	background: #eef0f2;
+	color: #49545a;
+	border-color: #d4d8dd;
+}
+
+.comarine-storage-unit-card__excerpt {
+	margin: 0;
+	color: var(--comarine-muted);
+	font-size: 0.93rem;
+}
+
+.comarine-storage-unit-card__meta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.comarine-storage-unit-card__chip {
+	display: inline-flex;
+	align-items: center;
+	background: #fff;
+	border: 1px solid var(--comarine-border);
+	border-radius: 999px;
+	padding: 6px 10px;
+	font-size: 0.84rem;
+	color: var(--comarine-text);
+}
+
+.comarine-storage-unit-card__features {
+	margin: 0;
+	padding-left: 18px;
+	color: var(--comarine-text);
+	font-size: 0.9rem;
+}
+
+.comarine-storage-unit-card__pricing {
+	border: 1px solid var(--comarine-border);
+	border-radius: 12px;
+	padding: 12px;
+	background: var(--comarine-surface);
+}
+
+.comarine-storage-unit-card__from-price {
+	margin: 0 0 10px;
+}
+
+.comarine-storage-unit-card__duration-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	gap: 6px;
+}
+
+.comarine-storage-unit-card__duration-list li {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	font-size: 0.9rem;
+}
+
+.comarine-storage-unit-card__booking-form {
+	margin-top: auto;
+	padding-top: 4px;
+}
+
+.comarine-storage-unit-card__duration-fieldset {
+	border: 0;
+	padding: 0;
+	margin: 0;
+	min-width: 0;
+}
+
+.comarine-storage-unit-card__duration-fieldset legend {
+	font-weight: 700;
+	margin-bottom: 8px;
+}
+
+.comarine-storage-unit-card__duration-option {
+	display: grid;
+	grid-template-columns: auto 1fr auto;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 10px;
+	margin: 0 0 6px;
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.7);
+	border: 1px solid var(--comarine-border);
+}
+
+.comarine-storage-unit-card__duration-label {
+	font-weight: 600;
+}
+
+.comarine-storage-unit-card__duration-price {
+	color: var(--comarine-accent-strong);
+	font-weight: 700;
+}
+
+.comarine-storage-unit-card__availability-note {
+	margin: 8px 0 10px;
+	padding: 9px 10px;
+	border-radius: 10px;
+	font-size: 0.88rem;
+}
+
+.comarine-storage-unit-card__availability-note.is-available {
+	background: var(--comarine-ok-bg);
+	color: var(--comarine-ok-text);
+}
+
+.comarine-storage-unit-card__availability-note.is-unavailable {
+	background: var(--comarine-danger-bg);
+	color: var(--comarine-danger-text);
+}
+
+.comarine-storage-unit-card__book-button {
+	width: 100%;
+	border: 0;
+	border-radius: 10px;
+	padding: 12px 14px;
+	background: var(--comarine-accent);
+	color: #fff;
+	font-weight: 700;
+	cursor: pointer;
+}
+
+.comarine-storage-unit-card__book-button:hover,
+.comarine-storage-unit-card__book-button:focus-visible {
+	background: var(--comarine-accent-strong);
+}
+
+.comarine-storage-unit-card__book-button[disabled] {
+	background: #aab6b2;
+	cursor: not-allowed;
+}
+
+.comarine-storage-units-empty {
+	border: 1px dashed var(--comarine-border-strong);
+	background: var(--comarine-surface);
+	padding: 14px;
+	border-radius: 12px;
+}
+
+@media (max-width: 980px) {
+	.comarine-storage-units__filters-grid {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
+
+	.comarine-storage-units-grid {
+		grid-template-columns: 1fr;
+	}
+}
+
+@media (max-width: 640px) {
+	.comarine-storage-units__filters-grid {
+		grid-template-columns: 1fr 1fr;
+	}
+
+	.comarine-storage-units__filters-actions {
+		align-items: stretch;
+	}
+
+	.comarine-storage-units__filter-button {
+		width: 100%;
+	}
+
+	.comarine-storage-unit-card__duration-option {
+		grid-template-columns: auto 1fr;
+	}
+
+	.comarine-storage-unit-card__duration-price {
+		grid-column: 2;
+		justify-self: start;
+	}
+}
+
+@media (max-width: 480px) {
+	.comarine-storage-units__filters-grid {
+		grid-template-columns: 1fr;
+	}
+}
