@@ -89,7 +89,7 @@ $comarine_duration_labels = array(
 
 get_header();
 ?>
-<main id="primary" class="comarine-storage-unit-single">
+<main id="comarine-storage-unit-primary" class="comarine-storage-unit-single" role="main">
 	<div class="comarine-storage-unit-single__shell">
 		<?php if ( function_exists( 'wc_print_notices' ) ) : ?>
 			<div class="comarine-storage-unit-single__notices">
@@ -312,4 +312,3 @@ get_header();
 </main>
 <?php
 get_footer();
-
