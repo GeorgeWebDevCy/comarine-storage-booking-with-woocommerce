@@ -79,7 +79,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Storage_Units {
 			'labels'             => $labels,
 			'public'             => true,
 			'show_ui'            => true,
-			'show_in_menu'       => true,
+			'show_in_menu'       => 'comarine-storage-bookings',
 			'show_in_rest'       => true,
 			'has_archive'        => true,
 			'rewrite'            => array( 'slug' => 'storage-units' ),

@@ -2,7 +2,7 @@
 
 WordPress plugin for CoMarine storage unit bookings with WooCommerce checkout integration.
 
-## Current Status (Milestone 11)
+## Current Status (Milestone 12)
 
 Implemented in the codebase so far:
 
@@ -29,6 +29,7 @@ Implemented in the codebase so far:
 - MVP configurable add-ons via plugin settings (JSON definitions)
 - Frontend booking forms now support optional add-on selection
 - Add-ons are included in cart display, price snapshots, and order line item meta
+- Dedicated `CoMarine Storage` admin menu with grouped submenus for Bookings, Storage Units (CPT), and Settings
 - Settings page for booking container product, lock TTL, paid unit status, and currency
 - Shortcode `[comarine_storage_units]` for initial frontend booking entry
 - Booking lock creation + cart item metadata + price snapshot handling
@@ -82,15 +83,15 @@ If you deploy from source, include `vendor/` (or run `composer install` as part 
 ## Quick Test Flow (Current Milestone)
 
 1. Create a virtual WooCommerce product to use as the booking container.
-2. Open `Storage Units > Settings` and select that product.
-3. Create one or more `Storage Units` and set prices/status.
+2. Open `CoMarine Storage > Settings` and select that product.
+3. Open `CoMarine Storage > Storage Units` and create one or more storage units with prices/status.
 4. Add the shortcode `[comarine_storage_units]` to a page.
 5. Book a unit and complete checkout (JCC sets order status to `completed` on success).
 6. Test lock expiry behavior by leaving a booking in the cart beyond the configured TTL, then reopening cart/checkout (invalid locks should be removed with a notice).
-7. In `Storage Units > Bookings`, apply unit/date filters and confirm the list and `Export CSV` output match.
+7. In `CoMarine Storage > Bookings`, apply unit/date filters and confirm the list and `Export CSV` output match.
 8. Click `View` on a booking row and confirm the Booking Detail panel appears with links/actions.
 9. Use a manual booking/unit action and confirm the new audit entry appears.
 10. Select multiple bookings, apply a bulk action (for example `Cancel Booking`), and verify the result notice + audit log rows.
 11. Test a destructive row action (`Cancel`, `Mark Refunded`, or `Unit: Available`) and confirm the browser prompt appears before the action runs.
 12. Open a page with `[comarine_storage_units]`, test filters, and verify card availability messages / booking button states.
-13. Configure add-ons in `Storage Units > Settings`, select them during booking, and confirm totals/meta in cart and order.
+13. Configure add-ons in `CoMarine Storage > Settings`, select them during booking, and confirm totals/meta in cart and order.

@@ -5,7 +5,7 @@ Tags: storage, booking, woocommerce
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.12
+Stable tag: 1.0.13
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Requires Plugins: woocommerce, jcc-payment-gateway-for-wc
@@ -47,6 +47,7 @@ Current implemented milestone includes:
 - Configurable booking add-ons (JSON settings) with frontend checkbox selection
 - Add-ons are included in booking price snapshots, cart display, and order line item meta
 - Booking summary block in WooCommerce order admin screen
+- Dedicated CoMarine Storage top-level admin menu with grouped submenus for bookings, storage units, and settings
 
 == Installation ==
 
@@ -75,6 +76,11 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 3. Admin booking management screen.
 
 == Changelog ==
+
+= 1.0.13 =
+* Added a dedicated top-level CoMarine Storage admin menu for plugin screens.
+* Moved Storage Units CPT under the plugin menu so related screens are grouped together.
+* Updated Bookings admin routing/helpers to use the top-level menu page URL.
 
 = 1.0.12 =
 * Added configurable booking add-ons setting (JSON definitions) in plugin settings.
@@ -152,6 +158,9 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 * Added activation/runtime dependency checks for WooCommerce and JCC Payment Gateway for WooCommerce.
 
 == Upgrade Notice ==
+
+= 1.0.13 =
+Groups plugin-related admin screens under a dedicated CoMarine Storage top-level menu (Bookings, Storage Units, Settings).
 
 = 1.0.12 =
 Adds MVP booking add-ons: configurable add-ons in settings with frontend selection and checkout/order meta support.

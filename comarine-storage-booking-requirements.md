@@ -609,6 +609,12 @@ Create settings page:
 - Selected add-ons are included in booking/cart price snapshots and cart display metadata
 - Selected add-ons are stored on WooCommerce order line item meta
 
+### Milestone 12 (Implemented - Admin Menu Consolidation)
+- Added a dedicated `CoMarine Storage` top-level wp-admin menu for plugin screens
+- Grouped Bookings and Settings under the plugin menu instead of nesting under the Storage Units CPT menu
+- Nested the Storage Units CPT (`comarine_storage_unit`) under the same plugin menu for consistent navigation
+- Updated Bookings admin page URL routing/helpers to use the top-level menu page (`admin.php?page=comarine-storage-bookings`)
+
 ### Next Milestone (Planned)
 - Frontend UX improvements (images/gallery support, better empty/loading states)
 - Stronger concurrency controls / atomic locking for unit reservation conflicts

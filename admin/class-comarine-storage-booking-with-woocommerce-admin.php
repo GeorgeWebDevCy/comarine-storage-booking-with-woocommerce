@@ -106,27 +106,31 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	 * @since    1.0.2
 	 */
 	public function register_admin_menu() {
-		$post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' )
-			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE
-			: 'comarine_storage_unit';
+		$menu_slug = 'comarine-storage-bookings';
 
-		add_submenu_page(
-			'edit.php?post_type=' . $post_type,
-			__( 'Bookings', 'comarine-storage-booking-with-woocommerce' ),
-			__( 'Bookings', 'comarine-storage-booking-with-woocommerce' ),
+		add_menu_page(
+			__( 'CoMarine Bookings', 'comarine-storage-booking-with-woocommerce' ),
+			__( 'CoMarine Storage', 'comarine-storage-booking-with-woocommerce' ),
 			$this->get_admin_capability(),
-			'comarine-storage-bookings',
-			array( $this, 'render_bookings_page' )
+			$menu_slug,
+			array( $this, 'render_bookings_page' ),
+			'dashicons-store'
 		);
 
 		add_submenu_page(
-			'edit.php?post_type=' . $post_type,
+			$menu_slug,
 			__( 'Settings', 'comarine-storage-booking-with-woocommerce' ),
 			__( 'Settings', 'comarine-storage-booking-with-woocommerce' ),
 			$this->get_admin_capability(),
 			$this->get_settings_page_slug(),
 			array( $this, 'render_settings_page' )
 		);
+
+		// Rename the auto-added first submenu label so it matches the page content.
+		global $submenu;
+		if ( isset( $submenu[ $menu_slug ][0][0] ) ) {
+			$submenu[ $menu_slug ][0][0] = __( 'Bookings', 'comarine-storage-booking-with-woocommerce' );
+		}
 	}
 
 	/**
@@ -699,7 +703,6 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		echo '<p><strong>' . esc_html__( 'Total bookings:', 'comarine-storage-booking-with-woocommerce' ) . '</strong> ' . esc_html( (string) $count ) . '</p>';
 		$this->render_units_status_overview_panel();
 		echo '<form method="get" style="margin:12px 0 16px;">';
-		echo '<input type="hidden" name="post_type" value="' . esc_attr( COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE ) . '" />';
 		echo '<input type="hidden" name="page" value="comarine-storage-bookings" />';
 		echo '<label style="margin-right:12px;">' . esc_html__( 'Status', 'comarine-storage-booking-with-woocommerce' ) . ' ';
 		echo '<select name="status_filter">';
@@ -1437,7 +1440,6 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	private function render_bookings_filters_hidden_inputs( $filters ) {
 		$query_args = $this->get_bookings_filter_query_args( $filters );
 
-		echo '<input type="hidden" name="post_type" value="' . esc_attr( COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE ) . '" />';
 		echo '<input type="hidden" name="page" value="comarine-storage-bookings" />';
 
 		foreach ( $query_args as $key => $value ) {
@@ -1540,11 +1542,10 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	 */
 	private function get_bookings_page_url( $args = array() ) {
 		$base_args = array(
-			'post_type' => defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' ) ? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE : 'comarine_storage_unit',
 			'page'      => 'comarine-storage-bookings',
 		);
 
-		return add_query_arg( array_merge( $base_args, $args ), admin_url( 'edit.php' ) );
+		return add_query_arg( array_merge( $base_args, $args ), admin_url( 'admin.php' ) );
 	}
 
 	/**
@@ -2113,8 +2114,8 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		$targets = array(
 			'edit-' . $post_type,
 			$post_type,
-			$post_type . '_page_comarine-storage-bookings',
-			$post_type . '_page_' . $this->get_settings_page_slug(),
+			'toplevel_page_comarine-storage-bookings',
+			'comarine-storage-bookings_page_' . $this->get_settings_page_slug(),
 		);
 
 		return in_array( $screen->id, $targets, true );
