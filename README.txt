@@ -5,7 +5,7 @@ Tags: storage, booking, woocommerce
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.27
+Stable tag: 1.0.28
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Requires Plugins: woocommerce, jcc-payment-gateway-for-wc
@@ -89,6 +89,9 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 3. Admin booking management screen.
 
 == Changelog ==
+
+= 1.0.28 =
+* Updated `[comarine_storage_units_latest]` homepage shortcode layout to render as a 3-column grid on desktop (responsive 2-column tablet / 1-column mobile).
 
 = 1.0.27 =
 * Added a one-click admin setup action to generate 5 demo Storage Units with randomized capacities and prices (easy to delete later).
@@ -236,6 +239,9 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 * Added activation/runtime dependency checks for WooCommerce and JCC Payment Gateway for WooCommerce.
 
 == Upgrade Notice ==
+
+= 1.0.28 =
+Improves the homepage latest-units shortcode layout so it displays in 3 columns on desktop while staying responsive on smaller screens.
 
 = 1.0.27 =
 Adds a demo Storage Units generator in wp-admin and a homepage shortcode (`[comarine_storage_units_latest]`) for showing the latest 3 units without filters.

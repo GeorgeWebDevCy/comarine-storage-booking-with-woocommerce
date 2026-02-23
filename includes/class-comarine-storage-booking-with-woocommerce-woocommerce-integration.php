@@ -704,6 +704,7 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 				'checkout'      => '1',
 				'show_filters'  => '1',
 				'sort'          => 'default',
+				'wrapper_class' => '',
 			),
 			$atts,
 			'comarine_storage_units'
@@ -714,6 +715,7 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 		$show_filters   = '0' !== (string) $atts['show_filters'];
 		$default_status = sanitize_key( (string) $atts['status'] );
 		$sort_mode      = sanitize_key( (string) $atts['sort'] );
+		$wrapper_class  = sanitize_html_class( (string) $atts['wrapper_class'] );
 
 		if ( ! in_array( $sort_mode, array( 'default', 'latest' ), true ) ) {
 			$sort_mode = 'default';
@@ -761,7 +763,12 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 
 		ob_start();
 
-		echo '<div class="comarine-storage-units">';
+		$container_classes = 'comarine-storage-units';
+		if ( '' !== $wrapper_class ) {
+			$container_classes .= ' ' . $wrapper_class;
+		}
+
+		echo '<div class="' . esc_attr( $container_classes ) . '">';
 		$container_product_id = (int) comarine_storage_booking_with_woocommerce_get_setting( 'booking_container_product_id', 0 );
 		$configured_addons    = $this->get_configured_booking_addons();
 		if ( $container_product_id <= 0 ) {
@@ -1006,6 +1013,7 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 
 		$atts['show_filters'] = '0';
 		$atts['sort']         = 'latest';
+		$atts['wrapper_class'] = 'comarine-storage-units--latest-home';
 
 		return $this->render_storage_units_shortcode( $atts );
 	}
