@@ -30,12 +30,38 @@ if ( ! defined( 'WPINC' ) ) {
 	die;
 }
 
+// Load Composer dependencies when available.
+$comarine_storage_booking_with_woocommerce_autoload = plugin_dir_path( __FILE__ ) . 'vendor/autoload.php';
+if ( file_exists( $comarine_storage_booking_with_woocommerce_autoload ) ) {
+	require_once $comarine_storage_booking_with_woocommerce_autoload;
+}
+
 /**
  * Currently plugin version.
  * Start at version 1.0.0 and use SemVer - https://semver.org
  * Rename this for your plugin and update it as you release new versions.
  */
 define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_VERSION', '1.0.0' );
+
+/**
+ * Configure GitHub-based updates via plugin-update-checker.
+ *
+ * @since 1.0.0
+ */
+function comarine_storage_booking_with_woocommerce_setup_update_checker() {
+	if ( ! class_exists( '\YahnisElsts\PluginUpdateChecker\v5\PucFactory' ) ) {
+		return;
+	}
+
+	$GLOBALS['comarine_storage_booking_with_woocommerce_update_checker'] = \YahnisElsts\PluginUpdateChecker\v5\PucFactory::buildUpdateChecker(
+		'https://github.com/GeorgeWebDevCy/comarine-storage-booking-with-woocommerce/',
+		__FILE__,
+		'comarine-storage-booking-with-woocommerce'
+	);
+
+	$GLOBALS['comarine_storage_booking_with_woocommerce_update_checker']->setBranch( 'main' );
+}
+comarine_storage_booking_with_woocommerce_setup_update_checker();
 
 /**
  * The code that runs during plugin activation.
