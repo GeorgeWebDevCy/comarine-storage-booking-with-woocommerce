@@ -264,6 +264,54 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	}
 
 	/**
+	 * Normalize malformed Storage Units submenu requests to the real CPT admin URLs.
+	 *
+	 * Some WordPress setups render submenu items under plugin menus as
+	 * `admin.php?page=edit.php?post_type=...`. Redirecting these requests ensures the
+	 * Storage Units list/add-new screens always load through the correct core URLs.
+	 *
+	 * @since    1.0.21
+	 *
+	 * @return void
+	 */
+	public function maybe_normalize_storage_units_menu_requests() {
+		if ( ! is_admin() ) {
+			return;
+		}
+
+		if ( wp_doing_ajax() ) {
+			return;
+		}
+
+		$page = isset( $_GET['page'] ) ? wp_unslash( $_GET['page'] ) : '';
+		if ( ! is_string( $page ) || '' === $page ) {
+			return;
+		}
+
+		$page = trim( $page );
+		$post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' )
+			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE
+			: 'comarine_storage_unit';
+		$request_post_type = isset( $_GET['post_type'] ) ? sanitize_key( wp_unslash( $_GET['post_type'] ) ) : '';
+		$list_page = 'edit.php?post_type=' . $post_type;
+		$add_page  = 'post-new.php?post_type=' . $post_type;
+
+		if ( $post_type === $request_post_type && ! post_type_exists( $post_type ) && function_exists( 'comarine_storage_booking_with_woocommerce_register_storage_units_cpt_fallback' ) ) {
+			comarine_storage_booking_with_woocommerce_register_storage_units_cpt_fallback();
+		}
+
+		if ( $list_page === $page ) {
+			wp_safe_redirect( $this->get_storage_units_list_url() );
+			exit;
+		}
+
+		if ( $add_page === $page ) {
+			wp_safe_redirect( $this->get_storage_units_add_new_url() );
+			exit;
+		}
+	}
+
+	/**
 	 * Handle setup/admin utility actions (for example auto-creating the container product).
 	 *
 	 * @since    1.0.20

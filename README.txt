@@ -5,7 +5,7 @@ Tags: storage, booking, woocommerce
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.20
+Stable tag: 1.0.21
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Requires Plugins: woocommerce, jcc-payment-gateway-for-wc
@@ -57,6 +57,7 @@ Current implemented milestone includes:
 - Storage Units CPT is registered via an early fallback so direct `edit.php?post_type=comarine_storage_unit` links remain valid
 - Added an Overview admin screen with a setup checklist for required and recommended plugin configuration
 - Added a one-click admin action to auto-create/reuse the WooCommerce booking container product from Overview/Settings
+- Added a defensive Storage Units admin menu URL normalization fix to prevent `Invalid post type` on some setups
 
 == Installation ==
 
@@ -85,6 +86,10 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 3. Admin booking management screen.
 
 == Changelog ==
+
+= 1.0.21 =
+* Added an admin request normalizer for Storage Units menu clicks so malformed submenu requests are redirected to the correct CPT URLs.
+* Added an extra admin-init CPT safety registration path for Storage Units requests to avoid `Invalid post type` edge cases.
 
 = 1.0.20 =
 * Added a one-click admin setup action that auto-creates a hidden virtual WooCommerce booking container product when missing.
@@ -199,6 +204,9 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 * Added activation/runtime dependency checks for WooCommerce and JCC Payment Gateway for WooCommerce.
 
 == Upgrade Notice ==
+
+= 1.0.21 =
+Fixes Storage Units submenu clicks on some WordPress admin setups by normalizing the request to the correct CPT URL and preventing `Invalid post type`.
 
 = 1.0.20 =
 Adds a one-click admin action to create (or reuse) the hidden WooCommerce booking container product and save it in plugin settings.

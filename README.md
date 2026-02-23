@@ -2,7 +2,7 @@
 
 WordPress plugin for CoMarine storage unit bookings with WooCommerce checkout integration.
 
-## Current Status (Milestone 19)
+## Current Status (Milestone 20)
 
 Implemented in the codebase so far:
 
@@ -39,6 +39,7 @@ Implemented in the codebase so far:
 - Storage Units CPT now has an early bootstrap registration fallback so direct admin URLs do not fail with `Invalid post type`
 - New `Overview` admin screen provides a setup checklist for required/recommended plugin configuration
 - One-click admin action to auto-create/reuse the WooCommerce booking container product and save it in plugin settings
+- Storage Units admin submenu clicks now normalize to the correct CPT URLs to avoid `Invalid post type` errors on some WP admin menu setups
 - Settings page for booking container product, lock TTL, paid unit status, and currency
 - Shortcode `[comarine_storage_units]` for initial frontend booking entry
 - Booking lock creation + cart item metadata + price snapshot handling
@@ -109,3 +110,4 @@ If you deploy from source, include `vendor/` (or run `composer install` as part 
 16. Open `/wp-admin/edit.php?post_type=comarine_storage_unit` directly and confirm the Storage Units list loads (no `Invalid post type` error).
 17. Open `CoMarine Storage > Overview` and confirm the setup checklist reports container product, dependencies, storage units/pricing, and key configuration status.
 18. If the container product is missing, use the `Create Container Product` action and confirm the setting is populated automatically.
+19. Click `CoMarine Storage > Storage Units` and `CoMarine Storage > Add New` and confirm both open the correct CPT screens (no `Invalid post type` message).

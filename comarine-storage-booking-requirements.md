@@ -650,6 +650,11 @@ Create settings page:
 - Added duplicate-safe reuse logic that re-links an existing auto-created container product instead of creating a new one
 - Added setup action buttons/notices on the `Overview` and `Settings` screens so admins can provision the container product quickly
 
+### Milestone 20 (Implemented - Storage Units Menu Invalid Post Type Fix)
+- Added a defensive admin request normalizer that redirects malformed Storage Units submenu requests to the correct CPT URLs (`edit.php` / `post-new.php`)
+- Added an extra `admin_init` safety path that re-registers the Storage Units CPT for Storage Units admin requests if the post type is unexpectedly missing
+- Fixes `CoMarine Storage > Storage Units` / `Add New` clicks showing `Invalid post type` on affected admin menu setups
+
 ### Next Milestone (Planned)
 - Frontend UX improvements (images/gallery support, better empty/loading states)
 - Stronger concurrency controls / atomic locking for unit reservation conflicts
