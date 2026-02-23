@@ -1,11 +1,11 @@
 === CoMarine Storage Booking with WooCommerce ===
-Contributors: georgewebdevcy
+Contributors: orionaselite
 Donate link: https://www.georgenicolaou.me//
 Tags: storage, booking, woocommerce
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.0.1
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Requires Plugins: woocommerce, jcc-payment-gateway-for-wc
@@ -48,12 +48,19 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 
 == Changelog ==
 
+= 1.0.1 =
+* Bumped plugin version to test GitHub update delivery via plugin-update-checker.
+* Updated WordPress.org contributor username.
+
 = 1.0.0 =
 * Initial plugin bootstrap.
 * Added Composer-managed GitHub update checks (`yahnis-elsts/plugin-update-checker`).
 * Added activation/runtime dependency checks for WooCommerce and JCC Payment Gateway for WooCommerce.
 
 == Upgrade Notice ==
+
+= 1.0.1 =
+Test release to verify GitHub-based plugin update detection.
 
 = 1.0.0 =
 Includes dependency checks for WooCommerce and JCC plugin activation, plus GitHub update checking support.
