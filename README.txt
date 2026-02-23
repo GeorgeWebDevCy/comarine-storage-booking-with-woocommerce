@@ -5,7 +5,7 @@ Tags: storage, booking, woocommerce
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.26
+Stable tag: 1.0.27
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Requires Plugins: woocommerce, jcc-payment-gateway-for-wc
@@ -27,6 +27,7 @@ Current implemented milestone includes:
 - Basic Bookings admin overview page
 - Booking settings page (container product / lock TTL / paid unit status)
 - Shortcode `[comarine_storage_units]` and initial booking form flow
+- Added shortcode `[comarine_storage_units_latest]` for a homepage-friendly latest 3 units list (no search/filter UI)
 - Booking locks + WooCommerce cart/order metadata synchronization
 - JCC-compatible paid trigger via WooCommerce `completed` status
 - Cart/checkout lock validation with invalid booking cleanup
@@ -57,6 +58,7 @@ Current implemented milestone includes:
 - Storage Units CPT is registered via an early fallback so direct `edit.php?post_type=comarine_storageunit` links remain valid
 - Added an Overview admin screen with a setup checklist for required and recommended plugin configuration
 - Added a one-click admin action to auto-create/reuse the WooCommerce booking container product from Overview/Settings
+- Added a one-click admin action to create 5 demo Storage Units with random capacities/prices from Overview/Settings for test data setup
 - Added a defensive Storage Units admin menu URL normalization fix to prevent `Invalid post type` on some setups
 - Capacity-managed units (using unit size in m2) now support partial bookings with prorated pricing and only become unavailable when fully booked
 
@@ -87,6 +89,11 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 3. Admin booking management screen.
 
 == Changelog ==
+
+= 1.0.27 =
+* Added a one-click admin setup action to generate 5 demo Storage Units with randomized capacities and prices (easy to delete later).
+* Added homepage-friendly shortcode `[comarine_storage_units_latest]` to show the latest 3 units without the search/filter UI.
+* Extended the main storage units shortcode renderer with optional hidden-filter/latest-sort modes to support compact homepage layouts.
 
 = 1.0.26 =
 * Added partial-capacity booking for storage units using the unit size (`_csu_size_m2`) as total available m2.
@@ -229,6 +236,9 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 * Added activation/runtime dependency checks for WooCommerce and JCC Payment Gateway for WooCommerce.
 
 == Upgrade Notice ==
+
+= 1.0.27 =
+Adds a demo Storage Units generator in wp-admin and a homepage shortcode (`[comarine_storage_units_latest]`) for showing the latest 3 units without filters.
 
 = 1.0.26 =
 Adds partial m2 booking for capacity-managed units with prorated pricing and full-capacity locking behavior (includes DB schema update for booked area fields).

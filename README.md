@@ -39,9 +39,11 @@ Implemented in the codebase so far:
 - Storage Units CPT now has an early bootstrap registration fallback so direct admin URLs do not fail with `Invalid post type`
 - New `Overview` admin screen provides a setup checklist for required/recommended plugin configuration
 - One-click admin action to auto-create/reuse the WooCommerce booking container product and save it in plugin settings
+- One-click admin action to create 5 demo Storage Units with random capacities/prices for testing (deletable later)
 - Storage Units admin submenu clicks now normalize to the correct CPT URLs to avoid `Invalid post type` errors on some WP admin menu setups
 - Settings page for booking container product, lock TTL, paid unit status, and currency
 - Shortcode `[comarine_storage_units]` for initial frontend booking entry
+- Shortcode `[comarine_storage_units_latest]` for a homepage-friendly latest 3 units view (no filter/search UI)
 - Booking lock creation + cart item metadata + price snapshot handling
 - WooCommerce order synchronization hooks (JCC `completed` treated as paid)
 - Checkout/cart lock validation and automatic cleanup of invalid booking items

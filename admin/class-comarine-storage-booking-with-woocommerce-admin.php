@@ -404,14 +404,21 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			);
 		}
 
-		if ( 'create_container_product' !== $action ) {
-			$this->redirect_after_setup_action(
-				$redirect_page,
-				array( 'comarine_setup_notice' => 'invalid_action' )
-			);
-		}
+		switch ( $action ) {
+			case 'create_container_product':
+				$this->handle_create_container_product_action( $redirect_page );
+				break;
 
-		$this->handle_create_container_product_action( $redirect_page );
+			case 'create_demo_units':
+				$this->handle_create_demo_units_action( $redirect_page );
+				break;
+
+			default:
+				$this->redirect_after_setup_action(
+					$redirect_page,
+					array( 'comarine_setup_notice' => 'invalid_action' )
+				);
+		}
 	}
 
 	/**
@@ -427,9 +434,10 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			return;
 		}
 
-		$product_id = isset( $_GET['comarine_product_id'] ) ? absint( $_GET['comarine_product_id'] ) : 0;
-		$class      = 'notice-info';
-		$message    = '';
+		$product_id         = isset( $_GET['comarine_product_id'] ) ? absint( wp_unslash( $_GET['comarine_product_id'] ) ) : 0;
+		$created_units_count = isset( $_GET['comarine_units_created'] ) ? absint( wp_unslash( $_GET['comarine_units_created'] ) ) : 0;
+		$class              = 'notice-info';
+		$message            = '';
 
 		switch ( $notice ) {
 			case 'container_created':
@@ -459,6 +467,24 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			case 'container_create_failed':
 				$class   = 'notice-error';
 				$message = __( 'The booking container product could not be created automatically. Please create/select one manually in Settings.', 'comarine-storage-booking-with-woocommerce' );
+				break;
+			case 'demo_units_created':
+				$class   = 'notice-success';
+				$message = $created_units_count > 0
+					? sprintf(
+						/* translators: %d: number of demo units created */
+						__( 'Created %d demo storage units with randomized capacities and prices. You can edit or delete them later from Storage Units.', 'comarine-storage-booking-with-woocommerce' ),
+						$created_units_count
+					)
+					: __( 'Demo storage units were created.', 'comarine-storage-booking-with-woocommerce' );
+				break;
+			case 'demo_units_create_failed':
+				$class   = 'notice-error';
+				$message = __( 'Demo storage units could not be created automatically. Please check Storage Units post type registration and permissions.', 'comarine-storage-booking-with-woocommerce' );
+				break;
+			case 'demo_units_post_type_unavailable':
+				$class   = 'notice-error';
+				$message = __( 'Storage Units post type is not available yet. Reload the page and try creating demo units again.', 'comarine-storage-booking-with-woocommerce' );
 				break;
 			case 'invalid_nonce':
 				$class   = 'notice-error';
@@ -585,6 +611,160 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 				'comarine_product_id'   => $product_id,
 			)
 		);
+	}
+
+	/**
+	 * Handle creating demo storage units automatically.
+	 *
+	 * Creates 5 publishable demo units with random capacities and pricing so the
+	 * booking flow can be tested quickly. Demo entries are tagged via title/meta
+	 * and can be removed manually from the Storage Units screen.
+	 *
+	 * @since    1.0.27
+	 *
+	 * @param string $redirect_page Page slug to redirect back to.
+	 * @return void
+	 */
+	private function handle_create_demo_units_action( $redirect_page ) {
+		$post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' )
+			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE
+			: 'comarine_storageunit';
+
+		if ( ! post_type_exists( $post_type ) ) {
+			$this->register_storage_units_post_type_for_overview();
+		}
+
+		if ( ! post_type_exists( $post_type ) ) {
+			$this->redirect_after_setup_action(
+				$redirect_page,
+				array( 'comarine_setup_notice' => 'demo_units_post_type_unavailable' )
+			);
+		}
+
+		$created_count = $this->create_demo_storage_units( 5 );
+		if ( $created_count <= 0 ) {
+			$this->redirect_after_setup_action(
+				$redirect_page,
+				array( 'comarine_setup_notice' => 'demo_units_create_failed' )
+			);
+		}
+
+		$this->redirect_after_setup_action(
+			$redirect_page,
+			array(
+				'comarine_setup_notice' => 'demo_units_created',
+				'comarine_units_created'=> $created_count,
+			)
+		);
+	}
+
+	/**
+	 * Create demo storage unit posts with randomized capacities and pricing.
+	 *
+	 * @since    1.0.27
+	 *
+	 * @param int $count Number of demo units to create.
+	 * @return int Number of successfully created units.
+	 */
+	private function create_demo_storage_units( $count = 5 ) {
+		$count     = max( 1, min( 20, absint( $count ) ) );
+		$created   = 0;
+		$post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' )
+			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE
+			: 'comarine_storageunit';
+		$current_user_id = get_current_user_id();
+
+		for ( $i = 1; $i <= $count; $i++ ) {
+			$blueprint = $this->get_demo_storage_unit_blueprint();
+			$unit_code = $this->generate_demo_storage_unit_code();
+			$title     = sprintf(
+				/* translators: 1: sequence number, 2: demo unit code */
+				__( 'Demo Storage Unit %1$d (%2$s)', 'comarine-storage-booking-with-woocommerce' ),
+				$i,
+				$unit_code
+			);
+
+			$post_id = wp_insert_post(
+				array(
+					'post_type'    => $post_type,
+					'post_status'  => 'publish',
+					'post_title'   => $title,
+					'post_excerpt' => __( 'Demo unit created by CoMarine plugin setup action. Safe to edit or delete.', 'comarine-storage-booking-with-woocommerce' ),
+					'post_content' => sprintf(
+						/* translators: %s: date/time of generation */
+						__( 'Auto-generated demo storage unit for testing on %s.', 'comarine-storage-booking-with-woocommerce' ),
+						wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ) )
+					),
+					'post_author'  => $current_user_id > 0 ? $current_user_id : 0,
+				),
+				true
+			);
+
+			if ( is_wp_error( $post_id ) || $post_id <= 0 ) {
+				continue;
+			}
+
+			update_post_meta( $post_id, '_csu_unit_code', $unit_code );
+			update_post_meta( $post_id, '_csu_size_m2', $blueprint['capacity_m2'] );
+			update_post_meta( $post_id, '_csu_dimensions', $blueprint['dimensions'] );
+			update_post_meta( $post_id, '_csu_floor', $blueprint['floor'] );
+			update_post_meta( $post_id, '_csu_price_monthly', $blueprint['price_monthly'] );
+			update_post_meta( $post_id, '_csu_price_6m', $blueprint['price_6m'] );
+			update_post_meta( $post_id, '_csu_price_12m', $blueprint['price_12m'] );
+			update_post_meta( $post_id, '_csu_status', 'available' );
+			update_post_meta( $post_id, '_comarine_demo_storage_unit', '1' );
+
+			$created++;
+		}
+
+		return $created;
+	}
+
+	/**
+	 * Build randomized demo storage unit metadata.
+	 *
+	 * @since    1.0.27
+	 *
+	 * @return array<string, string>
+	 */
+	private function get_demo_storage_unit_blueprint() {
+		$capacity_m2 = (float) ( 10 * wp_rand( 20, 150 ) ); // 200m2 to 1500m2.
+		$floor       = (string) wp_rand( 0, 4 );
+		if ( '0' === $floor ) {
+			$floor = __( 'Ground', 'comarine-storage-booking-with-woocommerce' );
+		}
+
+		$width_m       = (float) wp_rand( 8, 30 );
+		$length_m      = max( 4.0, round( $capacity_m2 / $width_m, 1 ) );
+		$height_m      = (float) wp_rand( 3, 6 );
+		$dimensions    = number_format_i18n( $width_m, 0 ) . ' x ' . number_format_i18n( $length_m, 1 ) . ' x ' . number_format_i18n( $height_m, 0 ) . ' m';
+		$price_per_m2  = (float) wp_rand( 3, 11 );
+		$monthly_price = round( $capacity_m2 * $price_per_m2, 2 );
+		$price_6m      = round( $monthly_price * ( wp_rand( 520, 580 ) / 100 ), 2 );
+		$price_12m     = round( $monthly_price * ( wp_rand( 980, 1080 ) / 100 ), 2 );
+
+		$price_6m  = max( $monthly_price, $price_6m );
+		$price_12m = max( $price_6m, $price_12m );
+
+		return array(
+			'capacity_m2'   => number_format( $capacity_m2, 2, '.', '' ),
+			'dimensions'    => $dimensions,
+			'floor'         => $floor,
+			'price_monthly' => number_format( $monthly_price, 2, '.', '' ),
+			'price_6m'      => number_format( $price_6m, 2, '.', '' ),
+			'price_12m'     => number_format( $price_12m, 2, '.', '' ),
+		);
+	}
+
+	/**
+	 * Generate a readable demo unit code.
+	 *
+	 * @since    1.0.27
+	 *
+	 * @return string
+	 */
+	private function generate_demo_storage_unit_code() {
+		return 'DEMO-' . wp_date( 'ymd' ) . '-' . strtoupper( wp_generate_password( 4, false, false ) );
 	}
 
 	/**
@@ -1483,6 +1663,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		echo '<div class="comarine-overview-summary__actions">';
 		echo '<a class="button button-primary" href="' . esc_url( $this->get_settings_page_url() ) . '">' . esc_html__( 'Open Settings', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
 		echo '<a class="button" href="' . esc_url( $this->get_storage_units_list_url() ) . '">' . esc_html__( 'View Storage Units', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
+		echo '<a class="button" href="' . esc_url( $this->get_setup_action_url( 'create_demo_units', $this->get_overview_page_slug() ) ) . '">' . esc_html__( 'Create 5 Demo Units', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
 		echo '<a class="button" href="' . esc_url( $this->get_bookings_page_url() ) . '">' . esc_html__( 'Open Bookings', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
 		echo '<a class="button" href="' . esc_url( $this->get_overview_page_url() ) . '">' . esc_html__( 'Refresh Overview', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
 		if ( ! empty( $next_action['url'] ) && ! empty( $next_action['label'] ) ) {
@@ -1687,6 +1868,13 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			echo esc_html__( 'Creates a hidden virtual product and saves it in this setting if one is not already configured.', 'comarine-storage-booking-with-woocommerce' );
 			echo '</p>';
 		}
+
+		echo '<p class="description">';
+		echo '<a class="button button-secondary" href="' . esc_url( $this->get_setup_action_url( 'create_demo_units', $this->get_settings_page_slug() ) ) . '">';
+		echo esc_html__( 'Create 5 Demo Units', 'comarine-storage-booking-with-woocommerce' );
+		echo '</a> ';
+		echo esc_html__( 'Adds 5 demo Storage Units with random capacities and prices so you can test bookings, then delete them later.', 'comarine-storage-booking-with-woocommerce' );
+		echo '</p>';
 	}
 
 	/**

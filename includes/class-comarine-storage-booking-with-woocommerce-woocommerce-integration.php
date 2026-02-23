@@ -48,6 +48,7 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 	 */
 	public function register_shortcodes() {
 		add_shortcode( 'comarine_storage_units', array( $this, 'render_storage_units_shortcode' ) );
+		add_shortcode( 'comarine_storage_units_latest', array( $this, 'render_latest_storage_units_shortcode' ) );
 	}
 
 	/**
@@ -697,27 +698,55 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 	public function render_storage_units_shortcode( $atts ) {
 		$atts = shortcode_atts(
 			array(
-				'limit'    => 12,
-				'status'   => 'available',
-				'show_all' => '0',
-				'checkout' => '1',
+				'limit'         => 12,
+				'status'        => 'available',
+				'show_all'      => '0',
+				'checkout'      => '1',
+				'show_filters'  => '1',
+				'sort'          => 'default',
 			),
 			$atts,
 			'comarine_storage_units'
 		);
 
-		$limit       = max( 1, min( 100, (int) $atts['limit'] ) );
-		$status_only = '1' !== (string) $atts['show_all'];
+		$limit          = max( 1, min( 100, (int) $atts['limit'] ) );
+		$status_only    = '1' !== (string) $atts['show_all'];
+		$show_filters   = '0' !== (string) $atts['show_filters'];
 		$default_status = sanitize_key( (string) $atts['status'] );
-		$filters     = $this->get_storage_units_frontend_filters_from_request( $status_only ? $default_status : '' );
-		$status      = $status_only ? $default_status : $filters['status'];
+		$sort_mode      = sanitize_key( (string) $atts['sort'] );
+
+		if ( ! in_array( $sort_mode, array( 'default', 'latest' ), true ) ) {
+			$sort_mode = 'default';
+		}
+
+		if ( $show_filters ) {
+			$filters = $this->get_storage_units_frontend_filters_from_request( $status_only ? $default_status : '' );
+		} else {
+			$filters = array(
+				'query'         => '',
+				'status'        => $status_only ? $default_status : 'all',
+				'floor'         => '',
+				'min_size'      => null,
+				'max_size'      => null,
+				'max_price'     => null,
+				'bookable_only' => false,
+			);
+		}
+
+		$status = $status_only ? $default_status : $filters['status'];
 
 		$query_args = array(
 			'post_type'      => COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE,
 			'post_status'    => 'publish',
 			'posts_per_page' => -1,
-			'orderby'        => array( 'menu_order' => 'ASC', 'title' => 'ASC' ),
 		);
+
+		if ( 'latest' === $sort_mode ) {
+			$query_args['orderby'] = 'date';
+			$query_args['order']   = 'DESC';
+		} else {
+			$query_args['orderby'] = array( 'menu_order' => 'ASC', 'title' => 'ASC' );
+		}
 
 		if ( $status && 'all' !== $status ) {
 			$query_args['meta_query'] = array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
@@ -739,8 +768,10 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 			echo '<div class="notice notice-warning"><p>' . esc_html__( 'Booking is not configured yet: no WooCommerce booking container product has been selected.', 'comarine-storage-booking-with-woocommerce' ) . '</p></div>';
 		}
 
-		$floor_options = $this->get_storage_units_floor_options( $units );
-		$this->render_storage_units_filter_form( $filters, $status_only, $default_status, $floor_options );
+		if ( $show_filters ) {
+			$floor_options = $this->get_storage_units_floor_options( $units );
+			$this->render_storage_units_filter_form( $filters, $status_only, $default_status, $floor_options );
+		}
 
 		if ( empty( $units ) ) {
 			echo '<p class="comarine-storage-units-empty">' . esc_html__( 'No storage units are currently available.', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
@@ -800,7 +831,10 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 		}
 
 		if ( empty( $cards ) ) {
-			echo '<p class="comarine-storage-units-empty">' . esc_html__( 'No storage units matched the current filters.', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
+			$message = $show_filters
+				? __( 'No storage units matched the current filters.', 'comarine-storage-booking-with-woocommerce' )
+				: __( 'No storage units are currently available.', 'comarine-storage-booking-with-woocommerce' );
+			echo '<p class="comarine-storage-units-empty">' . esc_html( $message ) . '</p>';
 			echo '</div>';
 			return (string) ob_get_clean();
 		}
@@ -943,6 +977,37 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 		echo '</div>';
 
 		return (string) ob_get_clean();
+	}
+
+	/**
+	 * Render a homepage-friendly shortcode with the latest storage units.
+	 *
+	 * This shortcode reuses the same card UI as the main storage units shortcode
+	 * but hides the search/filter form and defaults to the latest 3 available units.
+	 *
+	 * Usage example: [comarine_storage_units_latest]
+	 *
+	 * @since 1.0.27
+	 *
+	 * @param array<string, mixed> $atts Shortcode attributes.
+	 * @return string
+	 */
+	public function render_latest_storage_units_shortcode( $atts ) {
+		$atts = shortcode_atts(
+			array(
+				'limit'    => 3,
+				'status'   => 'available',
+				'show_all' => '0',
+				'checkout' => '1',
+			),
+			$atts,
+			'comarine_storage_units_latest'
+		);
+
+		$atts['show_filters'] = '0';
+		$atts['sort']         = 'latest';
+
+		return $this->render_storage_units_shortcode( $atts );
 	}
 
 	/**
