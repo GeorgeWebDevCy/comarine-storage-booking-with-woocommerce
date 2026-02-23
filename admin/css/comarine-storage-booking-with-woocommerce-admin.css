@@ -287,6 +287,132 @@ body.post-type-comarine_storage_unit #wpbody-content .wrap h1 {
 	outline: none;
 }
 
+.comarine-overview-summary {
+	margin-top: 12px;
+	padding: 14px 16px !important;
+}
+
+.comarine-overview-summary__row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px;
+	margin-top: 4px;
+}
+
+.comarine-overview-summary__counts {
+	color: var(--comarine-admin-muted);
+	font-weight: 600;
+}
+
+.comarine-overview-summary__actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-top: 12px;
+}
+
+.comarine-overview-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 14px;
+	margin-top: 14px;
+}
+
+.comarine-overview-card {
+	padding: 14px 16px !important;
+}
+
+.comarine-overview-card h2 {
+	margin-bottom: 4px;
+}
+
+.comarine-overview-card__description {
+	margin-top: 0;
+	color: var(--comarine-admin-muted);
+}
+
+.comarine-overview-checklist {
+	list-style: none;
+	margin: 10px 0 0;
+	padding: 0;
+	display: grid;
+	gap: 10px;
+}
+
+.comarine-overview-check {
+	border: 1px solid var(--comarine-admin-border);
+	border-radius: 12px;
+	padding: 10px 12px;
+	background: rgba(255, 255, 255, 0.82);
+}
+
+.comarine-overview-check--ok {
+	border-color: #c9e9d4;
+	background: linear-gradient(180deg, #ffffff, #f1fbf5);
+}
+
+.comarine-overview-check--warning {
+	border-color: #f1dfaf;
+	background: linear-gradient(180deg, #ffffff, #fffaf0);
+}
+
+.comarine-overview-check--error {
+	border-color: #f2c4bc;
+	background: linear-gradient(180deg, #ffffff, #fff5f3);
+}
+
+.comarine-overview-check__head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+}
+
+.comarine-overview-check__label {
+	color: var(--comarine-admin-text);
+}
+
+.comarine-overview-check__details {
+	margin: 7px 0 0;
+	color: var(--comarine-admin-muted);
+}
+
+.comarine-overview-check__action {
+	margin: 8px 0 0;
+}
+
+.comarine-overview-pill {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 999px;
+	padding: 3px 9px;
+	font-size: 12px;
+	font-weight: 700;
+	border: 1px solid transparent;
+	background: #eef6fd;
+	color: #145f99;
+}
+
+.comarine-overview-pill.is-ok {
+	background: #eaf8ef;
+	color: #1f6a42;
+	border-color: #c3e6cf;
+}
+
+.comarine-overview-pill.is-warning {
+	background: #fff4dc;
+	color: #7a5604;
+	border-color: #f1dfaf;
+}
+
+.comarine-overview-pill.is-error {
+	background: #ffe7e4;
+	color: #8a2f26;
+	border-color: #f2c4bc;
+}
+
 body.post-type-comarine_storage_unit #wpbody-content .wrap .page-title-action {
 	border-radius: 999px;
 	border-color: var(--comarine-admin-primary);
@@ -405,6 +531,10 @@ body.post-type-comarine_storage_unit #comarine_storage_unit_details input[type="
 	.comarine-bookings-bulk-toolbar select,
 	.comarine-bookings-bulk-note {
 		min-height: 34px;
+	}
+
+	.comarine-overview-grid {
+		grid-template-columns: 1fr;
 	}
 }
 

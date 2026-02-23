@@ -640,6 +640,11 @@ Create settings page:
 - Prevented duplicate CPT registration when the full plugin bootstrap also runs
 - Fixes direct admin URL access such as `/wp-admin/edit.php?post_type=comarine_storage_unit` returning `Invalid post type`
 
+### Milestone 18 (Implemented - Setup Overview Screen)
+- Added a dedicated `Overview` admin screen under `CoMarine Storage`
+- Added a setup checklist for required and recommended configuration (dependencies, container product, unit setup, WooCommerce pages, and settings snapshot)
+- Added actionable links from checklist items to plugin settings, storage units, bookings, and WooCommerce settings
+
 ### Next Milestone (Planned)
 - Frontend UX improvements (images/gallery support, better empty/loading states)
 - Stronger concurrency controls / atomic locking for unit reservation conflicts

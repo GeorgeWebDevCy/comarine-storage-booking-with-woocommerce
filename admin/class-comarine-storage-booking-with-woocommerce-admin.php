@@ -149,6 +149,15 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 
 		add_submenu_page(
 			$menu_slug,
+			__( 'Overview', 'comarine-storage-booking-with-woocommerce' ),
+			__( 'Overview', 'comarine-storage-booking-with-woocommerce' ),
+			$this->get_admin_capability(),
+			$this->get_overview_page_slug(),
+			array( $this, 'render_overview_page' )
+		);
+
+		add_submenu_page(
+			$menu_slug,
 			__( 'Settings', 'comarine-storage-booking-with-woocommerce' ),
 			__( 'Settings', 'comarine-storage-booking-with-woocommerce' ),
 			$this->get_admin_capability(),
@@ -214,6 +223,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		if ( isset( $submenu[ $menu_slug ] ) && is_array( $submenu[ $menu_slug ] ) ) {
 			$order = array(
 				$menu_slug                          => 10,
+				$this->get_overview_page_slug()     => 15,
 				$list_slug                          => 20,
 				$add_slug                           => 30,
 				$this->get_settings_page_slug()     => 40,
@@ -945,6 +955,111 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	}
 
 	/**
+	 * Render a setup overview screen with a checklist of required configuration.
+	 *
+	 * @since    1.0.19
+	 *
+	 * @return void
+	 */
+	public function render_overview_page() {
+		if ( ! current_user_can( $this->get_admin_capability() ) ) {
+			wp_die( esc_html__( 'You do not have permission to access this page.', 'comarine-storage-booking-with-woocommerce' ) );
+		}
+
+		$sections = $this->get_setup_overview_sections();
+		$summary  = array(
+			'ok'      => 0,
+			'warning' => 0,
+			'error'   => 0,
+		);
+
+		foreach ( $sections as $section ) {
+			if ( empty( $section['checks'] ) || ! is_array( $section['checks'] ) ) {
+				continue;
+			}
+
+			foreach ( $section['checks'] as $check ) {
+				$status = isset( $check['status'] ) ? (string) $check['status'] : '';
+				if ( isset( $summary[ $status ] ) ) {
+					$summary[ $status ]++;
+				}
+			}
+		}
+
+		$overall_state = 'ok';
+		if ( $summary['error'] > 0 ) {
+			$overall_state = 'error';
+		} elseif ( $summary['warning'] > 0 ) {
+			$overall_state = 'warning';
+		}
+
+		echo '<div class="wrap comarine-storage-booking-admin comarine-storage-booking-admin--overview">';
+		echo '<h1>' . esc_html__( 'CoMarine Storage Overview', 'comarine-storage-booking-with-woocommerce' ) . '</h1>';
+		echo '<p>' . esc_html__( 'Use this checklist to confirm the plugin is configured and ready for bookings. Required items should be green before going live.', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
+
+		echo '<div class="comarine-admin-panel comarine-admin-panel--overview comarine-overview-summary">';
+		echo '<h2>' . esc_html__( 'Setup Status', 'comarine-storage-booking-with-woocommerce' ) . '</h2>';
+		echo '<div class="comarine-overview-summary__row">';
+		echo '<span class="comarine-overview-pill is-' . esc_attr( $overall_state ) . '">' . esc_html( $this->get_overview_status_label( $overall_state ) ) . '</span>';
+		echo '<span class="comarine-overview-summary__counts">' . esc_html( sprintf( __( '%1$d OK, %2$d warnings, %3$d issues', 'comarine-storage-booking-with-woocommerce' ), $summary['ok'], $summary['warning'], $summary['error'] ) ) . '</span>';
+		echo '</div>';
+		echo '<div class="comarine-overview-summary__actions">';
+		echo '<a class="button button-primary" href="' . esc_url( $this->get_settings_page_url() ) . '">' . esc_html__( 'Open Settings', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
+		echo '<a class="button" href="' . esc_url( $this->get_storage_units_list_url() ) . '">' . esc_html__( 'View Storage Units', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
+		echo '<a class="button" href="' . esc_url( $this->get_bookings_page_url() ) . '">' . esc_html__( 'Open Bookings', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
+		echo '</div>';
+		echo '</div>';
+
+		echo '<div class="comarine-overview-grid">';
+		foreach ( $sections as $section ) {
+			$title = isset( $section['title'] ) ? (string) $section['title'] : '';
+			$description = isset( $section['description'] ) ? (string) $section['description'] : '';
+			$checks = isset( $section['checks'] ) && is_array( $section['checks'] ) ? $section['checks'] : array();
+
+			echo '<section class="comarine-admin-panel comarine-overview-card">';
+			echo '<h2>' . esc_html( $title ) . '</h2>';
+			if ( '' !== $description ) {
+				echo '<p class="comarine-overview-card__description">' . esc_html( $description ) . '</p>';
+			}
+
+			if ( empty( $checks ) ) {
+				echo '<p>' . esc_html__( 'No checks available.', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
+				echo '</section>';
+				continue;
+			}
+
+			echo '<ul class="comarine-overview-checklist">';
+			foreach ( $checks as $check ) {
+				$status = isset( $check['status'] ) ? (string) $check['status'] : 'warning';
+				$label = isset( $check['label'] ) ? (string) $check['label'] : '';
+				$details = isset( $check['details'] ) ? (string) $check['details'] : '';
+				$action_url = isset( $check['action_url'] ) ? (string) $check['action_url'] : '';
+				$action_label = isset( $check['action_label'] ) ? (string) $check['action_label'] : '';
+
+				echo '<li class="comarine-overview-check comarine-overview-check--' . esc_attr( $status ) . '">';
+				echo '<div class="comarine-overview-check__head">';
+				echo '<span class="comarine-overview-pill is-' . esc_attr( $status ) . '">' . esc_html( $this->get_overview_status_label( $status ) ) . '</span>';
+				echo '<strong class="comarine-overview-check__label">' . esc_html( $label ) . '</strong>';
+				echo '</div>';
+
+				if ( '' !== $details ) {
+					echo '<p class="comarine-overview-check__details">' . esc_html( $details ) . '</p>';
+				}
+
+				if ( '' !== $action_url && '' !== $action_label ) {
+					echo '<p class="comarine-overview-check__action"><a class="button button-small" href="' . esc_url( $action_url ) . '">' . esc_html( $action_label ) . '</a></p>';
+				}
+
+				echo '</li>';
+			}
+			echo '</ul>';
+			echo '</section>';
+		}
+		echo '</div>';
+		echo '</div>';
+	}
+
+	/**
 	 * Sanitize plugin settings.
 	 *
 	 * @since    1.0.3
@@ -1346,7 +1461,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		$container_product_id = (int) comarine_storage_booking_with_woocommerce_get_setting( 'booking_container_product_id', 0 );
 		if ( $container_product_id <= 0 ) {
 			echo '<div class="notice notice-warning"><p>';
-			echo esc_html__( 'CoMarine Storage Booking: Select a WooCommerce booking container product in Storage Units > Settings before accepting bookings.', 'comarine-storage-booking-with-woocommerce' );
+			echo esc_html__( 'CoMarine Storage Booking: Select a WooCommerce booking container product in CoMarine Storage > Settings before accepting bookings.', 'comarine-storage-booking-with-woocommerce' );
 			echo '</p></div>';
 			return;
 		}
@@ -1449,6 +1564,412 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	 */
 	private function get_settings_page_slug() {
 		return 'comarine-storage-booking-settings';
+	}
+
+	/**
+	 * Get overview page slug.
+	 *
+	 * @since    1.0.19
+	 *
+	 * @return string
+	 */
+	private function get_overview_page_slug() {
+		return 'comarine-storage-overview';
+	}
+
+	/**
+	 * Build the setup overview admin page URL.
+	 *
+	 * @since    1.0.19
+	 *
+	 * @return string
+	 */
+	private function get_overview_page_url() {
+		return add_query_arg(
+			array( 'page' => $this->get_overview_page_slug() ),
+			admin_url( 'admin.php' )
+		);
+	}
+
+	/**
+	 * Build the settings admin page URL.
+	 *
+	 * @since    1.0.19
+	 *
+	 * @return string
+	 */
+	private function get_settings_page_url() {
+		return add_query_arg(
+			array( 'page' => $this->get_settings_page_slug() ),
+			admin_url( 'admin.php' )
+		);
+	}
+
+	/**
+	 * Build the Storage Units list admin URL.
+	 *
+	 * @since    1.0.19
+	 *
+	 * @return string
+	 */
+	private function get_storage_units_list_url() {
+		$post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' )
+			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE
+			: 'comarine_storage_unit';
+
+		return add_query_arg(
+			array( 'post_type' => $post_type ),
+			admin_url( 'edit.php' )
+		);
+	}
+
+	/**
+	 * Build the Storage Units add-new admin URL.
+	 *
+	 * @since    1.0.19
+	 *
+	 * @return string
+	 */
+	private function get_storage_units_add_new_url() {
+		$post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' )
+			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE
+			: 'comarine_storage_unit';
+
+		return add_query_arg(
+			array( 'post_type' => $post_type ),
+			admin_url( 'post-new.php' )
+		);
+	}
+
+	/**
+	 * Get checklist sections for the setup overview screen.
+	 *
+	 * @since    1.0.19
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function get_setup_overview_sections() {
+		$settings               = comarine_storage_booking_with_woocommerce_get_settings();
+		$container_product_id   = isset( $settings['booking_container_product_id'] ) ? absint( $settings['booking_container_product_id'] ) : 0;
+		$lock_ttl               = isset( $settings['lock_ttl_minutes'] ) ? (int) $settings['lock_ttl_minutes'] : 15;
+		$currency               = isset( $settings['currency'] ) ? strtoupper( sanitize_text_field( (string) $settings['currency'] ) ) : 'EUR';
+		$paid_unit_status       = isset( $settings['paid_unit_status'] ) ? sanitize_key( (string) $settings['paid_unit_status'] ) : 'reserved';
+		$addons                 = isset( $settings['addons_definitions'] ) && is_array( $settings['addons_definitions'] ) ? $settings['addons_definitions'] : array();
+		$addons_enabled_count   = 0;
+		$container_product      = null;
+		$container_product_link = '';
+		$container_virtual      = null;
+		$container_exists       = false;
+		$unit_stats             = $this->get_storage_unit_setup_stats();
+		$shortcode_pages        = $this->find_shortcode_usage_posts();
+
+		foreach ( $addons as $addon ) {
+			if ( is_array( $addon ) && ( ! isset( $addon['enabled'] ) || ! empty( $addon['enabled'] ) ) ) {
+				$addons_enabled_count++;
+			}
+		}
+
+		if ( $container_product_id > 0 && function_exists( 'wc_get_product' ) ) {
+			$container_product = wc_get_product( $container_product_id );
+			if ( $container_product && is_object( $container_product ) ) {
+				$container_exists = true;
+				$container_product_link = get_edit_post_link( $container_product_id ) ? get_edit_post_link( $container_product_id ) : '';
+				$container_virtual = method_exists( $container_product, 'is_virtual' ) ? (bool) $container_product->is_virtual() : null;
+			}
+		}
+
+		$dependency_checks = array();
+		if ( function_exists( 'comarine_storage_booking_with_woocommerce_get_dependency_statuses' ) ) {
+			$plugin_install_url = admin_url( 'plugins.php' );
+			$dependency_statuses = comarine_storage_booking_with_woocommerce_get_dependency_statuses();
+			foreach ( $dependency_statuses as $dependency ) {
+				$is_active = ! empty( $dependency['is_active'] );
+				$is_installed = ! empty( $dependency['is_installed'] );
+				$label = isset( $dependency['label'] ) ? (string) $dependency['label'] : __( 'Dependency', 'comarine-storage-booking-with-woocommerce' );
+				$details = $is_active
+					? __( 'Installed and active.', 'comarine-storage-booking-with-woocommerce' )
+					: ( $is_installed
+						? __( 'Installed but not active.', 'comarine-storage-booking-with-woocommerce' )
+						: __( 'Not installed.', 'comarine-storage-booking-with-woocommerce' ) );
+
+				$dependency_checks[] = array(
+					'status'      => $is_active ? 'ok' : 'error',
+					'label'       => $label,
+					'details'     => $details,
+					'action_url'  => $plugin_install_url,
+					'action_label'=> __( 'Manage Plugins', 'comarine-storage-booking-with-woocommerce' ),
+				);
+			}
+		}
+
+		$required_checks = array(
+			array(
+				'status'       => $container_product_id > 0 ? 'ok' : 'error',
+				'label'        => __( 'Booking container product selected', 'comarine-storage-booking-with-woocommerce' ),
+				'details'      => $container_product_id > 0
+					? sprintf( __( 'Product ID #%d is selected in plugin settings.', 'comarine-storage-booking-with-woocommerce' ), $container_product_id )
+					: __( 'Select a WooCommerce product in Settings to use as the checkout booking container.', 'comarine-storage-booking-with-woocommerce' ),
+				'action_url'   => $this->get_settings_page_url(),
+				'action_label' => __( 'Open Settings', 'comarine-storage-booking-with-woocommerce' ),
+			),
+			array(
+				'status'       => $container_product_id > 0 ? ( $container_exists ? 'ok' : 'error' ) : 'warning',
+				'label'        => __( 'Configured container product exists', 'comarine-storage-booking-with-woocommerce' ),
+				'details'      => $container_product_id <= 0
+					? __( 'No container product selected yet.', 'comarine-storage-booking-with-woocommerce' )
+					: ( $container_exists ? __( 'The selected container product can be loaded.', 'comarine-storage-booking-with-woocommerce' ) : __( 'The selected container product no longer exists or WooCommerce product loading is unavailable.', 'comarine-storage-booking-with-woocommerce' ) ),
+				'action_url'   => $container_exists && $container_product_link ? $container_product_link : $this->get_settings_page_url(),
+				'action_label' => $container_exists && $container_product_link ? __( 'Edit Product', 'comarine-storage-booking-with-woocommerce' ) : __( 'Open Settings', 'comarine-storage-booking-with-woocommerce' ),
+			),
+			array(
+				'status'       => $unit_stats['total'] > 0 ? 'ok' : 'error',
+				'label'        => __( 'Storage units created', 'comarine-storage-booking-with-woocommerce' ),
+				'details'      => $unit_stats['total'] > 0
+					? sprintf( __( '%d storage units found.', 'comarine-storage-booking-with-woocommerce' ), $unit_stats['total'] )
+					: __( 'Create at least one storage unit before accepting bookings.', 'comarine-storage-booking-with-woocommerce' ),
+				'action_url'   => $unit_stats['total'] > 0 ? $this->get_storage_units_list_url() : $this->get_storage_units_add_new_url(),
+				'action_label' => $unit_stats['total'] > 0 ? __( 'View Storage Units', 'comarine-storage-booking-with-woocommerce' ) : __( 'Add Storage Unit', 'comarine-storage-booking-with-woocommerce' ),
+			),
+			array(
+				'status'       => $unit_stats['with_pricing'] > 0 ? 'ok' : 'error',
+				'label'        => __( 'At least one unit has pricing', 'comarine-storage-booking-with-woocommerce' ),
+				'details'      => $unit_stats['with_pricing'] > 0
+					? sprintf( __( '%d units have at least one configured duration price.', 'comarine-storage-booking-with-woocommerce' ), $unit_stats['with_pricing'] )
+					: __( 'Booking cannot start until at least one unit has pricing (monthly, 6m, or 12m).', 'comarine-storage-booking-with-woocommerce' ),
+				'action_url'   => $this->get_storage_units_list_url(),
+				'action_label' => __( 'Review Units', 'comarine-storage-booking-with-woocommerce' ),
+			),
+		);
+
+		$recommended_checks = array(
+			array(
+				'status'       => true === $container_virtual ? 'ok' : ( false === $container_virtual ? 'warning' : 'warning' ),
+				'label'        => __( 'Container product is virtual', 'comarine-storage-booking-with-woocommerce' ),
+				'details'      => true === $container_virtual
+					? __( 'Virtual product confirmed (recommended to avoid shipping side effects).', 'comarine-storage-booking-with-woocommerce' )
+					: ( false === $container_virtual
+						? __( 'The selected container product is not virtual. This can introduce shipping/fulfillment side effects.', 'comarine-storage-booking-with-woocommerce' )
+						: __( 'Unable to verify virtual product setting yet.', 'comarine-storage-booking-with-woocommerce' ) ),
+				'action_url'   => $container_exists && $container_product_link ? $container_product_link : $this->get_settings_page_url(),
+				'action_label' => $container_exists && $container_product_link ? __( 'Edit Product', 'comarine-storage-booking-with-woocommerce' ) : __( 'Open Settings', 'comarine-storage-booking-with-woocommerce' ),
+			),
+			array(
+				'status'       => $unit_stats['available'] > 0 ? 'ok' : 'warning',
+				'label'        => __( 'At least one unit is available', 'comarine-storage-booking-with-woocommerce' ),
+				'details'      => $unit_stats['available'] > 0
+					? sprintf( __( '%d units are currently marked as available.', 'comarine-storage-booking-with-woocommerce' ), $unit_stats['available'] )
+					: __( 'No units are currently marked as available, so customers may not be able to book right now.', 'comarine-storage-booking-with-woocommerce' ),
+				'action_url'   => $this->get_storage_units_list_url(),
+				'action_label' => __( 'Open Storage Units', 'comarine-storage-booking-with-woocommerce' ),
+			),
+			array(
+				'status'       => $this->woocommerce_pages_look_configured() ? 'ok' : 'warning',
+				'label'        => __( 'WooCommerce cart and checkout pages exist', 'comarine-storage-booking-with-woocommerce' ),
+				'details'      => $this->woocommerce_pages_look_configured()
+					? __( 'Cart and checkout pages are configured in WooCommerce.', 'comarine-storage-booking-with-woocommerce' )
+					: __( 'WooCommerce cart and/or checkout pages appear missing. Checkout flow may fail.', 'comarine-storage-booking-with-woocommerce' ),
+				'action_url'   => admin_url( 'admin.php?page=wc-settings&tab=advanced' ),
+				'action_label' => __( 'WooCommerce Advanced Settings', 'comarine-storage-booking-with-woocommerce' ),
+			),
+			array(
+				'status'       => ! empty( $shortcode_pages ) ? 'ok' : 'warning',
+				'label'        => __( 'Booking shortcode is placed on a page/post', 'comarine-storage-booking-with-woocommerce' ),
+				'details'      => ! empty( $shortcode_pages )
+					? sprintf( __( 'Shortcode found on %d page(s)/post(s).', 'comarine-storage-booking-with-woocommerce' ), count( $shortcode_pages ) )
+					: __( 'No page/post containing `[comarine_storage_units]` was detected in recent content scans.', 'comarine-storage-booking-with-woocommerce' ),
+				'action_url'   => ! empty( $shortcode_pages ) && ! empty( $shortcode_pages[0]['edit_link'] ) ? (string) $shortcode_pages[0]['edit_link'] : admin_url( 'edit.php?post_type=page' ),
+				'action_label' => ! empty( $shortcode_pages ) ? __( 'Edit Shortcode Page', 'comarine-storage-booking-with-woocommerce' ) : __( 'Open Pages', 'comarine-storage-booking-with-woocommerce' ),
+			),
+			array(
+				'status'       => $this->bookings_tables_look_ready() ? 'ok' : 'warning',
+				'label'        => __( 'Custom booking tables are available', 'comarine-storage-booking-with-woocommerce' ),
+				'details'      => $this->bookings_tables_look_ready()
+					? __( 'Bookings and audit tables are available.', 'comarine-storage-booking-with-woocommerce' )
+					: __( 'Bookings and/or audit table is not available yet. Reload after activation/upgrade.', 'comarine-storage-booking-with-woocommerce' ),
+				'action_url'   => $this->get_bookings_page_url(),
+				'action_label' => __( 'Open Bookings', 'comarine-storage-booking-with-woocommerce' ),
+			),
+		);
+
+		$current_config_checks = array(
+			array(
+				'status'  => 'ok',
+				'label'   => __( 'Lock TTL', 'comarine-storage-booking-with-woocommerce' ),
+				'details' => sprintf( __( '%d minutes', 'comarine-storage-booking-with-woocommerce' ), max( 1, (int) $lock_ttl ) ),
+			),
+			array(
+				'status'  => 'ok',
+				'label'   => __( 'Paid unit status', 'comarine-storage-booking-with-woocommerce' ),
+				'details' => in_array( $paid_unit_status, array( 'reserved', 'occupied' ), true ) ? ucfirst( $paid_unit_status ) : __( 'Reserved (fallback)', 'comarine-storage-booking-with-woocommerce' ),
+			),
+			array(
+				'status'  => 'ok',
+				'label'   => __( 'Currency snapshot code', 'comarine-storage-booking-with-woocommerce' ),
+				'details' => '' !== $currency ? $currency : 'EUR',
+			),
+			array(
+				'status'  => 'ok',
+				'label'   => __( 'Configured add-ons', 'comarine-storage-booking-with-woocommerce' ),
+				'details' => sprintf( __( '%1$d enabled of %2$d configured', 'comarine-storage-booking-with-woocommerce' ), $addons_enabled_count, count( $addons ) ),
+			),
+		);
+
+		return array(
+			array(
+				'title'       => __( 'Required Setup', 'comarine-storage-booking-with-woocommerce' ),
+				'description' => __( 'These items should be completed before opening bookings to customers.', 'comarine-storage-booking-with-woocommerce' ),
+				'checks'      => array_merge( $dependency_checks, $required_checks ),
+			),
+			array(
+				'title'       => __( 'Recommended Checks', 'comarine-storage-booking-with-woocommerce' ),
+				'description' => __( 'These checks improve reliability and reduce checkout support issues.', 'comarine-storage-booking-with-woocommerce' ),
+				'checks'      => $recommended_checks,
+			),
+			array(
+				'title'       => __( 'Current Configuration Snapshot', 'comarine-storage-booking-with-woocommerce' ),
+				'description' => __( 'Quick view of key plugin settings currently in use.', 'comarine-storage-booking-with-woocommerce' ),
+				'checks'      => $current_config_checks,
+			),
+		);
+	}
+
+	/**
+	 * Build unit readiness stats for the setup overview screen.
+	 *
+	 * @since    1.0.19
+	 *
+	 * @return array<string, int>
+	 */
+	private function get_storage_unit_setup_stats() {
+		$post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' )
+			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE
+			: 'comarine_storage_unit';
+
+		$unit_ids = get_posts(
+			array(
+				'post_type'      => $post_type,
+				'post_status'    => array( 'publish', 'private', 'draft', 'pending', 'future' ),
+				'posts_per_page' => -1,
+				'fields'         => 'ids',
+				'orderby'        => 'ID',
+				'order'          => 'DESC',
+			)
+		);
+
+		$stats = array(
+			'total'        => count( $unit_ids ),
+			'available'    => 0,
+			'with_pricing' => 0,
+		);
+
+		foreach ( $unit_ids as $unit_id ) {
+			$status = sanitize_key( (string) get_post_meta( (int) $unit_id, '_csu_status', true ) );
+			if ( 'available' === $status ) {
+				$stats['available']++;
+			}
+
+			foreach ( array( '_csu_price_monthly', '_csu_price_6m', '_csu_price_12m' ) as $price_key ) {
+				$price_value = (string) get_post_meta( (int) $unit_id, $price_key, true );
+				if ( '' !== $price_value && is_numeric( $price_value ) && (float) $price_value > 0 ) {
+					$stats['with_pricing']++;
+					break;
+				}
+			}
+		}
+
+		return $stats;
+	}
+
+	/**
+	 * Find recent pages/posts using the storage units shortcode.
+	 *
+	 * @since    1.0.19
+	 *
+	 * @return array<int, array<string, string>>
+	 */
+	private function find_shortcode_usage_posts() {
+		$results = array();
+		$candidates = get_posts(
+			array(
+				'post_type'      => array( 'page', 'post' ),
+				'post_status'    => array( 'publish', 'private', 'draft' ),
+				'posts_per_page' => 200,
+				'orderby'        => 'modified',
+				'order'          => 'DESC',
+			)
+		);
+
+		foreach ( $candidates as $post ) {
+			if ( ! $post instanceof WP_Post ) {
+				continue;
+			}
+
+			if ( ! function_exists( 'has_shortcode' ) || ! has_shortcode( (string) $post->post_content, 'comarine_storage_units' ) ) {
+				continue;
+			}
+
+			$results[] = array(
+				'title'     => (string) get_the_title( $post ),
+				'edit_link' => (string) get_edit_post_link( $post->ID ),
+			);
+
+			if ( count( $results ) >= 5 ) {
+				break;
+			}
+		}
+
+		return $results;
+	}
+
+	/**
+	 * Whether WooCommerce cart and checkout pages are configured.
+	 *
+	 * @since    1.0.19
+	 *
+	 * @return bool
+	 */
+	private function woocommerce_pages_look_configured() {
+		if ( ! function_exists( 'wc_get_page_id' ) ) {
+			return false;
+		}
+
+		return (int) wc_get_page_id( 'cart' ) > 0 && (int) wc_get_page_id( 'checkout' ) > 0;
+	}
+
+	/**
+	 * Whether custom bookings and audit tables are available.
+	 *
+	 * @since    1.0.19
+	 *
+	 * @return bool
+	 */
+	private function bookings_tables_look_ready() {
+		if ( ! class_exists( 'Comarine_Storage_Booking_With_Woocommerce_Bookings' ) ) {
+			return false;
+		}
+
+		return Comarine_Storage_Booking_With_Woocommerce_Bookings::table_exists()
+			&& Comarine_Storage_Booking_With_Woocommerce_Bookings::audit_table_exists();
+	}
+
+	/**
+	 * Convert a setup checklist status key to a human label.
+	 *
+	 * @since    1.0.19
+	 *
+	 * @param string $status Status key.
+	 * @return string
+	 */
+	private function get_overview_status_label( $status ) {
+		switch ( $status ) {
+			case 'ok':
+				return __( 'OK', 'comarine-storage-booking-with-woocommerce' );
+			case 'error':
+				return __( 'Action Needed', 'comarine-storage-booking-with-woocommerce' );
+			case 'warning':
+			default:
+				return __( 'Check', 'comarine-storage-booking-with-woocommerce' );
+		}
 	}
 
 	/**
@@ -2332,6 +2853,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			'edit-' . $post_type,
 			$post_type,
 			'toplevel_page_comarine-storage-bookings',
+			'comarine-storage-bookings_page_' . $this->get_overview_page_slug(),
 			'comarine-storage-bookings_page_' . $this->get_settings_page_slug(),
 		);
 
