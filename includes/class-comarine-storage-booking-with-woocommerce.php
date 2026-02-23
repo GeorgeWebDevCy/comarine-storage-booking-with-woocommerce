@@ -76,6 +76,7 @@ class Comarine_Storage_Booking_With_Woocommerce {
 
 		$this->load_dependencies();
 		$this->set_locale();
+		$this->define_domain_hooks();
 		$this->define_admin_hooks();
 		$this->define_public_hooks();
 
@@ -112,6 +113,12 @@ class Comarine_Storage_Booking_With_Woocommerce {
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-comarine-storage-booking-with-woocommerce-i18n.php';
 
 		/**
+		 * Storage units and bookings domain classes.
+		 */
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-comarine-storage-booking-with-woocommerce-bookings.php';
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-comarine-storage-booking-with-woocommerce-storage-units.php';
+
+		/**
 		 * The class responsible for defining all actions that occur in the admin area.
 		 */
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-comarine-storage-booking-with-woocommerce-admin.php';
@@ -144,6 +151,18 @@ class Comarine_Storage_Booking_With_Woocommerce {
 	}
 
 	/**
+	 * Register domain hooks shared across admin and frontend.
+	 *
+	 * @since    1.0.2
+	 * @access   private
+	 */
+	private function define_domain_hooks() {
+		$storage_units = new Comarine_Storage_Booking_With_Woocommerce_Storage_Units( $this->get_plugin_name(), $this->get_version() );
+
+		$this->loader->add_action( 'init', $storage_units, 'register_post_type', 5 );
+	}
+
+	/**
 	 * Register all of the hooks related to the admin area functionality
 	 * of the plugin.
 	 *
@@ -153,9 +172,17 @@ class Comarine_Storage_Booking_With_Woocommerce {
 	private function define_admin_hooks() {
 
 		$plugin_admin = new Comarine_Storage_Booking_With_Woocommerce_Admin( $this->get_plugin_name(), $this->get_version() );
+		$storage_units = new Comarine_Storage_Booking_With_Woocommerce_Storage_Units( $this->get_plugin_name(), $this->get_version() );
+		$storage_unit_post_type = $storage_units->get_post_type();
 
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_styles' );
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts' );
+		$this->loader->add_action( 'admin_menu', $plugin_admin, 'register_admin_menu' );
+
+		$this->loader->add_action( 'add_meta_boxes', $storage_units, 'add_meta_boxes' );
+		$this->loader->add_action( 'save_post_' . $storage_unit_post_type, $storage_units, 'save_unit_meta', 10, 3 );
+		$this->loader->add_filter( 'manage_' . $storage_unit_post_type . '_posts_columns', $storage_units, 'filter_admin_columns' );
+		$this->loader->add_action( 'manage_' . $storage_unit_post_type . '_posts_custom_column', $storage_units, 'render_admin_column', 10, 2 );
 
 	}
 

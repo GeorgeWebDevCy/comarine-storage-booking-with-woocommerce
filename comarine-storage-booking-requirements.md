@@ -528,9 +528,27 @@ Create settings page:
 
 ## Appendix B — Developer Checklist
 
-- [ ] Use `dbDelta()` for table creation on activation
+- [x] Use `dbDelta()` for table creation on activation
 - [ ] Add uninstall cleanup option (keep data by default)
 - [ ] Use prepared statements for all SQL
 - [ ] Use `wp_timezone()` for date handling
 - [ ] Ensure no caching on availability endpoints
 - [ ] Use translatable strings everywhere
+
+---
+
+## Implementation Progress (Repo Tracking)
+
+### Milestone 1 (Implemented)
+- Dependency checks for required plugins (`woocommerce`, `jcc-payment-gateway-for-wc`) on activation/runtime
+- Composer + GitHub update checker integration
+- `comarine_storage_unit` CPT registration
+- Admin meta fields for core unit data (code, size, floor, pricing, status)
+- `wp_comarine_bookings` custom table creation via `dbDelta()` on activation
+- Basic Bookings admin overview screen (placeholder list)
+
+### Next Milestone (Planned)
+- Booking container product setting + WooCommerce cart item metadata
+- Reservation lock creation + lock TTL handling
+- Checkout/order hooks to confirm/cancel bookings
+- Initial frontend unit listing and "Book Now" flow entry point

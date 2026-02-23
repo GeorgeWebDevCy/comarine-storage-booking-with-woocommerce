@@ -5,7 +5,7 @@ Tags: storage, booking, woocommerce
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.1
+Stable tag: 1.0.2
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Requires Plugins: woocommerce, jcc-payment-gateway-for-wc
@@ -19,6 +19,12 @@ This plugin provides the CoMarine storage unit booking flow and uses WooCommerce
 Payments are handled by WooCommerce gateways configured on the site, including the JCC Payment Gateway for WooCommerce plugin (`jcc-payment-gateway-for-wc`).
 
 The plugin includes GitHub update checks via `yahnis-elsts/plugin-update-checker` (Composer-managed).
+
+Current implemented milestone includes:
+- Storage Unit custom post type (`comarine_storage_unit`)
+- Unit detail meta fields in wp-admin
+- `wp_comarine_bookings` custom table creation on activation (with WP table prefix)
+- Basic Bookings admin overview page
 
 == Installation ==
 
@@ -48,6 +54,13 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 
 == Changelog ==
 
+= 1.0.2 =
+* Added Storage Unit custom post type registration (`comarine_storage_unit`).
+* Added admin meta fields and list columns for unit details/pricing/status.
+* Added custom bookings table creation on activation (`wp_comarine_bookings` with prefix support).
+* Added initial Bookings admin submenu page (overview/placeholder).
+* Flush rewrite rules on activation/deactivation for CPT support.
+
 = 1.0.1 =
 * Bumped plugin version to test GitHub update delivery via plugin-update-checker.
 * Updated WordPress.org contributor username.
@@ -58,6 +71,9 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 * Added activation/runtime dependency checks for WooCommerce and JCC Payment Gateway for WooCommerce.
 
 == Upgrade Notice ==
+
+= 1.0.2 =
+Adds the first functional booking foundation: storage units CPT, unit admin fields, and bookings table scaffolding.
 
 = 1.0.1 =
 Test release to verify GitHub-based plugin update detection.

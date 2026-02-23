@@ -16,7 +16,7 @@
  * Plugin Name:       Comarine Storage booking with WooCommerce
  * Plugin URI:        https://www.georgenicolaou.me/plugins/comarine-storage-booking-with-woocommerce/
  * Description:       Booking plugin for CoMarine Storage Units
- * Version:           1.0.1
+ * Version:           1.0.2
  * Author:            George Nicolaou
  * Author URI:        https://www.georgenicolaou.me//
  * License:           GPL-2.0+
@@ -42,7 +42,10 @@ if ( file_exists( $comarine_storage_booking_with_woocommerce_autoload ) ) {
  * Start at version 1.0.0 and use SemVer - https://semver.org
  * Rename this for your plugin and update it as you release new versions.
  */
-define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_VERSION', '1.0.1' );
+define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_VERSION', '1.0.2' );
+define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_DB_VERSION', '1.0.0' );
+define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE', 'comarine_storage_unit' );
+define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_BOOKINGS_TABLE_SUFFIX', 'comarine_bookings' );
 define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_WC_PLUGIN_FILE', 'woocommerce/woocommerce.php' );
 // JCC dependency note (WordPress.org plugin slug): jcc-payment-gateway-for-wc.
 define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_JCC_PLUGIN_FILE', 'jcc-payment-gateway-for-wc/jcc-payment-gateway-for-wc.php' );
