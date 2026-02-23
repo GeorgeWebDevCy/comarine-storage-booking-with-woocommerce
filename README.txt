@@ -5,7 +5,7 @@ Tags: storage, booking, woocommerce
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.15
+Stable tag: 1.0.16
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Requires Plugins: woocommerce, jcc-payment-gateway-for-wc
@@ -51,6 +51,8 @@ Current implemented milestone includes:
 - WordPress Plugins screen now includes an "Open Admin" action link to the CoMarine Storage Bookings page
 - Bookings admin date filters use a `dd/mm/yyyy` datepicker input
 - Admin booking/audit dates and times are rendered using WordPress date/time settings
+- Refreshed plugin UI styling (frontend shortcode + plugin admin screens) using a blue primary theme
+- Admin CSS/JS assets are now only loaded on plugin-related admin screens (scoped to avoid affecting other admin pages)
 
 == Installation ==
 
@@ -79,6 +81,12 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 3. Admin booking management screen.
 
 == Changelog ==
+
+= 1.0.16 =
+* Refreshed frontend shortcode UI styling using a blue primary theme (`#2ea3f2`) with improved cards, filters, and buttons.
+* Added a scoped admin UI polish pass for Bookings/Settings and Storage Units CPT screens.
+* Restricted plugin admin CSS/JS loading to plugin-related admin screens only.
+* Kept UI styles scoped to plugin wrappers/body classes so non-plugin screens and site theme styling are not affected.
 
 = 1.0.15 =
 * Changed Bookings admin date filter inputs to a `dd/mm/yyyy` datepicker.
@@ -170,6 +178,9 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 * Added activation/runtime dependency checks for WooCommerce and JCC Payment Gateway for WooCommerce.
 
 == Upgrade Notice ==
+
+= 1.0.16 =
+Adds a scoped UI refresh (frontend + plugin admin screens) themed with primary color `#2ea3f2`.
 
 = 1.0.15 =
 Adds WordPress-localized admin date/time display plus `dd/mm/yyyy` Bookings datepickers.

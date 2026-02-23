@@ -625,6 +625,12 @@ Create settings page:
 - Booking lock expiry validation now compares timestamps using the site timezone (avoids `strtotime()` timezone mismatch edge cases)
 - CSV export filenames now use WordPress-local time via `wp_date()`
 
+### Milestone 15 (Implemented - Scoped UI Refresh)
+- Refreshed frontend shortcode UI styling (filters/cards/forms) using primary theme color `#2ea3f2`
+- Added a scoped admin UI polish pass for plugin screens (Bookings/Settings + Storage Units CPT screens)
+- Restricted plugin admin CSS/JS asset loading to plugin-related admin screens only
+- Kept styling scoped to plugin wrappers/body classes to avoid affecting unrelated site/admin screens
+
 ### Next Milestone (Planned)
 - Frontend UX improvements (images/gallery support, better empty/loading states)
 - Stronger concurrency controls / atomic locking for unit reservation conflicts

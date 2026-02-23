@@ -60,6 +60,9 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	 * @since    1.0.0
 	 */
 	public function enqueue_styles() {
+		if ( ! $this->is_plugin_admin_screen() ) {
+			return;
+		}
 
 		/**
 		 * This function is provided for demonstration purposes only.
@@ -75,9 +78,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 
 		wp_enqueue_style( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'css/comarine-storage-booking-with-woocommerce-admin.css', array(), $this->version, 'all' );
 
-		if ( $this->is_plugin_admin_screen() ) {
-			wp_enqueue_style( 'jquery-ui-datepicker' );
-		}
+		wp_enqueue_style( 'jquery-ui-datepicker' );
 
 	}
 
@@ -87,6 +88,9 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	 * @since    1.0.0
 	 */
 	public function enqueue_scripts() {
+		if ( ! $this->is_plugin_admin_screen() ) {
+			return;
+		}
 
 		/**
 		 * This function is provided for demonstration purposes only.
@@ -101,10 +105,6 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		 */
 
 		wp_enqueue_script( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'js/comarine-storage-booking-with-woocommerce-admin.js', array( 'jquery' ), $this->version, false );
-
-		if ( ! $this->is_plugin_admin_screen() ) {
-			return;
-		}
 
 		wp_enqueue_script( 'jquery-ui-datepicker' );
 		if ( function_exists( 'wp_localize_jquery_ui_datepicker' ) ) {
@@ -704,7 +704,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		}
 
 		if ( ! class_exists( 'Comarine_Storage_Booking_With_Woocommerce_Bookings' ) ) {
-			echo '<div class="wrap"><h1>' . esc_html__( 'Bookings', 'comarine-storage-booking-with-woocommerce' ) . '</h1>';
+			echo '<div class="wrap comarine-storage-booking-admin comarine-storage-booking-admin--bookings"><h1>' . esc_html__( 'Bookings', 'comarine-storage-booking-with-woocommerce' ) . '</h1>';
 			echo '<div class="notice notice-error"><p>' . esc_html__( 'Bookings helper class is not loaded.', 'comarine-storage-booking-with-woocommerce' ) . '</p></div></div>';
 			return;
 		}
@@ -741,14 +741,14 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		$table_name    = Comarine_Storage_Booking_With_Woocommerce_Bookings::get_table_name();
 		$status_options = Comarine_Storage_Booking_With_Woocommerce_Bookings::get_status_options();
 
-		echo '<div class="wrap">';
+		echo '<div class="wrap comarine-storage-booking-admin comarine-storage-booking-admin--bookings">';
 		echo '<h1>' . esc_html__( 'CoMarine Bookings', 'comarine-storage-booking-with-woocommerce' ) . '</h1>';
 		$this->render_bookings_page_notice();
 		echo '<p>' . esc_html__( 'Manage booking records, inspect linked WooCommerce orders, and perform manual status overrides when needed.', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
 		echo '<p><strong>' . esc_html__( 'Bookings table:', 'comarine-storage-booking-with-woocommerce' ) . '</strong> <code>' . esc_html( $table_name ) . '</code></p>';
 		echo '<p><strong>' . esc_html__( 'Total bookings:', 'comarine-storage-booking-with-woocommerce' ) . '</strong> ' . esc_html( (string) $count ) . '</p>';
 		$this->render_units_status_overview_panel();
-		echo '<form method="get" style="margin:12px 0 16px;">';
+		echo '<form class="comarine-bookings-filters" method="get" style="margin:12px 0 16px;">';
 		echo '<input type="hidden" name="page" value="comarine-storage-bookings" />';
 		echo '<label style="margin-right:12px;">' . esc_html__( 'Status', 'comarine-storage-booking-with-woocommerce' ) . ' ';
 		echo '<select name="status_filter">';
@@ -771,7 +771,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			$this->render_booking_detail_panel( $booking_filter );
 		}
 
-		echo '<h2>' . esc_html__( 'Recent bookings', 'comarine-storage-booking-with-woocommerce' ) . '</h2>';
+		echo '<h2 class="comarine-admin-section-title">' . esc_html__( 'Recent bookings', 'comarine-storage-booking-with-woocommerce' ) . '</h2>';
 
 		if ( empty( $recent_rows ) ) {
 			echo '<p>' . esc_html__( 'No bookings match the current filters yet.', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
@@ -780,10 +780,10 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			return;
 		}
 
-		echo '<form method="post" action="' . esc_url( admin_url( 'edit.php' ) ) . '" style="margin:0 0 12px;">';
+		echo '<form class="comarine-bookings-bulk-form" method="post" action="' . esc_url( admin_url( 'edit.php' ) ) . '" style="margin:0 0 12px;">';
 		$this->render_bookings_bulk_action_controls( $filters, true );
 
-		echo '<table class="widefat striped"><thead><tr>';
+		echo '<table class="widefat striped comarine-bookings-table"><thead><tr>';
 		echo '<th style="width:32px;"><input type="checkbox" id="comarine-bookings-select-all" onclick="var c=this.checked;document.querySelectorAll(\'.comarine-booking-checkbox\').forEach(function(el){el.checked=c;});" /></th>';
 		echo '<th>' . esc_html__( 'ID', 'comarine-storage-booking-with-woocommerce' ) . '</th>';
 		echo '<th>' . esc_html__( 'Unit', 'comarine-storage-booking-with-woocommerce' ) . '</th>';
@@ -861,9 +861,9 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			wp_die( esc_html__( 'You do not have permission to access this page.', 'comarine-storage-booking-with-woocommerce' ) );
 		}
 
-		echo '<div class="wrap">';
+		echo '<div class="wrap comarine-storage-booking-admin comarine-storage-booking-admin--settings">';
 		echo '<h1>' . esc_html__( 'CoMarine Storage Booking Settings', 'comarine-storage-booking-with-woocommerce' ) . '</h1>';
-		echo '<form method="post" action="options.php">';
+		echo '<form class="comarine-settings-form" method="post" action="options.php">';
 		settings_fields( 'comarine_storage_booking_with_woocommerce_settings_group' );
 		do_settings_sections( $this->get_settings_page_slug() );
 		submit_button();
@@ -1092,7 +1092,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	private function render_units_status_overview_panel() {
 		$counts = $this->get_unit_status_overview_counts();
 
-		echo '<div style="margin:12px 0 16px;padding:12px 16px;border:1px solid #dcdcde;background:#fff;">';
+		echo '<div class="comarine-admin-panel comarine-admin-panel--overview" style="margin:12px 0 16px;padding:12px 16px;border:1px solid #dcdcde;background:#fff;">';
 		echo '<h2 style="margin-top:0;">' . esc_html__( 'Units Status Overview', 'comarine-storage-booking-with-woocommerce' ) . '</h2>';
 		echo '<p style="margin:6px 0 0;">';
 		echo '<strong>' . esc_html__( 'Available', 'comarine-storage-booking-with-woocommerce' ) . ':</strong> ' . esc_html( (string) $counts['available'] );
@@ -1168,7 +1168,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 
 		$booking = Comarine_Storage_Booking_With_Woocommerce_Bookings::get_booking( $booking_id );
 
-		echo '<div style="margin:0 0 16px;padding:12px 16px;border:1px solid #dcdcde;background:#fff;">';
+		echo '<div class="comarine-admin-panel comarine-admin-panel--detail" style="margin:0 0 16px;padding:12px 16px;border:1px solid #dcdcde;background:#fff;">';
 		echo '<h2 style="margin-top:0;">' . esc_html__( 'Booking Detail', 'comarine-storage-booking-with-woocommerce' ) . '</h2>';
 
 		if ( ! $booking ) {
@@ -1185,7 +1185,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		$unit_status  = $unit_post_id > 0 ? sanitize_key( (string) get_post_meta( $unit_post_id, '_csu_status', true ) ) : '';
 		$actions      = $this->get_booking_row_actions( $booking );
 
-		echo '<table class="widefat striped" style="max-width:980px;"><tbody>';
+		echo '<table class="widefat striped comarine-booking-detail-table" style="max-width:980px;"><tbody>';
 		$this->render_booking_detail_row( __( 'Booking ID', 'comarine-storage-booking-with-woocommerce' ), '#' . (string) $booking_id );
 		$this->render_booking_detail_row(
 			__( 'Booking Status', 'comarine-storage-booking-with-woocommerce' ),
@@ -1458,7 +1458,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		$options = $this->get_bulk_booking_action_options();
 		$position = $top ? 'top' : 'bottom';
 
-		echo '<div class="tablenav top" style="height:auto;padding:8px 0;">';
+		echo '<div class="tablenav top comarine-bookings-bulk-toolbar" style="height:auto;padding:8px 0;">';
 		echo '<div class="alignleft actions">';
 		echo '<label class="screen-reader-text" for="comarine_booking_bulk_action_' . esc_attr( $position ) . '">' . esc_html__( 'Select bulk action', 'comarine-storage-booking-with-woocommerce' ) . '</label>';
 		echo '<select name="comarine_booking_bulk_action_' . esc_attr( $position ) . '" id="comarine_booking_bulk_action_' . esc_attr( $position ) . '">';
@@ -1467,8 +1467,8 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			echo '<option value="' . esc_attr( $value ) . '">' . esc_html( $label ) . '</option>';
 		}
 		echo '</select> ';
-		echo '<input type="text" name="comarine_bulk_note_' . esc_attr( $position ) . '" placeholder="' . esc_attr__( 'Optional audit note', 'comarine-storage-booking-with-woocommerce' ) . '" style="width:220px;max-width:35vw;" /> ';
-		echo '<label style="margin-right:8px;"><input type="checkbox" name="comarine_bulk_confirm_' . esc_attr( $position ) . '" value="1" /> ' . esc_html__( 'Confirm destructive action', 'comarine-storage-booking-with-woocommerce' ) . '</label>';
+		echo '<input class="comarine-bookings-bulk-note" type="text" name="comarine_bulk_note_' . esc_attr( $position ) . '" placeholder="' . esc_attr__( 'Optional audit note', 'comarine-storage-booking-with-woocommerce' ) . '" style="width:220px;max-width:35vw;" /> ';
+		echo '<label class="comarine-bookings-bulk-confirm" style="margin-right:8px;"><input type="checkbox" name="comarine_bulk_confirm_' . esc_attr( $position ) . '" value="1" /> ' . esc_html__( 'Confirm destructive action', 'comarine-storage-booking-with-woocommerce' ) . '</label>';
 		submit_button( __( 'Apply', 'comarine-storage-booking-with-woocommerce' ), 'secondary', 'comarine_apply_bulk_action', false );
 		echo '</div>';
 		echo '<div class="clear"></div>';
@@ -1965,7 +1965,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			)
 		);
 
-		echo '<h2 style="margin-top:24px;">' . esc_html__( 'Recent audit events', 'comarine-storage-booking-with-woocommerce' ) . '</h2>';
+		echo '<h2 class="comarine-admin-section-title" style="margin-top:24px;">' . esc_html__( 'Recent audit events', 'comarine-storage-booking-with-woocommerce' ) . '</h2>';
 		echo '<p><strong>' . esc_html__( 'Audit rows:', 'comarine-storage-booking-with-woocommerce' ) . '</strong> ' . esc_html( (string) $count ) . '</p>';
 
 		if ( empty( $events ) ) {
@@ -1973,7 +1973,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			return;
 		}
 
-		echo '<table class="widefat striped"><thead><tr>';
+		echo '<table class="widefat striped comarine-bookings-audit-table"><thead><tr>';
 		echo '<th>' . esc_html__( 'Time', 'comarine-storage-booking-with-woocommerce' ) . '</th>';
 		echo '<th>' . esc_html__( 'Event', 'comarine-storage-booking-with-woocommerce' ) . '</th>';
 		echo '<th>' . esc_html__( 'Booking', 'comarine-storage-booking-with-woocommerce' ) . '</th>';

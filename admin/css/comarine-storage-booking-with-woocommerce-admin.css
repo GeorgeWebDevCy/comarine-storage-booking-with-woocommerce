@@ -1,12 +1,415 @@
 /**
- * All of the CSS for your admin-specific functionality should be
- * included in this file.
+ * Admin styles for CoMarine Storage Booking with WooCommerce.
+ *
+ * All selectors are scoped to plugin admin wrappers or the storage-unit CPT
+ * body classes so they don't affect unrelated wp-admin screens.
  */
+
+.comarine-storage-booking-admin,
+body.post-type-comarine_storage_unit #wpbody-content .wrap {
+	--comarine-admin-primary: #2ea3f2;
+	--comarine-admin-primary-strong: #1686d2;
+	--comarine-admin-primary-soft: #eaf6ff;
+	--comarine-admin-border: #d9e5ef;
+	--comarine-admin-border-strong: #9fc3dd;
+	--comarine-admin-text: #102434;
+	--comarine-admin-muted: #5b7183;
+	--comarine-admin-surface: #ffffff;
+	--comarine-admin-panel: #f8fbff;
+	--comarine-admin-shadow: 0 14px 28px rgba(16, 36, 52, 0.05);
+	--comarine-admin-shadow-strong: 0 18px 34px rgba(16, 36, 52, 0.08);
+	color: var(--comarine-admin-text);
+}
+
+.comarine-storage-booking-admin * {
+	box-sizing: border-box;
+}
+
+.comarine-storage-booking-admin a,
+body.post-type-comarine_storage_unit #wpbody-content .wrap a {
+	color: var(--comarine-admin-primary-strong);
+}
+
+.comarine-storage-booking-admin h1,
+.comarine-storage-booking-admin h2,
+body.post-type-comarine_storage_unit #wpbody-content .wrap h1 {
+	color: var(--comarine-admin-text);
+	letter-spacing: -0.01em;
+}
+
+.comarine-storage-booking-admin h1 {
+	display: inline-block;
+	margin-bottom: 8px;
+	padding-right: 14px;
+}
+
+.comarine-storage-booking-admin > p {
+	color: var(--comarine-admin-muted);
+	max-width: 110ch;
+}
+
+.comarine-storage-booking-admin .notice {
+	border-radius: 10px;
+	box-shadow: 0 8px 18px rgba(16, 36, 52, 0.04);
+}
+
+.comarine-admin-section-title {
+	margin-top: 22px;
+	padding-top: 4px;
+}
+
+.comarine-admin-panel {
+	border-radius: 14px;
+	border-color: var(--comarine-admin-border) !important;
+	background:
+		linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(234, 246, 255, 0.5))
+		!important;
+	box-shadow: var(--comarine-admin-shadow);
+}
+
+.comarine-admin-panel h2 {
+	margin-top: 0 !important;
+}
+
+.comarine-admin-panel--overview p {
+	line-height: 1.5;
+}
+
+.comarine-bookings-filters {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	gap: 10px 12px;
+	padding: 14px;
+	border: 1px solid var(--comarine-admin-border);
+	border-radius: 14px;
+	background:
+		linear-gradient(135deg, rgba(46, 163, 242, 0.12), rgba(46, 163, 242, 0)),
+		var(--comarine-admin-surface);
+	box-shadow: var(--comarine-admin-shadow);
+}
+
+.comarine-bookings-filters label {
+	display: inline-flex;
+	flex-direction: column;
+	gap: 6px;
+	margin-right: 0 !important;
+	font-weight: 600;
+	color: var(--comarine-admin-text);
+}
+
+.comarine-bookings-filters label select,
+.comarine-bookings-filters label input[type="text"],
+.comarine-bookings-filters label input[type="number"] {
+	min-width: 140px;
+	border: 1px solid var(--comarine-admin-border);
+	border-radius: 10px;
+	padding: 7px 10px;
+	background: #fff;
+	color: var(--comarine-admin-text);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.comarine-bookings-filters label input.small-text {
+	width: 7.5rem;
+}
+
+.comarine-bookings-filters label input:focus,
+.comarine-bookings-filters label select:focus {
+	border-color: var(--comarine-admin-primary);
+	box-shadow: 0 0 0 3px rgba(46, 163, 242, 0.12);
+	outline: none;
+}
+
+.comarine-storage-booking-admin .button,
+.comarine-storage-booking-admin .button-secondary {
+	border-color: var(--comarine-admin-border-strong);
+	border-radius: 10px;
+	color: var(--comarine-admin-text);
+	background: #fff;
+	box-shadow: 0 2px 0 rgba(16, 36, 52, 0.02);
+}
+
+.comarine-storage-booking-admin .button:hover,
+.comarine-storage-booking-admin .button:focus,
+.comarine-storage-booking-admin .button-secondary:hover,
+.comarine-storage-booking-admin .button-secondary:focus {
+	border-color: var(--comarine-admin-primary);
+	color: var(--comarine-admin-primary-strong);
+}
+
+.comarine-storage-booking-admin .button-primary {
+	background: linear-gradient(180deg, #3cb0ff, var(--comarine-admin-primary-strong));
+	border-color: var(--comarine-admin-primary-strong);
+	color: #fff;
+	box-shadow: 0 8px 18px rgba(46, 163, 242, 0.18);
+}
+
+.comarine-storage-booking-admin .button-primary:hover,
+.comarine-storage-booking-admin .button-primary:focus {
+	filter: saturate(1.05);
+}
+
+.comarine-bookings-bulk-form {
+	margin-top: 8px;
+}
+
+.comarine-bookings-bulk-toolbar {
+	height: auto !important;
+	padding: 10px 0 !important;
+	border-top: 1px solid var(--comarine-admin-border);
+	border-bottom: 1px solid var(--comarine-admin-border);
+	margin: 0 0 10px;
+}
+
+.comarine-bookings-bulk-toolbar .actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+}
+
+.comarine-bookings-bulk-toolbar select,
+.comarine-bookings-bulk-note {
+	border: 1px solid var(--comarine-admin-border);
+	border-radius: 10px;
+	padding: 6px 10px;
+	background: #fff;
+	color: var(--comarine-admin-text);
+}
+
+.comarine-bookings-bulk-note:focus,
+.comarine-bookings-bulk-toolbar select:focus {
+	border-color: var(--comarine-admin-primary);
+	box-shadow: 0 0 0 3px rgba(46, 163, 242, 0.12);
+	outline: none;
+}
+
+.comarine-bookings-bulk-confirm {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	color: var(--comarine-admin-text);
+}
+
+.comarine-bookings-bulk-confirm input,
+.comarine-booking-checkbox {
+	accent-color: var(--comarine-admin-primary);
+}
+
+.comarine-bookings-table,
+.comarine-booking-detail-table,
+.comarine-bookings-audit-table {
+	border: 1px solid var(--comarine-admin-border);
+	border-radius: 14px;
+	overflow: hidden;
+	box-shadow: var(--comarine-admin-shadow);
+	background: var(--comarine-admin-surface);
+}
+
+.comarine-bookings-table thead th,
+.comarine-booking-detail-table thead th,
+.comarine-bookings-audit-table thead th {
+	background: #f3f9fe;
+	color: var(--comarine-admin-text);
+	border-bottom: 1px solid var(--comarine-admin-border);
+}
+
+.comarine-bookings-table td,
+.comarine-bookings-table th,
+.comarine-booking-detail-table td,
+.comarine-booking-detail-table th,
+.comarine-bookings-audit-table td,
+.comarine-bookings-audit-table th {
+	border-color: var(--comarine-admin-border);
+	vertical-align: top;
+}
+
+.comarine-bookings-table tbody tr:hover,
+.comarine-bookings-audit-table tbody tr:hover {
+	background: rgba(46, 163, 242, 0.04);
+}
+
+.comarine-booking-detail-table th {
+	background: #f8fbff;
+	width: 220px;
+}
+
+.comarine-storage-booking-admin code {
+	background: #f1f7fd;
+	border: 1px solid #dbeaf6;
+	border-radius: 8px;
+	padding: 1px 5px;
+}
+
+.comarine-storage-booking-admin td code {
+	display: inline-block;
+	max-width: 100%;
+}
+
+.comarine-settings-form {
+	margin-top: 12px;
+	padding: 14px 16px 18px;
+	border: 1px solid var(--comarine-admin-border);
+	border-radius: 14px;
+	background:
+		linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(234, 246, 255, 0.35));
+	box-shadow: var(--comarine-admin-shadow);
+}
+
+.comarine-settings-form .form-table th {
+	color: var(--comarine-admin-text);
+	font-weight: 700;
+}
+
+.comarine-settings-form .form-table td {
+	color: var(--comarine-admin-muted);
+}
+
+.comarine-settings-form .regular-text,
+.comarine-settings-form input[type="number"],
+.comarine-settings-form select,
+.comarine-settings-form textarea {
+	border-radius: 10px;
+	border-color: var(--comarine-admin-border);
+}
+
+.comarine-settings-form textarea {
+	min-height: 170px;
+	font-family: Consolas, Monaco, monospace;
+}
+
+.comarine-settings-form input:focus,
+.comarine-settings-form select:focus,
+.comarine-settings-form textarea:focus {
+	border-color: var(--comarine-admin-primary);
+	box-shadow: 0 0 0 3px rgba(46, 163, 242, 0.12);
+	outline: none;
+}
+
+body.post-type-comarine_storage_unit #wpbody-content .wrap .page-title-action {
+	border-radius: 999px;
+	border-color: var(--comarine-admin-primary);
+	color: var(--comarine-admin-primary-strong);
+}
+
+body.post-type-comarine_storage_unit #wpbody-content .wrap .page-title-action:hover,
+body.post-type-comarine_storage_unit #wpbody-content .wrap .page-title-action:focus {
+	background: var(--comarine-admin-primary-soft);
+}
+
+body.post-type-comarine_storage_unit .wp-list-table.widefat {
+	border: 1px solid var(--comarine-admin-border);
+	border-radius: 14px;
+	overflow: hidden;
+	box-shadow: var(--comarine-admin-shadow);
+}
+
+body.post-type-comarine_storage_unit .wp-list-table thead th,
+body.post-type-comarine_storage_unit .wp-list-table tfoot th {
+	background: #f3f9fe;
+}
+
+body.post-type-comarine_storage_unit .wp-list-table tbody tr:hover {
+	background: rgba(46, 163, 242, 0.04);
+}
+
+body.post-type-comarine_storage_unit #comarine_storage_unit_details.postbox {
+	border-color: var(--comarine-admin-border);
+	border-radius: 14px;
+	box-shadow: var(--comarine-admin-shadow);
+	overflow: hidden;
+}
+
+body.post-type-comarine_storage_unit #comarine_storage_unit_details .postbox-header {
+	background: linear-gradient(180deg, #f6fbff, #eef7ff);
+	border-bottom-color: var(--comarine-admin-border);
+}
+
+body.post-type-comarine_storage_unit #comarine_storage_unit_details .inside {
+	background: var(--comarine-admin-surface);
+	padding: 14px 16px 16px;
+}
+
+body.post-type-comarine_storage_unit #comarine_storage_unit_details .form-table th {
+	color: var(--comarine-admin-text);
+	font-weight: 700;
+}
+
+body.post-type-comarine_storage_unit #comarine_storage_unit_details .regular-text,
+body.post-type-comarine_storage_unit #comarine_storage_unit_details select,
+body.post-type-comarine_storage_unit #comarine_storage_unit_details input[type="number"] {
+	border: 1px solid var(--comarine-admin-border);
+	border-radius: 10px;
+	padding: 6px 10px;
+}
+
+body.post-type-comarine_storage_unit #comarine_storage_unit_details .regular-text:focus,
+body.post-type-comarine_storage_unit #comarine_storage_unit_details select:focus,
+body.post-type-comarine_storage_unit #comarine_storage_unit_details input[type="number"]:focus {
+	border-color: var(--comarine-admin-primary);
+	box-shadow: 0 0 0 3px rgba(46, 163, 242, 0.12);
+	outline: none;
+}
 
 .comarine-admin-datepicker {
 	min-width: 10rem;
 }
 
 .ui-datepicker {
-	z-index: 100000;
+	z-index: 100000 !important;
+	border: 1px solid #cfe3f3 !important;
+	border-radius: 12px !important;
+	box-shadow: 0 18px 34px rgba(16, 36, 52, 0.08);
+	padding: 6px !important;
+}
+
+.ui-datepicker .ui-datepicker-header {
+	background: linear-gradient(180deg, #3cb0ff, #2295e2) !important;
+	border: 0 !important;
+	border-radius: 10px !important;
+	color: #fff !important;
+}
+
+.ui-datepicker .ui-state-default {
+	border: 1px solid transparent !important;
+	background: transparent !important;
+	border-radius: 8px !important;
+	text-align: center;
+}
+
+.ui-datepicker .ui-state-hover {
+	border-color: #b9daf1 !important;
+	background: #eef7ff !important;
+}
+
+.ui-datepicker .ui-state-active,
+.ui-datepicker .ui-state-highlight {
+	background: #dff1ff !important;
+	border-color: #9fcff1 !important;
+}
+
+@media (max-width: 960px) {
+	.comarine-bookings-filters {
+		gap: 8px;
+	}
+
+	.comarine-bookings-filters label {
+		flex: 1 1 220px;
+	}
+
+	.comarine-bookings-bulk-toolbar .actions {
+		align-items: stretch;
+	}
+
+	.comarine-bookings-bulk-toolbar select,
+	.comarine-bookings-bulk-note {
+		min-height: 34px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.comarine-storage-booking-admin .button-primary {
+		transition: none;
+	}
 }
