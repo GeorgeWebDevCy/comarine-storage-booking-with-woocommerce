@@ -558,6 +558,12 @@
 	transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
 }
 
+.comarine-storage-units a.comarine-storage-unit-card__book-button,
+.comarine-storage-units a.comarine-storage-unit-card__book-button:hover,
+.comarine-storage-units a.comarine-storage-unit-card__book-button:focus-visible {
+	color: #fff;
+}
+
 .comarine-storage-unit-card__book-button:hover,
 .comarine-storage-unit-card__book-button:focus-visible {
 	filter: saturate(1.05);
