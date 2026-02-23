@@ -186,7 +186,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		$menu_slug = 'comarine-storage-bookings';
 		$post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' )
 			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE
-			: 'comarine_storage_unit';
+			: 'comarine_storageunit';
 		$list_slug = 'edit.php?post_type=' . $post_type;
 		$add_slug  = 'post-new.php?post_type=' . $post_type;
 
@@ -291,13 +291,41 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		$page = trim( $page );
 		$post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' )
 			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE
+			: 'comarine_storageunit';
+		$legacy_post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_LEGACY_UNIT_POST_TYPE' )
+			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_LEGACY_UNIT_POST_TYPE
 			: 'comarine_storage_unit';
 		$request_post_type = isset( $_GET['post_type'] ) ? sanitize_key( wp_unslash( $_GET['post_type'] ) ) : '';
 		$list_page = 'edit.php?post_type=' . $post_type;
 		$add_page  = 'post-new.php?post_type=' . $post_type;
+		$legacy_list_page = 'edit.php?post_type=' . $legacy_post_type;
+		$legacy_add_page  = 'post-new.php?post_type=' . $legacy_post_type;
 
-		if ( $post_type === $request_post_type && ! post_type_exists( $post_type ) && function_exists( 'comarine_storage_booking_with_woocommerce_register_storage_units_cpt_fallback' ) ) {
+		if ( in_array( $request_post_type, array( $post_type, $legacy_post_type ), true ) && ! post_type_exists( $post_type ) && function_exists( 'comarine_storage_booking_with_woocommerce_register_storage_units_cpt_fallback' ) ) {
 			comarine_storage_booking_with_woocommerce_register_storage_units_cpt_fallback();
+		}
+
+		global $pagenow;
+		if ( $legacy_post_type !== $post_type && $legacy_post_type === $request_post_type ) {
+			if ( 'edit.php' === $pagenow ) {
+				wp_safe_redirect( $this->get_storage_units_list_url() );
+				exit;
+			}
+
+			if ( 'post-new.php' === $pagenow ) {
+				wp_safe_redirect( $this->get_storage_units_add_new_url() );
+				exit;
+			}
+		}
+
+		if ( $legacy_list_page === $page ) {
+			wp_safe_redirect( $this->get_storage_units_list_url() );
+			exit;
+		}
+
+		if ( $legacy_add_page === $page ) {
+			wp_safe_redirect( $this->get_storage_units_add_new_url() );
+			exit;
 		}
 
 		if ( $list_page === $page ) {
@@ -328,11 +356,14 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 
 		$post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' )
 			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE
+			: 'comarine_storageunit';
+		$legacy_post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_LEGACY_UNIT_POST_TYPE' )
+			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_LEGACY_UNIT_POST_TYPE
 			: 'comarine_storage_unit';
 		$page = isset( $_GET['page'] ) ? trim( (string) wp_unslash( $_GET['page'] ) ) : '';
 		$request_post_type = isset( $_GET['post_type'] ) ? sanitize_key( wp_unslash( $_GET['post_type'] ) ) : '';
 		$is_plugin_admin_page = '' !== $page && 0 === strpos( $page, 'comarine-storage-' );
-		$is_storage_units_request = $post_type === $request_post_type;
+		$is_storage_units_request = in_array( $request_post_type, array( $post_type, $legacy_post_type ), true );
 
 		if ( ! $is_plugin_admin_page && ! $is_storage_units_request ) {
 			return;
@@ -1325,41 +1356,175 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			$overall_state = 'warning';
 		}
 
+		$total_checks        = (int) array_sum( $summary );
+		$actionable_checks   = (int) ( $summary['warning'] + $summary['error'] );
+		$completion_percent  = $total_checks > 0 ? (int) round( ( $summary['ok'] / $total_checks ) * 100 ) : 100;
+		$completion_percent  = max( 0, min( 100, $completion_percent ) );
+		$completion_message  = sprintf(
+			/* translators: 1: passed checks count, 2: total checks count. */
+			__( '%1$d of %2$d checks are currently passing.', 'comarine-storage-booking-with-woocommerce' ),
+			(int) $summary['ok'],
+			$total_checks
+		);
+		$attention_message = $actionable_checks > 0
+			? sprintf(
+				/* translators: %d: count of warning+error checks. */
+				_n(
+					'%d item still needs attention before go-live.',
+					'%d items still need attention before go-live.',
+					$actionable_checks,
+					'comarine-storage-booking-with-woocommerce'
+				),
+				$actionable_checks
+			)
+			: __( 'All checks look good for go-live.', 'comarine-storage-booking-with-woocommerce' );
+
+		$next_action = array(
+			'url'   => '',
+			'label' => '',
+		);
+		$next_action_found = false;
+
+		foreach ( array( 'error', 'warning' ) as $priority_status ) {
+			foreach ( $sections as $section ) {
+				$checks = isset( $section['checks'] ) && is_array( $section['checks'] ) ? $section['checks'] : array();
+				foreach ( $checks as $check ) {
+					$status       = isset( $check['status'] ) ? (string) $check['status'] : '';
+					$action_url   = isset( $check['action_url'] ) ? (string) $check['action_url'] : '';
+					$action_label = isset( $check['action_label'] ) ? (string) $check['action_label'] : '';
+
+					if ( $priority_status !== $status || '' === $action_url || '' === $action_label ) {
+						continue;
+					}
+
+					$next_action = array(
+						'url'   => $action_url,
+						'label' => $action_label,
+					);
+					$next_action_found = true;
+					break 2;
+				}
+			}
+
+			if ( $next_action_found ) {
+				break;
+			}
+		}
+
 		echo '<div class="wrap comarine-storage-booking-admin comarine-storage-booking-admin--overview">';
 		echo '<h1>' . esc_html__( 'CoMarine Storage Overview', 'comarine-storage-booking-with-woocommerce' ) . '</h1>';
 		$this->render_setup_action_notice();
 		echo '<p>' . esc_html__( 'Use this checklist to confirm the plugin is configured and ready for bookings. Required items should be green before going live.', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
 
 		echo '<div class="comarine-admin-panel comarine-admin-panel--overview comarine-overview-summary">';
+		echo '<div class="comarine-overview-summary__layout">';
+		echo '<div class="comarine-overview-summary__main">';
+		echo '<p class="comarine-overview-summary__eyebrow">' . esc_html__( 'Setup Readiness', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
 		echo '<h2>' . esc_html__( 'Setup Status', 'comarine-storage-booking-with-woocommerce' ) . '</h2>';
 		echo '<div class="comarine-overview-summary__row">';
 		echo '<span class="comarine-overview-pill is-' . esc_attr( $overall_state ) . '">' . esc_html( $this->get_overview_status_label( $overall_state ) ) . '</span>';
 		echo '<span class="comarine-overview-summary__counts">' . esc_html( sprintf( __( '%1$d OK, %2$d warnings, %3$d issues', 'comarine-storage-booking-with-woocommerce' ), $summary['ok'], $summary['warning'], $summary['error'] ) ) . '</span>';
 		echo '</div>';
+		echo '<p class="comarine-overview-summary__lead">' . esc_html( $completion_message ) . '</p>';
+		echo '<p class="comarine-overview-summary__sublead">' . esc_html( $attention_message ) . '</p>';
+		echo '<div class="comarine-overview-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' . esc_attr( (string) $completion_percent ) . '" aria-label="' . esc_attr__( 'Setup checklist completion', 'comarine-storage-booking-with-woocommerce' ) . '">';
+		echo '<div class="comarine-overview-progress__track"><span class="comarine-overview-progress__fill" style="width:' . esc_attr( (string) $completion_percent ) . '%;"></span></div>';
+		echo '<span class="comarine-overview-progress__label">' . esc_html( sprintf( __( '%d%% complete', 'comarine-storage-booking-with-woocommerce' ), $completion_percent ) ) . '</span>';
+		echo '</div>';
 		echo '<div class="comarine-overview-summary__actions">';
 		echo '<a class="button button-primary" href="' . esc_url( $this->get_settings_page_url() ) . '">' . esc_html__( 'Open Settings', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
 		echo '<a class="button" href="' . esc_url( $this->get_storage_units_list_url() ) . '">' . esc_html__( 'View Storage Units', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
 		echo '<a class="button" href="' . esc_url( $this->get_bookings_page_url() ) . '">' . esc_html__( 'Open Bookings', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
+		echo '<a class="button" href="' . esc_url( $this->get_overview_page_url() ) . '">' . esc_html__( 'Refresh Overview', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
+		if ( ! empty( $next_action['url'] ) && ! empty( $next_action['label'] ) ) {
+			echo '<a class="button button-secondary comarine-overview-summary__next-action" href="' . esc_url( $next_action['url'] ) . '">' . esc_html( sprintf( __( 'Fix Next Item: %s', 'comarine-storage-booking-with-woocommerce' ), $next_action['label'] ) ) . '</a>';
+		}
+		echo '</div>';
+		echo '</div>';
+		echo '<div class="comarine-overview-summary__stats">';
+		echo '<div class="comarine-overview-stat-card is-primary">';
+		echo '<span class="comarine-overview-stat-card__label">' . esc_html__( 'Completion', 'comarine-storage-booking-with-woocommerce' ) . '</span>';
+		echo '<strong class="comarine-overview-stat-card__value">' . esc_html( sprintf( __( '%d%%', 'comarine-storage-booking-with-woocommerce' ), $completion_percent ) ) . '</strong>';
+		echo '<span class="comarine-overview-stat-card__hint">' . esc_html( sprintf( __( '%1$d / %2$d checks', 'comarine-storage-booking-with-woocommerce' ), (int) $summary['ok'], $total_checks ) ) . '</span>';
+		echo '</div>';
+		echo '<div class="comarine-overview-stat-card is-error">';
+		echo '<span class="comarine-overview-stat-card__label">' . esc_html__( 'Issues', 'comarine-storage-booking-with-woocommerce' ) . '</span>';
+		echo '<strong class="comarine-overview-stat-card__value">' . esc_html( (string) (int) $summary['error'] ) . '</strong>';
+		echo '<span class="comarine-overview-stat-card__hint">' . esc_html__( 'Required items failing', 'comarine-storage-booking-with-woocommerce' ) . '</span>';
+		echo '</div>';
+		echo '<div class="comarine-overview-stat-card is-warning">';
+		echo '<span class="comarine-overview-stat-card__label">' . esc_html__( 'Warnings', 'comarine-storage-booking-with-woocommerce' ) . '</span>';
+		echo '<strong class="comarine-overview-stat-card__value">' . esc_html( (string) (int) $summary['warning'] ) . '</strong>';
+		echo '<span class="comarine-overview-stat-card__hint">' . esc_html__( 'Recommended follow-ups', 'comarine-storage-booking-with-woocommerce' ) . '</span>';
+		echo '</div>';
+		echo '<div class="comarine-overview-stat-card is-neutral">';
+		echo '<span class="comarine-overview-stat-card__label">' . esc_html__( 'Checks', 'comarine-storage-booking-with-woocommerce' ) . '</span>';
+		echo '<strong class="comarine-overview-stat-card__value">' . esc_html( (string) $total_checks ) . '</strong>';
+		echo '<span class="comarine-overview-stat-card__hint">' . esc_html__( 'Across all sections', 'comarine-storage-booking-with-woocommerce' ) . '</span>';
+		echo '</div>';
+		echo '</div>';
 		echo '</div>';
 		echo '</div>';
 
 		echo '<div class="comarine-overview-grid">';
 		foreach ( $sections as $section ) {
-			$title = isset( $section['title'] ) ? (string) $section['title'] : '';
+			$title       = isset( $section['title'] ) ? (string) $section['title'] : '';
 			$description = isset( $section['description'] ) ? (string) $section['description'] : '';
-			$checks = isset( $section['checks'] ) && is_array( $section['checks'] ) ? $section['checks'] : array();
+			$checks      = isset( $section['checks'] ) && is_array( $section['checks'] ) ? $section['checks'] : array();
+			$section_summary = array(
+				'ok'      => 0,
+				'warning' => 0,
+				'error'   => 0,
+			);
 
-			echo '<section class="comarine-admin-panel comarine-overview-card">';
+			foreach ( $checks as $check ) {
+				$section_status = isset( $check['status'] ) ? (string) $check['status'] : '';
+				if ( isset( $section_summary[ $section_status ] ) ) {
+					$section_summary[ $section_status ]++;
+				}
+			}
+
+			$section_total = (int) array_sum( $section_summary );
+			$section_state = 'ok';
+			if ( $section_summary['error'] > 0 ) {
+				$section_state = 'error';
+			} elseif ( $section_summary['warning'] > 0 ) {
+				$section_state = 'warning';
+			}
+
+			echo '<section class="comarine-admin-panel comarine-overview-card comarine-overview-card--' . esc_attr( $section_state ) . '">';
+			echo '<div class="comarine-overview-card__header">';
+			echo '<div class="comarine-overview-card__header-main">';
 			echo '<h2>' . esc_html( $title ) . '</h2>';
 			if ( '' !== $description ) {
 				echo '<p class="comarine-overview-card__description">' . esc_html( $description ) . '</p>';
 			}
+			echo '</div>';
+			echo '<div class="comarine-overview-card__header-side">';
+			echo '<span class="comarine-overview-pill is-' . esc_attr( $section_state ) . '">' . esc_html( $this->get_overview_status_label( $section_state ) ) . '</span>';
+			echo '<span class="comarine-overview-card__counts">';
+			echo esc_html(
+				sprintf(
+					/* translators: %d: number of checks in the section. */
+					_n( '%d check', '%d checks', $section_total, 'comarine-storage-booking-with-woocommerce' ),
+					$section_total
+				)
+			);
+			echo '</span>';
+			echo '</div>';
+			echo '</div>';
 
 			if ( empty( $checks ) ) {
 				echo '<p>' . esc_html__( 'No checks available.', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
 				echo '</section>';
 				continue;
 			}
+
+			echo '<div class="comarine-overview-card__summary">';
+			echo '<span class="comarine-overview-mini-stat is-ok">' . esc_html( sprintf( __( '%d OK', 'comarine-storage-booking-with-woocommerce' ), (int) $section_summary['ok'] ) ) . '</span>';
+			echo '<span class="comarine-overview-mini-stat is-warning">' . esc_html( sprintf( __( '%d warnings', 'comarine-storage-booking-with-woocommerce' ), (int) $section_summary['warning'] ) ) . '</span>';
+			echo '<span class="comarine-overview-mini-stat is-error">' . esc_html( sprintf( __( '%d issues', 'comarine-storage-booking-with-woocommerce' ), (int) $section_summary['error'] ) ) . '</span>';
+			echo '</div>';
 
 			echo '<ul class="comarine-overview-checklist">';
 			foreach ( $checks as $check ) {
@@ -1645,7 +1810,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	private function get_unit_status_overview_counts() {
 		$post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' )
 			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE
-			: 'comarine_storage_unit';
+			: 'comarine_storageunit';
 
 		$unit_ids = get_posts(
 			array(
@@ -1986,7 +2151,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	private function get_storage_units_list_url() {
 		$post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' )
 			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE
-			: 'comarine_storage_unit';
+			: 'comarine_storageunit';
 
 		return add_query_arg(
 			array( 'post_type' => $post_type ),
@@ -2004,7 +2169,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	private function get_storage_units_add_new_url() {
 		$post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' )
 			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE
-			: 'comarine_storage_unit';
+			: 'comarine_storageunit';
 
 		return add_query_arg(
 			array( 'post_type' => $post_type ),
@@ -2219,7 +2384,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	private function ensure_required_post_types_registered_for_overview() {
 		$post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' )
 			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE
-			: 'comarine_storage_unit';
+			: 'comarine_storageunit';
 
 		$was_registered = post_type_exists( $post_type );
 		if ( ! $was_registered ) {
@@ -2253,7 +2418,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 
 		$post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' )
 			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE
-			: 'comarine_storage_unit';
+			: 'comarine_storageunit';
 		if ( post_type_exists( $post_type ) ) {
 			return;
 		}
@@ -2352,7 +2517,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	private function get_storage_unit_setup_stats() {
 		$post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' )
 			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE
-			: 'comarine_storage_unit';
+			: 'comarine_storageunit';
 
 		$unit_ids = get_posts(
 			array(
@@ -3356,7 +3521,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 
 		$post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' )
 			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE
-			: 'comarine_storage_unit';
+			: 'comarine_storageunit';
 
 		$targets = array(
 			'edit-' . $post_type,
@@ -3370,3 +3535,4 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	}
 
 }
+

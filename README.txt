@@ -5,7 +5,7 @@ Tags: storage, booking, woocommerce
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.23
+Stable tag: 1.0.24
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Requires Plugins: woocommerce, jcc-payment-gateway-for-wc
@@ -21,7 +21,7 @@ Payments are handled by WooCommerce gateways configured on the site, including t
 The plugin includes GitHub update checks via `yahnis-elsts/plugin-update-checker` (Composer-managed).
 
 Current implemented milestone includes:
-- Storage Unit custom post type (`comarine_storage_unit`)
+- Storage Unit custom post type (`comarine_storageunit`)
 - Unit detail meta fields in wp-admin
 - `wp_comarine_bookings` custom table creation on activation (with WP table prefix)
 - Basic Bookings admin overview page
@@ -54,7 +54,7 @@ Current implemented milestone includes:
 - Refreshed plugin UI styling (frontend shortcode + plugin admin screens) using a blue primary theme
 - Admin CSS/JS assets are now only loaded on plugin-related admin screens (scoped to avoid affecting other admin pages)
 - Plugin menu explicitly ensures Storage Units / Add New submenus are present under the CoMarine Storage menu
-- Storage Units CPT is registered via an early fallback so direct `edit.php?post_type=comarine_storage_unit` links remain valid
+- Storage Units CPT is registered via an early fallback so direct `edit.php?post_type=comarine_storageunit` links remain valid
 - Added an Overview admin screen with a setup checklist for required and recommended plugin configuration
 - Added a one-click admin action to auto-create/reuse the WooCommerce booking container product from Overview/Settings
 - Added a defensive Storage Units admin menu URL normalization fix to prevent `Invalid post type` on some setups
@@ -86,6 +86,11 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 3. Admin booking management screen.
 
 == Changelog ==
+
+= 1.0.24 =
+* Fixed the Storage Units CPT slug length issue (legacy `comarine_storage_unit` exceeded WordPress's 20-character post type key limit and could fail registration).
+* Changed the Storage Units CPT slug to `comarine_storageunit` and added a one-time migration for legacy rows using the old slug.
+* Added admin compatibility redirects so old Storage Units admin URLs using the legacy slug are redirected to the current CPT URLs.
 
 = 1.0.23 =
 * Hardened the Overview/admin CPT auto-repair path so it retries direct registration if the fallback helper does not restore the Storage Units post type.
@@ -196,7 +201,7 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 * Added order status synchronization hooks (JCC `completed` treated as successful payment).
 
 = 1.0.2 =
-* Added Storage Unit custom post type registration (`comarine_storage_unit`).
+* Added Storage Unit custom post type registration (`comarine_storageunit`).
 * Added admin meta fields and list columns for unit details/pricing/status.
 * Added custom bookings table creation on activation (`wp_comarine_bookings` with prefix support).
 * Added initial Bookings admin submenu page (overview/placeholder).
@@ -212,6 +217,9 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 * Added activation/runtime dependency checks for WooCommerce and JCC Payment Gateway for WooCommerce.
 
 == Upgrade Notice ==
+
+= 1.0.24 =
+Fixes Storage Units CPT registration by using a valid post type key length and migrates legacy rows/URLs to the new slug.
 
 = 1.0.23 =
 Improves admin-side CPT recovery for Storage Units and refreshes the Overview, Settings, and Storage Units admin UI styling.
@@ -229,7 +237,7 @@ Adds a one-click admin action to create (or reuse) the hidden WooCommerce bookin
 Adds a setup Overview screen in wp-admin so you can quickly verify required plugin configuration before going live.
 
 = 1.0.18 =
-Fixes direct Storage Units admin URLs (`edit.php?post_type=comarine_storage_unit`) by ensuring the CPT is registered early.
+Fixes direct Storage Units admin URLs (`edit.php?post_type=comarine_storageunit`) by ensuring the CPT is registered early.
 
 = 1.0.17 =
 Ensures the Storage Units admin submenu is always shown under CoMarine Storage (with consistent submenu ordering).

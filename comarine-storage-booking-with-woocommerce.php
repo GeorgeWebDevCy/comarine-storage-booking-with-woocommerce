@@ -16,7 +16,7 @@
  * Plugin Name:       Comarine Storage booking with WooCommerce
  * Plugin URI:        https://www.georgenicolaou.me/plugins/comarine-storage-booking-with-woocommerce/
  * Description:       Booking plugin for CoMarine Storage Units
- * Version:           1.0.23
+ * Version:           1.0.24
  * Author:            George Nicolaou
  * Author URI:        https://www.georgenicolaou.me//
  * License:           GPL-2.0+
@@ -42,10 +42,12 @@ if ( file_exists( $comarine_storage_booking_with_woocommerce_autoload ) ) {
  * Start at version 1.0.0 and use SemVer - https://semver.org
  * Rename this for your plugin and update it as you release new versions.
  */
-define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_VERSION', '1.0.23' );
+define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_VERSION', '1.0.24' );
 define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_DB_VERSION', '1.0.1' );
 define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
-define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE', 'comarine_storage_unit' );
+// Must stay <= 20 chars (WordPress post type key limit).
+define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE', 'comarine_storageunit' );
+define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_LEGACY_UNIT_POST_TYPE', 'comarine_storage_unit' );
 define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_BOOKINGS_TABLE_SUFFIX', 'comarine_bookings' );
 define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_AUDIT_TABLE_SUFFIX', 'comarine_booking_audit_log' );
 define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_SETTINGS_OPTION', 'comarine_storage_booking_with_woocommerce_settings' );
@@ -303,10 +305,65 @@ function comarine_storage_booking_with_woocommerce_missing_dependencies_admin_no
 }
 
 /**
+ * Migrate legacy invalid Storage Units CPT slug rows to the current valid slug.
+ *
+ * WordPress limits post type keys to 20 characters. The legacy slug
+ * `comarine_storage_unit` is 21 characters and cannot be registered reliably.
+ *
+ * @since 1.0.24
+ *
+ * @return void
+ */
+function comarine_storage_booking_with_woocommerce_maybe_migrate_legacy_storage_unit_post_type_slug() {
+	static $did_run = false;
+
+	if ( $did_run ) {
+		return;
+	}
+	$did_run = true;
+
+	if ( ! defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' ) || ! defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_LEGACY_UNIT_POST_TYPE' ) ) {
+		return;
+	}
+
+	$new_slug    = COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE;
+	$legacy_slug = COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_LEGACY_UNIT_POST_TYPE;
+	if ( $new_slug === $legacy_slug ) {
+		return;
+	}
+
+	$migration_option = 'comarine_storage_booking_with_woocommerce_unit_post_type_slug_migration';
+	$migration_state  = get_option( $migration_option, '' );
+	if ( is_string( $migration_state ) && $new_slug === $migration_state ) {
+		return;
+	}
+
+	global $wpdb;
+	if ( ! isset( $wpdb->posts ) || empty( $wpdb->posts ) ) {
+		return;
+	}
+
+	$result = $wpdb->query(
+		$wpdb->prepare(
+			"UPDATE {$wpdb->posts} SET post_type = %s WHERE post_type = %s",
+			$new_slug,
+			$legacy_slug
+		)
+	);
+
+	if ( false === $result ) {
+		return;
+	}
+
+	update_option( $migration_option, $new_slug );
+}
+add_action( 'init', 'comarine_storage_booking_with_woocommerce_maybe_migrate_legacy_storage_unit_post_type_slug', 0 );
+
+/**
  * Always register the Storage Units CPT early so direct admin URLs remain valid.
  *
  * This runs even when the plugin later enters dependency-not-ready mode. It keeps
- * `edit.php?post_type=comarine_storage_unit` from failing with "Invalid post type"
+ * `edit.php?post_type=` links for the Storage Units CPT from failing with "Invalid post type"
  * and avoids duplicate registration when the full plugin also loads.
  *
  * @since 1.0.18
@@ -361,6 +418,7 @@ comarine_storage_booking_with_woocommerce_setup_update_checker();
  */
 function activate_comarine_storage_booking_with_woocommerce() {
 	comarine_storage_booking_with_woocommerce_maybe_abort_activation_for_missing_dependencies();
+	comarine_storage_booking_with_woocommerce_maybe_migrate_legacy_storage_unit_post_type_slug();
 
 	require_once plugin_dir_path( __FILE__ ) . 'includes/class-comarine-storage-booking-with-woocommerce-activator.php';
 	Comarine_Storage_Booking_With_Woocommerce_Activator::activate();

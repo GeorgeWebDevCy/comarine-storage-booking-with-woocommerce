@@ -49,7 +49,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Storage_Units {
 	public function get_post_type() {
 		return defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' )
 			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE
-			: 'comarine_storage_unit';
+			: 'comarine_storageunit';
 	}
 
 	/**
@@ -93,7 +93,10 @@ class Comarine_Storage_Booking_With_Woocommerce_Storage_Units {
 			'map_meta_cap'       => true,
 		);
 
-		register_post_type( $this->get_post_type(), $args );
+		$registered = register_post_type( $this->get_post_type(), $args );
+		if ( is_wp_error( $registered ) ) {
+			return;
+		}
 	}
 
 	/**

@@ -8,7 +8,7 @@ Implemented in the codebase so far:
 
 - Dependency guards for WooCommerce + JCC plugin activation/runtime
 - GitHub-based plugin update checks (Composer + `plugin-update-checker`)
-- Storage Unit custom post type (`comarine_storage_unit`)
+- Storage Unit custom post type (`comarine_storageunit`)
 - Storage Unit admin meta fields (unit code, size, floor, pricing, status)
 - Storage Unit admin list columns for key metadata
 - Bookings custom database table (`wp_comarine_bookings` with prefix-aware table name)
@@ -107,7 +107,7 @@ If you deploy from source, include `vendor/` (or run `composer install` as part 
 13. Configure add-ons in `CoMarine Storage > Settings`, select them during booking, and confirm totals/meta in cart and order.
 14. Confirm the refreshed plugin UI styling (frontend shortcode + plugin admin screens) appears correctly and does not alter non-plugin site/admin screens.
 15. Confirm `CoMarine Storage` shows `Bookings`, `Storage Units`, `Add New`, and `Settings` in the admin menu.
-16. Open `/wp-admin/edit.php?post_type=comarine_storage_unit` directly and confirm the Storage Units list loads (no `Invalid post type` error).
+16. Open `/wp-admin/edit.php?post_type=comarine_storageunit` directly and confirm the Storage Units list loads (no `Invalid post type` error).
 17. Open `CoMarine Storage > Overview` and confirm the setup checklist reports container product, dependencies, storage units/pricing, and key configuration status.
 18. If the container product is missing, use the `Create Container Product` action and confirm the setting is populated automatically.
 19. Click `CoMarine Storage > Storage Units` and `CoMarine Storage > Add New` and confirm both open the correct CPT screens (no `Invalid post type` message).
