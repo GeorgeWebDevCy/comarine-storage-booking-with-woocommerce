@@ -1988,6 +1988,8 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	 * @return array<int, array<string, mixed>>
 	 */
 	private function get_setup_overview_sections() {
+		$post_type_statuses     = $this->ensure_required_post_types_registered_for_overview();
+		$post_types_check       = $this->get_required_post_types_overview_check( $post_type_statuses );
 		$settings               = comarine_storage_booking_with_woocommerce_get_settings();
 		$container_product_id   = isset( $settings['booking_container_product_id'] ) ? absint( $settings['booking_container_product_id'] ) : 0;
 		$lock_ttl               = isset( $settings['lock_ttl_minutes'] ) ? (int) $settings['lock_ttl_minutes'] : 15;
@@ -2044,6 +2046,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		}
 
 		$required_checks = array(
+			$post_types_check,
 			array(
 				'status'       => $container_product_id > 0 ? 'ok' : 'error',
 				'label'        => __( 'Booking container product selected', 'comarine-storage-booking-with-woocommerce' ),
@@ -2171,6 +2174,133 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 				'description' => __( 'Quick view of key plugin settings currently in use.', 'comarine-storage-booking-with-woocommerce' ),
 				'checks'      => $current_config_checks,
 			),
+		);
+	}
+
+	/**
+	 * Ensure overview-required post types are registered and auto-repair if possible.
+	 *
+	 * @since    1.0.22
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function ensure_required_post_types_registered_for_overview() {
+		$post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' )
+			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE
+			: 'comarine_storage_unit';
+
+		$was_registered = post_type_exists( $post_type );
+		if ( ! $was_registered ) {
+			$this->register_storage_units_post_type_for_overview();
+		}
+
+		$is_registered = post_type_exists( $post_type );
+
+		return array(
+			array(
+				'slug'            => $post_type,
+				'label'           => __( 'Storage Units', 'comarine-storage-booking-with-woocommerce' ),
+				'was_registered'  => $was_registered,
+				'auto_registered' => ! $was_registered && $is_registered,
+				'is_registered'   => $is_registered,
+			),
+		);
+	}
+
+	/**
+	 * Attempt to register the Storage Units CPT when overview detects it missing.
+	 *
+	 * @since    1.0.22
+	 *
+	 * @return void
+	 */
+	private function register_storage_units_post_type_for_overview() {
+		if ( function_exists( 'comarine_storage_booking_with_woocommerce_register_storage_units_cpt_fallback' ) ) {
+			comarine_storage_booking_with_woocommerce_register_storage_units_cpt_fallback();
+			return;
+		}
+
+		if ( ! class_exists( 'Comarine_Storage_Booking_With_Woocommerce_Storage_Units' ) ) {
+			$class_file = plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-comarine-storage-booking-with-woocommerce-storage-units.php';
+			if ( file_exists( $class_file ) ) {
+				require_once $class_file;
+			}
+		}
+
+		if ( ! class_exists( 'Comarine_Storage_Booking_With_Woocommerce_Storage_Units' ) ) {
+			return;
+		}
+
+		$storage_units = new Comarine_Storage_Booking_With_Woocommerce_Storage_Units( $this->plugin_name, $this->version );
+		if ( method_exists( $storage_units, 'register_post_type' ) ) {
+			$storage_units->register_post_type();
+		}
+	}
+
+	/**
+	 * Build the overview checklist check for required post type registrations.
+	 *
+	 * @since    1.0.22
+	 *
+	 * @param array<int, array<string, mixed>> $post_type_statuses Registration statuses.
+	 * @return array<string, string>
+	 */
+	private function get_required_post_types_overview_check( $post_type_statuses ) {
+		$total_required     = 0;
+		$missing_labels     = array();
+		$auto_fixed_labels  = array();
+
+		foreach ( $post_type_statuses as $post_type_status ) {
+			if ( ! is_array( $post_type_status ) ) {
+				continue;
+			}
+
+			$total_required++;
+			$label = isset( $post_type_status['label'] ) ? (string) $post_type_status['label'] : __( 'Post type', 'comarine-storage-booking-with-woocommerce' );
+
+			if ( ! empty( $post_type_status['auto_registered'] ) ) {
+				$auto_fixed_labels[] = $label;
+			}
+
+			if ( empty( $post_type_status['is_registered'] ) ) {
+				$missing_labels[] = $label;
+			}
+		}
+
+		$status = empty( $missing_labels ) ? 'ok' : 'error';
+		if ( empty( $missing_labels ) ) {
+			if ( ! empty( $auto_fixed_labels ) ) {
+				$details = sprintf(
+					/* translators: %s: comma-separated post type labels. */
+					__( 'All required post types are available. Auto-registered during this overview load: %s.', 'comarine-storage-booking-with-woocommerce' ),
+					implode( ', ', $auto_fixed_labels )
+				);
+			} else {
+				$details = sprintf(
+					/* translators: %d: number of required post types. */
+					_n(
+						'All %d required post type is registered.',
+						'All %d required post types are registered.',
+						max( 1, $total_required ),
+						'comarine-storage-booking-with-woocommerce'
+					),
+					max( 1, $total_required )
+				);
+			}
+		} else {
+			$details = sprintf(
+				/* translators: %s: comma-separated post type labels. */
+				__( 'Missing required post type registrations: %s.', 'comarine-storage-booking-with-woocommerce' ),
+				implode( ', ', $missing_labels )
+			);
+		}
+
+		return array(
+			'status'       => $status,
+			'label'        => __( 'Required post types registered', 'comarine-storage-booking-with-woocommerce' ),
+			'details'      => $details,
+			'action_url'   => $this->get_storage_units_list_url(),
+			'action_label' => __( 'Open Storage Units', 'comarine-storage-booking-with-woocommerce' ),
 		);
 	}
 

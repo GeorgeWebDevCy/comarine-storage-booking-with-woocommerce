@@ -5,7 +5,7 @@ Tags: storage, booking, woocommerce
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.21
+Stable tag: 1.0.22
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Requires Plugins: woocommerce, jcc-payment-gateway-for-wc
@@ -86,6 +86,9 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 3. Admin booking management screen.
 
 == Changelog ==
+
+= 1.0.22 =
+* Overview now checks that required plugin post types are registered and attempts to auto-register missing ones before rendering setup checks.
 
 = 1.0.21 =
 * Added an admin request normalizer for Storage Units menu clicks so malformed submenu requests are redirected to the correct CPT URLs.
@@ -204,6 +207,9 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 * Added activation/runtime dependency checks for WooCommerce and JCC Payment Gateway for WooCommerce.
 
 == Upgrade Notice ==
+
+= 1.0.22 =
+Overview now verifies required post type registrations and auto-registers missing plugin post types before rendering setup checks.
 
 = 1.0.21 =
 Fixes Storage Units submenu clicks on some WordPress admin setups by normalizing the request to the correct CPT URL and preventing `Invalid post type`.
