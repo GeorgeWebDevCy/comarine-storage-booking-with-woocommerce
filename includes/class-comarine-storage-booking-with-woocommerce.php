@@ -210,6 +210,8 @@ class Comarine_Storage_Booking_With_Woocommerce {
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts' );
 		$this->loader->add_action( 'admin_menu', $plugin_admin, 'register_admin_menu' );
 		$this->loader->add_action( 'admin_menu', $plugin_admin, 'ensure_storage_units_submenus', 999 );
+		$this->loader->add_filter( 'parent_file', $plugin_admin, 'filter_admin_parent_file' );
+		$this->loader->add_filter( 'submenu_file', $plugin_admin, 'filter_admin_submenu_file' );
 		$this->loader->add_action( 'admin_init', $plugin_admin, 'maybe_ensure_storage_units_cpt_for_admin_requests', 0 );
 		$this->loader->add_action( 'admin_init', $plugin_admin, 'maybe_normalize_storage_units_menu_requests', 1 );
 		$this->loader->add_action( 'admin_init', $plugin_admin, 'register_settings' );

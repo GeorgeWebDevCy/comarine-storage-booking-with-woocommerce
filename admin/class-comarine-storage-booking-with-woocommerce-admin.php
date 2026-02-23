@@ -227,7 +227,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			add_submenu_page(
 				$menu_slug,
 				__( 'Add New Storage Unit', 'comarine-storage-booking-with-woocommerce' ),
-				__( 'Add New', 'comarine-storage-booking-with-woocommerce' ),
+				__( 'Add Unit', 'comarine-storage-booking-with-woocommerce' ),
 				'edit_posts',
 				$add_slug
 			);
@@ -351,6 +351,46 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			wp_safe_redirect( $this->get_storage_units_add_new_url() );
 			exit;
 		}
+	}
+
+	/**
+	 * Keep the plugin top-level menu highlighted on Storage Unit CPT screens.
+	 *
+	 * @since    1.0.41
+	 *
+	 * @param string $parent_file Current parent file slug.
+	 * @return string
+	 */
+	public function filter_admin_parent_file( $parent_file ) {
+		if ( ! $this->is_storage_unit_admin_request() ) {
+			return $parent_file;
+		}
+
+		return 'comarine-storage-bookings';
+	}
+
+	/**
+	 * Highlight the correct submenu item for Storage Unit list/add/edit screens.
+	 *
+	 * This prevents the Bookings submenu from appearing selected while the user
+	 * is adding or editing a storage unit.
+	 *
+	 * @since    1.0.41
+	 *
+	 * @param string $submenu_file Current submenu file slug.
+	 * @return string
+	 */
+	public function filter_admin_submenu_file( $submenu_file ) {
+		$request = $this->get_storage_unit_admin_request_context();
+		if ( empty( $request['is_storage_unit'] ) ) {
+			return $submenu_file;
+		}
+
+		if ( ! empty( $request['is_add_new'] ) ) {
+			return 'post-new.php?post_type=' . $request['post_type'];
+		}
+
+		return 'edit.php?post_type=' . $request['post_type'];
 	}
 
 	/**
@@ -4752,6 +4792,70 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	 */
 	private function format_area_m2_value( $area ) {
 		return number_format_i18n( (float) $area, 2 );
+	}
+
+	/**
+	 * Check whether the current wp-admin request targets the Storage Unit CPT.
+	 *
+	 * @since    1.0.41
+	 *
+	 * @return bool
+	 */
+	private function is_storage_unit_admin_request() {
+		$context = $this->get_storage_unit_admin_request_context();
+		return ! empty( $context['is_storage_unit'] );
+	}
+
+	/**
+	 * Build request context for Storage Unit list/add/edit admin screens.
+	 *
+	 * @since    1.0.41
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function get_storage_unit_admin_request_context() {
+		$post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' )
+			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE
+			: 'comarine_storageunit';
+		$legacy_post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_LEGACY_UNIT_POST_TYPE' )
+			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_LEGACY_UNIT_POST_TYPE
+			: 'comarine_storage_unit';
+
+		$context = array(
+			'is_storage_unit' => false,
+			'is_add_new'      => false,
+			'post_type'       => $post_type,
+		);
+
+		if ( ! is_admin() ) {
+			return $context;
+		}
+
+		global $pagenow;
+
+		$request_post_type = isset( $_GET['post_type'] ) ? sanitize_key( wp_unslash( $_GET['post_type'] ) ) : '';
+		$resolved_post_type = $request_post_type;
+
+		if ( '' === $resolved_post_type && 'post.php' === (string) $pagenow && isset( $_GET['post'] ) ) {
+			$resolved_post_type = sanitize_key( (string) get_post_type( absint( wp_unslash( $_GET['post'] ) ) ) );
+		}
+
+		if ( '' === $resolved_post_type && function_exists( 'get_current_screen' ) ) {
+			$screen = get_current_screen();
+			if ( $screen && ! empty( $screen->post_type ) ) {
+				$resolved_post_type = sanitize_key( (string) $screen->post_type );
+			}
+		}
+
+		if ( ! in_array( $resolved_post_type, array( $post_type, $legacy_post_type ), true ) ) {
+			return $context;
+		}
+
+		$context['is_storage_unit'] = true;
+		$context['post_type']       = $post_type;
+		$context['is_add_new']      = 'post-new.php' === (string) $pagenow;
+
+		return $context;
 	}
 
 	/**
