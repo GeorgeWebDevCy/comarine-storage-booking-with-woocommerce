@@ -5,7 +5,7 @@ Tags: storage, booking, woocommerce
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.9
+Stable tag: 1.0.10
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Requires Plugins: woocommerce, jcc-payment-gateway-for-wc
@@ -40,6 +40,8 @@ Current implemented milestone includes:
 - Bookings admin now shows a units status overview summary (available/reserved/occupied/etc.)
 - Bookings admin table now supports secure bulk actions for booking and unit updates
 - Bulk booking status changes write audit log entries with per-booking tracking
+- Destructive row actions now show confirmation prompts before execution
+- Bulk actions now support optional audit notes and require explicit confirmation for destructive actions
 - Booking summary block in WooCommerce order admin screen
 
 == Installation ==
@@ -69,6 +71,12 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 3. Admin booking management screen.
 
 == Changelog ==
+
+= 1.0.10 =
+* Added confirmation prompts for destructive row actions (cancel/refund/unit available).
+* Added optional audit note input to Bookings bulk actions.
+* Destructive bulk actions now require an explicit confirmation checkbox before execution.
+* Fixed bulk action form handling so top/bottom action controls submit reliably.
 
 = 1.0.9 =
 * Added secure bulk actions to the Bookings admin table (nonce/capability checked).
@@ -128,6 +136,9 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 * Added activation/runtime dependency checks for WooCommerce and JCC Payment Gateway for WooCommerce.
 
 == Upgrade Notice ==
+
+= 1.0.10 =
+Adds safer admin workflows: confirmations for destructive actions and audit notes for bulk updates.
 
 = 1.0.9 =
 Adds secure bulk actions in Bookings admin, including audit-logged bulk booking status changes.

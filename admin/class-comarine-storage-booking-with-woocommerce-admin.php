@@ -201,8 +201,14 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		}
 
 		$bulk_action = '';
-		if ( isset( $_POST['comarine_booking_bulk_action'] ) ) {
-			$bulk_action = sanitize_key( wp_unslash( $_POST['comarine_booking_bulk_action'] ) );
+		foreach ( array( 'comarine_booking_bulk_action_top', 'comarine_booking_bulk_action_bottom', 'comarine_booking_bulk_action' ) as $bulk_action_field ) {
+			if ( isset( $_POST[ $bulk_action_field ] ) ) {
+				$candidate = sanitize_key( wp_unslash( $_POST[ $bulk_action_field ] ) );
+				if ( '' !== $candidate ) {
+					$bulk_action = $candidate;
+					break;
+				}
+			}
 		}
 
 		if ( isset( $_POST['comarine_apply_bulk_action'] ) || '' !== $bulk_action ) {
@@ -343,6 +349,8 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		$filters      = $this->get_bookings_filters_from_request();
 		$redirect_args = $this->get_bookings_filter_query_args( $filters );
 		$bulk_action  = sanitize_key( (string) $bulk_action );
+		$bulk_note    = $this->get_posted_bulk_note();
+		$bulk_confirmed = $this->is_bulk_action_confirmation_checked();
 
 		$nonce = isset( $_POST['_comarine_bulk_nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['_comarine_bulk_nonce'] ) ) : '';
 		if ( ! wp_verify_nonce( $nonce, 'comarine_booking_bulk_action' ) ) {
@@ -369,7 +377,13 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			exit;
 		}
 
-		$result = $this->perform_bulk_booking_action( $bulk_action, $booking_ids );
+		if ( $this->is_destructive_bulk_booking_action( $bulk_action ) && ! $bulk_confirmed ) {
+			$redirect_args['comarine_notice'] = 'bulk_confirmation_required';
+			wp_safe_redirect( $this->get_bookings_page_url( $redirect_args ) );
+			exit;
+		}
+
+		$result = $this->perform_bulk_booking_action( $bulk_action, $booking_ids, $bulk_note );
 		if ( ! is_array( $result ) ) {
 			$redirect_args['comarine_notice'] = 'bulk_invalid_action';
 			wp_safe_redirect( $this->get_bookings_page_url( $redirect_args ) );
@@ -404,8 +418,9 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	 * @param array<int> $booking_ids Selected booking IDs.
 	 * @return array<string, int>|false
 	 */
-	private function perform_bulk_booking_action( $bulk_action, $booking_ids ) {
+	private function perform_bulk_booking_action( $bulk_action, $booking_ids, $bulk_note = '' ) {
 		$bulk_action = sanitize_key( (string) $bulk_action );
+		$bulk_note   = sanitize_text_field( (string) $bulk_note );
 		$options     = $this->get_bulk_booking_action_options();
 
 		if ( ! isset( $options[ $bulk_action ] ) ) {
@@ -429,9 +444,18 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 
 			if ( 0 === strpos( $bulk_action, 'bulk_set_unit_status_' ) ) {
 				$unit_status = (string) substr( $bulk_action, strlen( 'bulk_set_unit_status_' ) );
-				$success     = $this->update_booking_unit_status( $booking, $unit_status );
+				$success     = $this->update_booking_unit_status(
+					$booking,
+					$unit_status,
+					array(
+						'event_type' => 'admin_bulk_set_unit_status',
+						'action'     => $bulk_action,
+						'note'       => $bulk_note,
+						'message_prefix' => __( 'Bulk admin', 'comarine-storage-booking-with-woocommerce' ),
+					)
+				);
 			} else {
-				$success = $this->apply_bulk_booking_status_action( $booking, $bulk_action );
+				$success = $this->apply_bulk_booking_status_action( $booking, $bulk_action, $bulk_note );
 			}
 
 			if ( $success ) {
@@ -453,7 +477,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	 * @param string $bulk_action Bulk action key.
 	 * @return bool
 	 */
-	private function apply_bulk_booking_status_action( $booking, $bulk_action ) {
+	private function apply_bulk_booking_status_action( $booking, $bulk_action, $bulk_note = '' ) {
 		$booking_id             = isset( $booking->id ) ? absint( $booking->id ) : 0;
 		$order_id               = isset( $booking->order_id ) ? absint( $booking->order_id ) : 0;
 		$previous_booking_status = isset( $booking->status ) ? sanitize_key( (string) $booking->status ) : '';
@@ -462,6 +486,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		$requested_unit_status  = '';
 		$paid_unit_status_synced = false;
 		$success                = false;
+		$bulk_note              = sanitize_text_field( (string) $bulk_note );
 
 		if ( $booking_id <= 0 ) {
 			return false;
@@ -502,11 +527,12 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 				__( 'Bulk admin action changed booking status from %1$s to %2$s.', 'comarine-storage-booking-with-woocommerce' ),
 				Comarine_Storage_Booking_With_Woocommerce_Bookings::get_status_label( $previous_booking_status ),
 				Comarine_Storage_Booking_With_Woocommerce_Bookings::get_status_label( $requested_status )
-			),
+			) . ( '' !== $bulk_note ? ' ' . sprintf( __( 'Note: %s', 'comarine-storage-booking-with-woocommerce' ), $bulk_note ) : '' ),
 			array(
 				'action'                  => $bulk_action,
 				'previous_booking_status' => $previous_booking_status,
 				'new_booking_status'      => $requested_status,
+				'note'                    => $bulk_note,
 			)
 		);
 
@@ -519,11 +545,12 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 					__( 'Bulk payment action changed unit status from %1$s to %2$s.', 'comarine-storage-booking-with-woocommerce' ),
 					$previous_unit_status ? ucfirst( $previous_unit_status ) : '-',
 					ucfirst( $requested_unit_status )
-				),
+				) . ( '' !== $bulk_note ? ' ' . sprintf( __( 'Note: %s', 'comarine-storage-booking-with-woocommerce' ), $bulk_note ) : '' ),
 				array(
 					'action'               => $bulk_action,
 					'previous_unit_status' => $previous_unit_status,
 					'new_unit_status'      => $requested_unit_status,
+					'note'                 => $bulk_note,
 				)
 			);
 		}
@@ -547,6 +574,65 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			'bulk_set_unit_status_occupied' => __( 'Set Unit: Occupied', 'comarine-storage-booking-with-woocommerce' ),
 			'bulk_set_unit_status_available'=> __( 'Set Unit: Available', 'comarine-storage-booking-with-woocommerce' ),
 		);
+	}
+
+	/**
+	 * Whether a bulk action should require explicit confirmation.
+	 *
+	 * @since    1.0.9
+	 *
+	 * @param string $bulk_action Bulk action key.
+	 * @return bool
+	 */
+	private function is_destructive_bulk_booking_action( $bulk_action ) {
+		return in_array(
+			sanitize_key( (string) $bulk_action ),
+			array(
+				'bulk_mark_cancelled',
+				'bulk_mark_refunded',
+				'bulk_set_unit_status_available',
+			),
+			true
+		);
+	}
+
+	/**
+	 * Read the optional audit note submitted with bulk actions.
+	 *
+	 * @since    1.0.9
+	 *
+	 * @return string
+	 */
+	private function get_posted_bulk_note() {
+		foreach ( array( 'comarine_bulk_note_top', 'comarine_bulk_note_bottom', 'comarine_bulk_note' ) as $field ) {
+			if ( ! isset( $_POST[ $field ] ) ) {
+				continue;
+			}
+
+			$value = sanitize_text_field( wp_unslash( $_POST[ $field ] ) );
+			if ( '' !== $value ) {
+				return substr( $value, 0, 250 );
+			}
+		}
+
+		return '';
+	}
+
+	/**
+	 * Check whether the user confirmed a destructive bulk action.
+	 *
+	 * @since    1.0.9
+	 *
+	 * @return bool
+	 */
+	private function is_bulk_action_confirmation_checked() {
+		foreach ( array( 'comarine_bulk_confirm_top', 'comarine_bulk_confirm_bottom', 'comarine_bulk_confirm' ) as $field ) {
+			if ( isset( $_POST[ $field ] ) && '1' === (string) wp_unslash( $_POST[ $field ] ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**
@@ -1221,16 +1307,19 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		}
 
 		$options = $this->get_bulk_booking_action_options();
+		$position = $top ? 'top' : 'bottom';
 
 		echo '<div class="tablenav top" style="height:auto;padding:8px 0;">';
 		echo '<div class="alignleft actions">';
-		echo '<label class="screen-reader-text" for="comarine_booking_bulk_action_' . ( $top ? 'top' : 'bottom' ) . '">' . esc_html__( 'Select bulk action', 'comarine-storage-booking-with-woocommerce' ) . '</label>';
-		echo '<select name="comarine_booking_bulk_action" id="comarine_booking_bulk_action_' . ( $top ? 'top' : 'bottom' ) . '">';
+		echo '<label class="screen-reader-text" for="comarine_booking_bulk_action_' . esc_attr( $position ) . '">' . esc_html__( 'Select bulk action', 'comarine-storage-booking-with-woocommerce' ) . '</label>';
+		echo '<select name="comarine_booking_bulk_action_' . esc_attr( $position ) . '" id="comarine_booking_bulk_action_' . esc_attr( $position ) . '">';
 		echo '<option value="">' . esc_html__( 'Bulk actions', 'comarine-storage-booking-with-woocommerce' ) . '</option>';
 		foreach ( $options as $value => $label ) {
 			echo '<option value="' . esc_attr( $value ) . '">' . esc_html( $label ) . '</option>';
 		}
 		echo '</select> ';
+		echo '<input type="text" name="comarine_bulk_note_' . esc_attr( $position ) . '" placeholder="' . esc_attr__( 'Optional audit note', 'comarine-storage-booking-with-woocommerce' ) . '" style="width:220px;max-width:35vw;" /> ';
+		echo '<label style="margin-right:8px;"><input type="checkbox" name="comarine_bulk_confirm_' . esc_attr( $position ) . '" value="1" /> ' . esc_html__( 'Confirm destructive action', 'comarine-storage-booking-with-woocommerce' ) . '</label>';
 		submit_button( __( 'Apply', 'comarine-storage-booking-with-woocommerce' ), 'secondary', 'comarine_apply_bulk_action', false );
 		echo '</div>';
 		echo '<div class="clear"></div>';
@@ -1404,6 +1493,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			'bulk_update_failed' => array( 'error', __( 'Bulk action did not update any selected bookings.', 'comarine-storage-booking-with-woocommerce' ) ),
 			'bulk_none_selected' => array( 'warning', __( 'Select at least one booking before applying a bulk action.', 'comarine-storage-booking-with-woocommerce' ) ),
 			'bulk_invalid_action' => array( 'error', __( 'Invalid bulk action requested.', 'comarine-storage-booking-with-woocommerce' ) ),
+			'bulk_confirmation_required' => array( 'warning', __( 'Confirm the destructive bulk action before applying it.', 'comarine-storage-booking-with-woocommerce' ) ),
 			'bulk_invalid_nonce'  => array( 'error', __( 'Security check failed for bulk booking action.', 'comarine-storage-booking-with-woocommerce' ) ),
 			'booking_not_found'=> array( 'error', __( 'Booking record not found.', 'comarine-storage-booking-with-woocommerce' ) ),
 			'invalid_nonce'    => array( 'error', __( 'Security check failed for booking action.', 'comarine-storage-booking-with-woocommerce' ) ),
@@ -1722,17 +1812,35 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		}
 
 		if ( 'cancelled' !== $current_status ) {
-			$actions[] = $this->build_booking_action_link( $booking_id, 'mark_cancelled', __( 'Cancel', 'comarine-storage-booking-with-woocommerce' ) );
+			$actions[] = $this->build_booking_action_link(
+				$booking_id,
+				'mark_cancelled',
+				__( 'Cancel', 'comarine-storage-booking-with-woocommerce' ),
+				array(),
+				__( 'Cancel this booking? This will release the lock and update the booking status.', 'comarine-storage-booking-with-woocommerce' )
+			);
 		}
 
 		if ( 'refunded' !== $current_status && ( isset( $booking->order_id ) && (int) $booking->order_id > 0 ) ) {
-			$actions[] = $this->build_booking_action_link( $booking_id, 'mark_refunded', __( 'Mark Refunded', 'comarine-storage-booking-with-woocommerce' ) );
+			$actions[] = $this->build_booking_action_link(
+				$booking_id,
+				'mark_refunded',
+				__( 'Mark Refunded', 'comarine-storage-booking-with-woocommerce' ),
+				array(),
+				__( 'Mark this booking as refunded? Review the linked WooCommerce order before continuing.', 'comarine-storage-booking-with-woocommerce' )
+			);
 		}
 
 		if ( $unit_post_id > 0 ) {
 			$actions[] = $this->build_booking_action_link( $booking_id, 'set_unit_status', __( 'Unit: Reserved', 'comarine-storage-booking-with-woocommerce' ), array( 'unit_status' => 'reserved' ) );
 			$actions[] = $this->build_booking_action_link( $booking_id, 'set_unit_status', __( 'Unit: Occupied', 'comarine-storage-booking-with-woocommerce' ), array( 'unit_status' => 'occupied' ) );
-			$actions[] = $this->build_booking_action_link( $booking_id, 'set_unit_status', __( 'Unit: Available', 'comarine-storage-booking-with-woocommerce' ), array( 'unit_status' => 'available' ) );
+			$actions[] = $this->build_booking_action_link(
+				$booking_id,
+				'set_unit_status',
+				__( 'Unit: Available', 'comarine-storage-booking-with-woocommerce' ),
+				array( 'unit_status' => 'available' ),
+				__( 'Set the linked unit to Available? This can reopen the unit for new bookings.', 'comarine-storage-booking-with-woocommerce' )
+			);
 		}
 
 		return $actions;
@@ -1746,10 +1854,11 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	 * @param int    $booking_id Booking ID.
 	 * @param string $action     Action key.
 	 * @param string $label      Link label.
-	 * @param array  $extra_args Extra query args.
+	 * @param array  $extra_args       Extra query args.
+	 * @param string $confirm_message  Optional confirmation prompt.
 	 * @return string
 	 */
-	private function build_booking_action_link( $booking_id, $action, $label, $extra_args = array() ) {
+	private function build_booking_action_link( $booking_id, $action, $label, $extra_args = array(), $confirm_message = '' ) {
 		$args = array_merge(
 			array(
 				'booking_id'                    => absint( $booking_id ),
@@ -1759,7 +1868,12 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			$extra_args
 		);
 
-		return '<a class="button button-small" href="' . esc_url( $this->get_bookings_page_url( $args ) ) . '">' . esc_html( $label ) . '</a>';
+		$attributes = '';
+		if ( '' !== $confirm_message ) {
+			$attributes .= ' onclick="return window.confirm(\'' . esc_js( (string) $confirm_message ) . '\');"';
+		}
+
+		return '<a class="button button-small" href="' . esc_url( $this->get_bookings_page_url( $args ) ) . '"' . $attributes . '>' . esc_html( $label ) . '</a>';
 	}
 
 	/**
@@ -1818,13 +1932,23 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	 *
 	 * @since    1.0.5
 	 *
-	 * @param object $booking     Booking row.
-	 * @param string $unit_status Unit status key.
+	 * @param object               $booking     Booking row.
+	 * @param string               $unit_status Unit status key.
+	 * @param array<string, mixed> $audit_args  Optional audit metadata overrides.
 	 * @return bool
 	 */
-	private function update_booking_unit_status( $booking, $unit_status ) {
+	private function update_booking_unit_status( $booking, $unit_status, $audit_args = array() ) {
 		$unit_post_id = isset( $booking->unit_post_id ) ? absint( $booking->unit_post_id ) : 0;
 		$unit_status  = sanitize_key( (string) $unit_status );
+		$audit_args   = wp_parse_args(
+			is_array( $audit_args ) ? $audit_args : array(),
+			array(
+				'event_type'      => 'admin_set_unit_status',
+				'action'          => 'set_unit_status',
+				'note'            => '',
+				'message_prefix'  => __( 'Admin', 'comarine-storage-booking-with-woocommerce' ),
+			)
+		);
 
 		if ( $unit_post_id <= 0 ) {
 			return false;
@@ -1842,19 +1966,22 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 
 		$updated = false !== update_post_meta( $unit_post_id, '_csu_status', $unit_status );
 		if ( $updated ) {
+			$note = sanitize_text_field( (string) $audit_args['note'] );
 			$this->log_booking_audit_event(
 				$booking,
-				'admin_set_unit_status',
+				sanitize_key( (string) $audit_args['event_type'] ),
 				sprintf(
 					/* translators: 1: previous unit status, 2: new unit status */
-					__( 'Admin changed unit status from %1$s to %2$s.', 'comarine-storage-booking-with-woocommerce' ),
+					__( '%3$s changed unit status from %1$s to %2$s.', 'comarine-storage-booking-with-woocommerce' ),
 					$current ? ucfirst( $current ) : '-',
-					ucfirst( $unit_status )
-				),
+					ucfirst( $unit_status ),
+					(string) $audit_args['message_prefix']
+				) . ( '' !== $note ? ' ' . sprintf( __( 'Note: %s', 'comarine-storage-booking-with-woocommerce' ), $note ) : '' ),
 				array(
-					'action'               => 'set_unit_status',
+					'action'               => sanitize_key( (string) $audit_args['action'] ),
 					'previous_unit_status' => $current,
 					'new_unit_status'      => $unit_status,
+					'note'                 => $note,
 				)
 			);
 		}

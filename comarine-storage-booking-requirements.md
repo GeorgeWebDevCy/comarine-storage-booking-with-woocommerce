@@ -591,8 +591,14 @@ Create settings page:
 - Added bulk unit status updates (available/reserved/occupied) reusing audited unit status change logic
 - Added bulk action result notices with updated/failed counts
 
+### Milestone 9 (Implemented - Admin Confirmations + Audit Notes)
+- Added confirmation prompts for destructive single-row actions (cancel/refund/unit available)
+- Added optional audit note field for bulk actions and persisted notes in audit log context/messages
+- Destructive bulk actions now require explicit confirmation before running
+- Fixed bulk action toolbar submission so top/bottom controls submit reliably
+
 ### Next Milestone (Planned)
 - Frontend UX improvements (availability messaging, clearer unit details, add-ons UI)
 - Stronger concurrency controls / atomic locking for unit reservation conflicts
 - Reporting enhancements (exports beyond admin table filters, richer analytics summaries)
-- Admin workflow refinements (audit reasons/notes, safer destructive action confirmations)
+- Admin workflow refinements (reason-required policies, safer destructive action confirmations)
