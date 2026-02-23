@@ -2,7 +2,7 @@
 
 WordPress plugin for CoMarine storage unit bookings with WooCommerce checkout integration.
 
-## Current Status (Milestone 1)
+## Current Status (Milestone 5)
 
 Implemented in the codebase so far:
 
@@ -12,24 +12,25 @@ Implemented in the codebase so far:
 - Storage Unit admin meta fields (unit code, size, floor, pricing, status)
 - Storage Unit admin list columns for key metadata
 - Bookings custom database table (`wp_comarine_bookings` with prefix-aware table name)
-- Basic admin "Bookings" submenu page (overview / placeholder list)
+- Audit log custom database table (`wp_comarine_booking_audit_log` with prefix-aware table name)
+- Automatic DB schema upgrade checks for custom tables after plugin updates
+- Bookings admin management screen (filters, manual actions, CSV export, audit log)
 - Settings page for booking container product, lock TTL, paid unit status, and currency
 - Shortcode `[comarine_storage_units]` for initial frontend booking entry
 - Booking lock creation + cart item metadata + price snapshot handling
 - WooCommerce order synchronization hooks (JCC `completed` treated as paid)
 - Checkout/cart lock validation and automatic cleanup of invalid booking items
 - Admin configuration warnings for missing/invalid booking container product setup
-- Bookings admin filters and manual booking/unit status actions
 - Booking summary panel on WooCommerce order admin pages
+- Audit log entries for manual booking/unit status actions
 
 Not implemented yet (next milestones):
 
-- Frontend booking flow
+- Frontend UX polish (availability messaging, richer unit details)
 - Advanced availability filtering/search UI
 - Atomic lock transactions / stronger concurrency protections
 - Add-ons and pricing rules
 - Email/SMS notifications
-- CSV export and audit log for manual admin status changes
 
 ## Requirements
 
@@ -72,3 +73,4 @@ If you deploy from source, include `vendor/` (or run `composer install` as part 
 4. Add the shortcode `[comarine_storage_units]` to a page.
 5. Book a unit and complete checkout (JCC sets order status to `completed` on success).
 6. Test lock expiry behavior by leaving a booking in the cart beyond the configured TTL, then reopening cart/checkout (invalid locks should be removed with a notice).
+7. In `Storage Units > Bookings`, use a manual booking/unit action and confirm the new audit entry appears; test the filtered `Export CSV` button.

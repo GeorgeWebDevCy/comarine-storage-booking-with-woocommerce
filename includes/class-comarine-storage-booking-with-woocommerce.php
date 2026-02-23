@@ -159,8 +159,10 @@ class Comarine_Storage_Booking_With_Woocommerce {
 	 */
 	private function define_domain_hooks() {
 		$storage_units = new Comarine_Storage_Booking_With_Woocommerce_Storage_Units( $this->get_plugin_name(), $this->get_version() );
+		$bookings = new Comarine_Storage_Booking_With_Woocommerce_Bookings();
 		$wc_integration = new Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration( $this->get_plugin_name(), $this->get_version() );
 
+		$this->loader->add_action( 'plugins_loaded', $bookings, 'maybe_upgrade_schema', 20 );
 		$this->loader->add_action( 'init', $storage_units, 'register_post_type', 5 );
 		$this->loader->add_action( 'init', $wc_integration, 'register_shortcodes', 20 );
 		$this->loader->add_action( 'init', $wc_integration, 'maybe_expire_stale_locks', 30 );

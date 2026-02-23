@@ -567,8 +567,15 @@ Create settings page:
 - Manual booking status actions (paid/cancelled/refunded) and unit status overrides from bookings table
 - WooCommerce order admin page shows linked CoMarine booking summary for staff visibility
 
+### Milestone 5 (Implemented - Admin Reporting + Audit Trail Foundations)
+- Added `wp_comarine_booking_audit_log` custom audit table (prefix-aware) via `dbDelta()`
+- Added runtime DB schema upgrade checks to create/upgrade booking tables after plugin updates
+- Added filtered CSV export from the Bookings admin screen
+- Added audit logging for manual booking status and unit status admin actions
+- Added recent audit events table to the Bookings admin screen (filter-aware by booking/order)
+
 ### Next Milestone (Planned)
-- Booking container product setting + WooCommerce cart item metadata
-- Reservation lock creation + lock TTL handling
-- Checkout/order hooks to confirm/cancel bookings
-- Initial frontend unit listing and "Book Now" flow entry point
+- Frontend UX improvements (availability messaging, clearer unit details, add-ons UI)
+- Stronger concurrency controls / atomic locking for unit reservation conflicts
+- Reporting enhancements (date-range filters, richer CSV columns, exports beyond admin table filters)
+- Admin workflow refinements (audit reasons/notes, safer bulk actions)

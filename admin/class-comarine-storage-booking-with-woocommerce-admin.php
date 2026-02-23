@@ -216,6 +216,10 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			exit;
 		}
 
+		if ( 'export_csv' === $action ) {
+			$this->stream_bookings_csv_export();
+		}
+
 		$booking_id = isset( $_GET['booking_id'] ) ? absint( $_GET['booking_id'] ) : 0;
 		$booking    = $booking_id > 0 ? Comarine_Storage_Booking_With_Woocommerce_Bookings::get_booking( $booking_id ) : null;
 		if ( ! $booking ) {
@@ -223,34 +227,87 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			exit;
 		}
 
-		$success = false;
+		$success                 = false;
+		$requested_status        = '';
+		$requested_unit_status   = '';
+		$paid_unit_status_synced = false;
+		$previous_booking_status = isset( $booking->status ) ? sanitize_key( (string) $booking->status ) : '';
+		$previous_unit_status    = ( isset( $booking->unit_post_id ) && (int) $booking->unit_post_id > 0 ) ? sanitize_key( (string) get_post_meta( (int) $booking->unit_post_id, '_csu_status', true ) ) : '';
 
 		switch ( $action ) {
 			case 'mark_paid':
 				$success = Comarine_Storage_Booking_With_Woocommerce_Bookings::mark_booking_paid( $booking_id, (int) $booking->order_id );
+				$requested_status = 'paid';
 				if ( $success && (int) $booking->unit_post_id > 0 ) {
 					$paid_unit_status = (string) comarine_storage_booking_with_woocommerce_get_setting( 'paid_unit_status', 'reserved' );
-					update_post_meta( (int) $booking->unit_post_id, '_csu_status', in_array( $paid_unit_status, array( 'reserved', 'occupied' ), true ) ? $paid_unit_status : 'reserved' );
+					$requested_unit_status = in_array( $paid_unit_status, array( 'reserved', 'occupied' ), true ) ? $paid_unit_status : 'reserved';
+					$paid_unit_status_synced = false !== update_post_meta( (int) $booking->unit_post_id, '_csu_status', $requested_unit_status );
 				}
 				break;
 
 			case 'mark_cancelled':
 				$success = Comarine_Storage_Booking_With_Woocommerce_Bookings::mark_booking_cancelled( $booking_id, (int) $booking->order_id );
+				$requested_status = 'cancelled';
 				break;
 
 			case 'mark_refunded':
 				$success = Comarine_Storage_Booking_With_Woocommerce_Bookings::mark_booking_refunded( $booking_id, (int) $booking->order_id );
+				$requested_status = 'refunded';
 				break;
 
 			case 'set_booking_status':
 				$status  = isset( $_GET['status'] ) ? sanitize_key( wp_unslash( $_GET['status'] ) ) : '';
 				$success = Comarine_Storage_Booking_With_Woocommerce_Bookings::set_booking_status( $booking_id, $status );
+				$requested_status = $status;
 				break;
 
 			case 'set_unit_status':
-				$unit_status = isset( $_GET['unit_status'] ) ? sanitize_key( wp_unslash( $_GET['unit_status'] ) ) : '';
-				$success     = $this->update_booking_unit_status( $booking, $unit_status );
+				$requested_unit_status = isset( $_GET['unit_status'] ) ? sanitize_key( wp_unslash( $_GET['unit_status'] ) ) : '';
+				$success               = $this->update_booking_unit_status( $booking, $requested_unit_status );
 				break;
+		}
+
+		if ( $success ) {
+			switch ( $action ) {
+				case 'mark_paid':
+				case 'mark_cancelled':
+				case 'mark_refunded':
+				case 'set_booking_status':
+					$this->log_booking_audit_event(
+						$booking,
+						'admin_' . $action,
+						sprintf(
+							/* translators: 1: previous status, 2: new status */
+							__( 'Admin changed booking status from %1$s to %2$s.', 'comarine-storage-booking-with-woocommerce' ),
+							Comarine_Storage_Booking_With_Woocommerce_Bookings::get_status_label( $previous_booking_status ),
+							Comarine_Storage_Booking_With_Woocommerce_Bookings::get_status_label( $requested_status )
+						),
+						array(
+							'action'                 => $action,
+							'previous_booking_status'=> $previous_booking_status,
+							'new_booking_status'     => $requested_status,
+						)
+					);
+
+					if ( '' !== $requested_unit_status && $requested_unit_status !== $previous_unit_status && $paid_unit_status_synced ) {
+						$this->log_booking_audit_event(
+							$booking,
+							'admin_mark_paid_unit_status_sync',
+							sprintf(
+								/* translators: 1: previous unit status, 2: new unit status */
+								__( 'Admin payment action changed unit status from %1$s to %2$s.', 'comarine-storage-booking-with-woocommerce' ),
+								$previous_unit_status ? ucfirst( $previous_unit_status ) : '-',
+								ucfirst( $requested_unit_status )
+							),
+							array(
+								'action'              => $action,
+								'previous_unit_status'=> $previous_unit_status,
+								'new_unit_status'     => $requested_unit_status,
+							)
+						);
+					}
+					break;
+			}
 		}
 
 		wp_safe_redirect(
@@ -280,8 +337,8 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			return;
 		}
 
-		$status_filter = isset( $_GET['status_filter'] ) ? sanitize_key( wp_unslash( $_GET['status_filter'] ) ) : '';
-		$order_filter  = isset( $_GET['order_id'] ) ? absint( $_GET['order_id'] ) : 0;
+		$status_filter  = isset( $_GET['status_filter'] ) ? sanitize_key( wp_unslash( $_GET['status_filter'] ) ) : '';
+		$order_filter   = isset( $_GET['order_id'] ) ? absint( $_GET['order_id'] ) : 0;
 		$booking_filter = isset( $_GET['booking_id'] ) ? absint( $_GET['booking_id'] ) : 0;
 
 		$query_args = array(
@@ -322,12 +379,14 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		echo '<label style="margin-right:12px;">' . esc_html__( 'Booking ID', 'comarine-storage-booking-with-woocommerce' ) . ' <input class="small-text" type="number" min="0" name="booking_id" value="' . esc_attr( (string) $booking_filter ) . '" /></label>';
 		submit_button( __( 'Filter', 'comarine-storage-booking-with-woocommerce' ), 'secondary', '', false );
 		echo ' <a class="button" href="' . esc_url( $this->get_bookings_page_url() ) . '">' . esc_html__( 'Reset', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
+		echo ' <a class="button" href="' . esc_url( $this->build_bookings_export_link( $status_filter, $order_filter, $booking_filter ) ) . '">' . esc_html__( 'Export CSV', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
 		echo '</form>';
 
 		echo '<h2>' . esc_html__( 'Recent bookings', 'comarine-storage-booking-with-woocommerce' ) . '</h2>';
 
 		if ( empty( $recent_rows ) ) {
-			echo '<p>' . esc_html__( 'No bookings found yet. The booking flow is not implemented in this milestone, so this table is expected to be empty.', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
+			echo '<p>' . esc_html__( 'No bookings match the current filters yet.', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
+			$this->render_booking_audit_log_section( $order_filter, $booking_filter );
 			echo '</div>';
 			return;
 		}
@@ -386,7 +445,9 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			echo '</tr>';
 		}
 
-		echo '</tbody></table></div>';
+		echo '</tbody></table>';
+		$this->render_booking_audit_log_section( $order_filter, $booking_filter );
+		echo '</div>';
 	}
 
 	/**
@@ -701,6 +762,247 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	}
 
 	/**
+	 * Build a secured CSV export URL for the bookings admin page.
+	 *
+	 * @since    1.0.6
+	 *
+	 * @param string $status_filter  Optional status filter.
+	 * @param int    $order_filter   Optional order filter.
+	 * @param int    $booking_filter Optional booking filter.
+	 * @return string
+	 */
+	private function build_bookings_export_link( $status_filter = '', $order_filter = 0, $booking_filter = 0 ) {
+		$args = array(
+			'comarine_booking_admin_action' => 'export_csv',
+			'_comarine_nonce'               => wp_create_nonce( 'comarine_booking_admin_action' ),
+		);
+
+		$status_filter = sanitize_key( (string) $status_filter );
+		$order_filter  = absint( $order_filter );
+		$booking_filter = absint( $booking_filter );
+
+		if ( '' !== $status_filter ) {
+			$args['status_filter'] = $status_filter;
+		}
+
+		if ( $order_filter > 0 ) {
+			$args['order_id'] = $order_filter;
+		}
+
+		if ( $booking_filter > 0 ) {
+			$args['booking_id'] = $booking_filter;
+		}
+
+		return $this->get_bookings_page_url( $args );
+	}
+
+	/**
+	 * Stream a CSV export of bookings (supports current filters).
+	 *
+	 * @since    1.0.6
+	 *
+	 * @return void
+	 */
+	private function stream_bookings_csv_export() {
+		if ( ! current_user_can( $this->get_admin_capability() ) ) {
+			wp_die( esc_html__( 'You do not have permission to export bookings.', 'comarine-storage-booking-with-woocommerce' ) );
+		}
+
+		if ( ! class_exists( 'Comarine_Storage_Booking_With_Woocommerce_Bookings' ) ) {
+			wp_die( esc_html__( 'Bookings helper class is not loaded.', 'comarine-storage-booking-with-woocommerce' ) );
+		}
+
+		$status_filter  = isset( $_GET['status_filter'] ) ? sanitize_key( wp_unslash( $_GET['status_filter'] ) ) : '';
+		$order_filter   = isset( $_GET['order_id'] ) ? absint( $_GET['order_id'] ) : 0;
+		$booking_filter = isset( $_GET['booking_id'] ) ? absint( $_GET['booking_id'] ) : 0;
+
+		$filename = 'comarine-bookings-export-' . gmdate( 'Ymd-His' ) . '.csv';
+
+		nocache_headers();
+		header( 'Content-Type: text/csv; charset=utf-8' );
+		header( 'Content-Disposition: attachment; filename="' . sanitize_file_name( $filename ) . '"' );
+
+		$output = fopen( 'php://output', 'w' );
+		if ( false === $output ) {
+			exit;
+		}
+
+		fputcsv(
+			$output,
+			array(
+				'booking_id',
+				'unit_post_id',
+				'unit_code',
+				'unit_status',
+				'order_id',
+				'user_id',
+				'duration_key',
+				'start_ts',
+				'end_ts',
+				'price_total',
+				'currency',
+				'status',
+				'lock_expires_ts',
+				'created_ts',
+				'updated_ts',
+			)
+		);
+
+		$offset     = 0;
+		$batch_size = 200;
+
+		while ( true ) {
+			$rows = Comarine_Storage_Booking_With_Woocommerce_Bookings::get_bookings(
+				array(
+					'limit'      => $batch_size,
+					'offset'     => $offset,
+					'status'     => $status_filter,
+					'order_id'   => $order_filter,
+					'booking_id' => $booking_filter,
+				)
+			);
+
+			if ( empty( $rows ) ) {
+				break;
+			}
+
+			foreach ( $rows as $row ) {
+				$unit_post_id = isset( $row->unit_post_id ) ? (int) $row->unit_post_id : 0;
+				$unit_status  = $unit_post_id > 0 ? (string) get_post_meta( $unit_post_id, '_csu_status', true ) : '';
+
+				fputcsv(
+					$output,
+					array(
+						isset( $row->id ) ? (int) $row->id : 0,
+						$unit_post_id,
+						isset( $row->unit_code ) ? (string) $row->unit_code : '',
+						$unit_status,
+						isset( $row->order_id ) ? (int) $row->order_id : 0,
+						isset( $row->user_id ) ? (int) $row->user_id : 0,
+						isset( $row->duration_key ) ? (string) $row->duration_key : '',
+						isset( $row->start_ts ) ? (string) $row->start_ts : '',
+						isset( $row->end_ts ) ? (string) $row->end_ts : '',
+						isset( $row->price_total ) ? (string) $row->price_total : '',
+						isset( $row->currency ) ? (string) $row->currency : '',
+						isset( $row->status ) ? (string) $row->status : '',
+						isset( $row->lock_expires_ts ) ? (string) $row->lock_expires_ts : '',
+						isset( $row->created_ts ) ? (string) $row->created_ts : '',
+						isset( $row->updated_ts ) ? (string) $row->updated_ts : '',
+					)
+				);
+			}
+
+			if ( count( $rows ) < $batch_size ) {
+				break;
+			}
+
+			$offset += $batch_size;
+		}
+
+		fclose( $output );
+		exit;
+	}
+
+	/**
+	 * Render recent audit log events below the bookings table.
+	 *
+	 * @since    1.0.6
+	 *
+	 * @param int $order_filter   Optional order filter.
+	 * @param int $booking_filter Optional booking filter.
+	 * @return void
+	 */
+	private function render_booking_audit_log_section( $order_filter = 0, $booking_filter = 0 ) {
+		if ( ! class_exists( 'Comarine_Storage_Booking_With_Woocommerce_Bookings' ) ) {
+			return;
+		}
+
+		if ( ! Comarine_Storage_Booking_With_Woocommerce_Bookings::audit_table_exists() ) {
+			echo '<h2>' . esc_html__( 'Recent audit events', 'comarine-storage-booking-with-woocommerce' ) . '</h2>';
+			echo '<p>' . esc_html__( 'Audit log table is not available yet. Reload the page after plugin upgrade schema runs.', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
+			return;
+		}
+
+		$filters = array(
+			'order_id'   => absint( $order_filter ),
+			'booking_id' => absint( $booking_filter ),
+		);
+		$count   = Comarine_Storage_Booking_With_Woocommerce_Bookings::count_audit_events( $filters );
+		$events   = Comarine_Storage_Booking_With_Woocommerce_Bookings::get_audit_events(
+			array_merge(
+				$filters,
+				array(
+					'limit' => 20,
+				)
+			)
+		);
+
+		echo '<h2 style="margin-top:24px;">' . esc_html__( 'Recent audit events', 'comarine-storage-booking-with-woocommerce' ) . '</h2>';
+		echo '<p><strong>' . esc_html__( 'Audit rows:', 'comarine-storage-booking-with-woocommerce' ) . '</strong> ' . esc_html( (string) $count ) . '</p>';
+
+		if ( empty( $events ) ) {
+			echo '<p>' . esc_html__( 'No audit events logged for the current filters yet.', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
+			return;
+		}
+
+		echo '<table class="widefat striped"><thead><tr>';
+		echo '<th>' . esc_html__( 'Time', 'comarine-storage-booking-with-woocommerce' ) . '</th>';
+		echo '<th>' . esc_html__( 'Event', 'comarine-storage-booking-with-woocommerce' ) . '</th>';
+		echo '<th>' . esc_html__( 'Booking', 'comarine-storage-booking-with-woocommerce' ) . '</th>';
+		echo '<th>' . esc_html__( 'Unit', 'comarine-storage-booking-with-woocommerce' ) . '</th>';
+		echo '<th>' . esc_html__( 'Order', 'comarine-storage-booking-with-woocommerce' ) . '</th>';
+		echo '<th>' . esc_html__( 'Actor', 'comarine-storage-booking-with-woocommerce' ) . '</th>';
+		echo '<th>' . esc_html__( 'Message', 'comarine-storage-booking-with-woocommerce' ) . '</th>';
+		echo '</tr></thead><tbody>';
+
+		foreach ( $events as $event ) {
+			$booking_id  = isset( $event->booking_id ) ? (int) $event->booking_id : 0;
+			$unit_post_id = isset( $event->unit_post_id ) ? (int) $event->unit_post_id : 0;
+			$order_id    = isset( $event->order_id ) ? (int) $event->order_id : 0;
+			$unit_link   = $unit_post_id > 0 ? get_edit_post_link( $unit_post_id ) : '';
+			$order_link  = $order_id > 0 ? admin_url( 'post.php?post=' . $order_id . '&action=edit' ) : '';
+			$booking_link = $booking_id > 0 ? $this->get_bookings_page_url( array( 'booking_id' => $booking_id ) ) : '';
+			$actor_label = isset( $event->actor_label ) ? (string) $event->actor_label : '';
+			$message     = isset( $event->message ) ? (string) $event->message : '';
+
+			echo '<tr>';
+			echo '<td>' . esc_html( isset( $event->created_ts ) ? (string) $event->created_ts : '' ) . '</td>';
+			echo '<td><code>' . esc_html( isset( $event->event_type ) ? (string) $event->event_type : '' ) . '</code></td>';
+			echo '<td>';
+			if ( $booking_link ) {
+				echo '<a href="' . esc_url( $booking_link ) . '">#' . esc_html( (string) $booking_id ) . '</a>';
+			} else {
+				echo $booking_id > 0 ? '#' . esc_html( (string) $booking_id ) : '&ndash;';
+			}
+			echo '</td>';
+			echo '<td>';
+			if ( $unit_link ) {
+				echo '<a href="' . esc_url( $unit_link ) . '">' . esc_html( get_the_title( $unit_post_id ) ?: (string) $unit_post_id ) . '</a>';
+			} else {
+				echo $unit_post_id > 0 ? esc_html( (string) $unit_post_id ) : '&ndash;';
+			}
+			echo '</td>';
+			echo '<td>';
+			if ( $order_link ) {
+				echo '<a href="' . esc_url( $order_link ) . '">#' . esc_html( (string) $order_id ) . '</a>';
+			} else {
+				echo $order_id > 0 ? '#' . esc_html( (string) $order_id ) : '&ndash;';
+			}
+			echo '</td>';
+			echo '<td>' . esc_html( '' !== $actor_label ? $actor_label : __( 'System', 'comarine-storage-booking-with-woocommerce' ) ) . '</td>';
+			echo '<td>';
+			echo '' !== $message ? esc_html( $message ) : '&ndash;';
+			if ( isset( $event->context_json ) && ! empty( $event->context_json ) ) {
+				echo '<div><code style="white-space:pre-wrap;word-break:break-word;">' . esc_html( (string) $event->context_json ) . '</code></div>';
+			}
+			echo '</td>';
+			echo '</tr>';
+		}
+
+		echo '</tbody></table>';
+	}
+
+	/**
 	 * Get row action links for a booking.
 	 *
 	 * @since    1.0.5
@@ -765,6 +1067,57 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	}
 
 	/**
+	 * Write an audit log event linked to a booking.
+	 *
+	 * @since    1.0.6
+	 *
+	 * @param object               $booking     Booking row.
+	 * @param string               $event_type  Event type.
+	 * @param string               $message     Human-readable message.
+	 * @param array<string, mixed> $context     Optional structured context.
+	 * @return void
+	 */
+	private function log_booking_audit_event( $booking, $event_type, $message, $context = array() ) {
+		if ( ! class_exists( 'Comarine_Storage_Booking_With_Woocommerce_Bookings' ) || ! is_object( $booking ) ) {
+			return;
+		}
+
+		Comarine_Storage_Booking_With_Woocommerce_Bookings::log_audit_event(
+			array(
+				'booking_id'    => isset( $booking->id ) ? (int) $booking->id : 0,
+				'unit_post_id'  => isset( $booking->unit_post_id ) ? (int) $booking->unit_post_id : 0,
+				'order_id'      => isset( $booking->order_id ) ? (int) $booking->order_id : 0,
+				'event_type'    => $event_type,
+				'message'       => $message,
+				'context'       => $context,
+				'actor_user_id' => get_current_user_id(),
+				'actor_label'   => $this->get_current_actor_label(),
+			)
+		);
+	}
+
+	/**
+	 * Get current admin actor label for audit entries.
+	 *
+	 * @since    1.0.6
+	 *
+	 * @return string
+	 */
+	private function get_current_actor_label() {
+		$user = wp_get_current_user();
+		if ( ! $user || ! $user->exists() ) {
+			return 'wp-admin';
+		}
+
+		$label = (string) $user->user_login;
+		if ( ! empty( $user->display_name ) && $user->display_name !== $user->user_login ) {
+			$label .= ' (' . (string) $user->display_name . ')';
+		}
+
+		return $label;
+	}
+
+	/**
 	 * Update the linked unit status for a booking.
 	 *
 	 * @since    1.0.5
@@ -791,7 +1144,26 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			return true;
 		}
 
-		return false !== update_post_meta( $unit_post_id, '_csu_status', $unit_status );
+		$updated = false !== update_post_meta( $unit_post_id, '_csu_status', $unit_status );
+		if ( $updated ) {
+			$this->log_booking_audit_event(
+				$booking,
+				'admin_set_unit_status',
+				sprintf(
+					/* translators: 1: previous unit status, 2: new unit status */
+					__( 'Admin changed unit status from %1$s to %2$s.', 'comarine-storage-booking-with-woocommerce' ),
+					$current ? ucfirst( $current ) : '-',
+					ucfirst( $unit_status )
+				),
+				array(
+					'action'               => 'set_unit_status',
+					'previous_unit_status' => $current,
+					'new_unit_status'      => $unit_status,
+				)
+			);
+		}
+
+		return $updated;
 	}
 
 	/**

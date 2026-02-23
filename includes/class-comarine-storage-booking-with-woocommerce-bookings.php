@@ -61,6 +61,23 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 	}
 
 	/**
+	 * Get the audit log table name.
+	 *
+	 * @since 1.0.6
+	 *
+	 * @return string
+	 */
+	public static function get_audit_table_name() {
+		global $wpdb;
+
+		$suffix = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_AUDIT_TABLE_SUFFIX' )
+			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_AUDIT_TABLE_SUFFIX
+			: 'comarine_booking_audit_log';
+
+		return $wpdb->prefix . $suffix;
+	}
+
+	/**
 	 * Create or update the bookings table.
 	 *
 	 * @since 1.0.2
@@ -68,6 +85,46 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 	 * @return void
 	 */
 	public static function create_table() {
+		self::create_bookings_table();
+		self::create_audit_log_table();
+
+		if ( defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_DB_VERSION' ) ) {
+			update_option(
+				'comarine_storage_booking_with_woocommerce_db_version',
+				COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_DB_VERSION
+			);
+		}
+	}
+
+	/**
+	 * Maybe upgrade plugin DB schema after updates.
+	 *
+	 * @since 1.0.6
+	 *
+	 * @return void
+	 */
+	public function maybe_upgrade_schema() {
+		$current_db_version = (string) get_option( 'comarine_storage_booking_with_woocommerce_db_version', '' );
+		$target_db_version  = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_DB_VERSION' ) ? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_DB_VERSION : '';
+
+		if ( ! self::table_exists() || ! self::audit_table_exists() ) {
+			self::create_table();
+			return;
+		}
+
+		if ( '' !== $target_db_version && version_compare( $current_db_version, (string) $target_db_version, '<' ) ) {
+			self::create_table();
+		}
+	}
+
+	/**
+	 * Create or update the main bookings table.
+	 *
+	 * @since 1.0.6
+	 *
+	 * @return void
+	 */
+	private static function create_bookings_table() {
 		global $wpdb;
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
@@ -100,13 +157,43 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 		) {$charset_collate};";
 
 		dbDelta( $sql );
+	}
 
-		if ( defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_DB_VERSION' ) ) {
-			update_option(
-				'comarine_storage_booking_with_woocommerce_db_version',
-				COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_DB_VERSION
-			);
-		}
+	/**
+	 * Create or update the audit log table.
+	 *
+	 * @since 1.0.6
+	 *
+	 * @return void
+	 */
+	private static function create_audit_log_table() {
+		global $wpdb;
+
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+		$table_name      = self::get_audit_table_name();
+		$charset_collate = $wpdb->get_charset_collate();
+
+		$sql = "CREATE TABLE {$table_name} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			booking_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			unit_post_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			order_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			event_type varchar(64) NOT NULL DEFAULT '',
+			message text NULL,
+			context_json longtext NULL,
+			actor_user_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			actor_label varchar(191) NOT NULL DEFAULT '',
+			created_ts datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			KEY booking_id (booking_id),
+			KEY unit_post_id (unit_post_id),
+			KEY order_id (order_id),
+			KEY event_type (event_type),
+			KEY created_ts (created_ts)
+		) {$charset_collate};";
+
+		dbDelta( $sql );
 	}
 
 	/**
@@ -120,6 +207,22 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 		global $wpdb;
 
 		$table_name = self::get_table_name();
+		$result     = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) );
+
+		return $table_name === $result;
+	}
+
+	/**
+	 * Check if the audit log table exists.
+	 *
+	 * @since 1.0.6
+	 *
+	 * @return bool
+	 */
+	public static function audit_table_exists() {
+		global $wpdb;
+
+		$table_name = self::get_audit_table_name();
 		$result     = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) );
 
 		return $table_name === $result;
@@ -141,6 +244,197 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 
 		$table_name = self::get_table_name();
 		$count      = $wpdb->get_var( "SELECT COUNT(*) FROM {$table_name}" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+
+		return (int) $count;
+	}
+
+	/**
+	 * Insert an audit event row.
+	 *
+	 * @since 1.0.6
+	 *
+	 * @param array<string, mixed> $args Audit event data.
+	 * @return bool
+	 */
+	public static function log_audit_event( $args ) {
+		global $wpdb;
+
+		if ( ! self::audit_table_exists() ) {
+			return false;
+		}
+
+		$defaults = array(
+			'booking_id'    => 0,
+			'unit_post_id'  => 0,
+			'order_id'      => 0,
+			'event_type'    => '',
+			'message'       => '',
+			'context'       => array(),
+			'actor_user_id' => 0,
+			'actor_label'   => '',
+			'created_ts'    => current_time( 'mysql' ),
+		);
+		$args     = wp_parse_args( $args, $defaults );
+
+		$event_type = sanitize_key( (string) $args['event_type'] );
+		if ( '' === $event_type ) {
+			return false;
+		}
+
+		$context_json = null;
+		if ( ! empty( $args['context'] ) ) {
+			$encoded = wp_json_encode( $args['context'] );
+			if ( false !== $encoded ) {
+				$context_json = $encoded;
+			}
+		}
+
+		$actor_label = sanitize_text_field( (string) $args['actor_label'] );
+		if ( strlen( $actor_label ) > 191 ) {
+			$actor_label = substr( $actor_label, 0, 191 );
+		}
+
+		$table_name = self::get_audit_table_name();
+		$inserted   = $wpdb->insert(
+			$table_name,
+			array(
+				'booking_id'    => absint( $args['booking_id'] ),
+				'unit_post_id'  => absint( $args['unit_post_id'] ),
+				'order_id'      => absint( $args['order_id'] ),
+				'event_type'    => $event_type,
+				'message'       => '' !== (string) $args['message'] ? sanitize_textarea_field( (string) $args['message'] ) : null,
+				'context_json'  => $context_json,
+				'actor_user_id' => absint( $args['actor_user_id'] ),
+				'actor_label'   => $actor_label,
+				'created_ts'    => sanitize_text_field( (string) $args['created_ts'] ),
+			),
+			array(
+				'%d',
+				'%d',
+				'%d',
+				'%s',
+				'%s',
+				'%s',
+				'%d',
+				'%s',
+				'%s',
+			)
+		);
+
+		return false !== $inserted;
+	}
+
+	/**
+	 * Get audit events with optional filters.
+	 *
+	 * @since 1.0.6
+	 *
+	 * @param array<string, mixed> $args Query args.
+	 * @return array<int, object>
+	 */
+	public static function get_audit_events( $args = array() ) {
+		global $wpdb;
+
+		if ( ! self::audit_table_exists() ) {
+			return array();
+		}
+
+		$defaults = array(
+			'limit'      => 25,
+			'offset'     => 0,
+			'booking_id' => 0,
+			'order_id'   => 0,
+			'event_type' => '',
+		);
+		$args     = wp_parse_args( $args, $defaults );
+
+		$table_name = self::get_audit_table_name();
+		$limit      = max( 1, min( 200, (int) $args['limit'] ) );
+		$offset     = max( 0, (int) $args['offset'] );
+		$booking_id = absint( $args['booking_id'] );
+		$order_id   = absint( $args['order_id'] );
+		$event_type = sanitize_key( (string) $args['event_type'] );
+
+		$where_parts = array( '1=1' );
+		$params      = array();
+
+		if ( $booking_id > 0 ) {
+			$where_parts[] = 'booking_id = %d';
+			$params[]      = $booking_id;
+		}
+
+		if ( $order_id > 0 ) {
+			$where_parts[] = 'order_id = %d';
+			$params[]      = $order_id;
+		}
+
+		if ( '' !== $event_type ) {
+			$where_parts[] = 'event_type = %s';
+			$params[]      = $event_type;
+		}
+
+		$where_sql = implode( ' AND ', $where_parts );
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$query_template = "SELECT * FROM {$table_name} WHERE {$where_sql} ORDER BY created_ts DESC, id DESC LIMIT %d OFFSET %d";
+		$params[]       = $limit;
+		$params[]       = $offset;
+		$query          = $wpdb->prepare( $query_template, $params );
+		$rows           = $wpdb->get_results( $query );
+
+		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
+	 * Count audit events with optional filters.
+	 *
+	 * @since 1.0.6
+	 *
+	 * @param array<string, mixed> $args Count filters.
+	 * @return int
+	 */
+	public static function count_audit_events( $args = array() ) {
+		global $wpdb;
+
+		if ( ! self::audit_table_exists() ) {
+			return 0;
+		}
+
+		$defaults = array(
+			'booking_id' => 0,
+			'order_id'   => 0,
+			'event_type' => '',
+		);
+		$args     = wp_parse_args( $args, $defaults );
+
+		$table_name = self::get_audit_table_name();
+		$booking_id = absint( $args['booking_id'] );
+		$order_id   = absint( $args['order_id'] );
+		$event_type = sanitize_key( (string) $args['event_type'] );
+
+		$where_parts = array( '1=1' );
+		$params      = array();
+
+		if ( $booking_id > 0 ) {
+			$where_parts[] = 'booking_id = %d';
+			$params[]      = $booking_id;
+		}
+
+		if ( $order_id > 0 ) {
+			$where_parts[] = 'order_id = %d';
+			$params[]      = $order_id;
+		}
+
+		if ( '' !== $event_type ) {
+			$where_parts[] = 'event_type = %s';
+			$params[]      = $event_type;
+		}
+
+		$where_sql = implode( ' AND ', $where_parts );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$query_template = "SELECT COUNT(*) FROM {$table_name} WHERE {$where_sql}";
+		$query          = empty( $params ) ? $query_template : $wpdb->prepare( $query_template, $params );
+		$count          = $wpdb->get_var( $query );
 
 		return (int) $count;
 	}
