@@ -647,3 +647,627 @@
 		grid-template-columns: 1fr;
 	}
 }
+
+.comarine-storage-unit-single {
+	--comarine-single-shadow: 0 18px 40px rgba(17, 36, 51, 0.08);
+	--comarine-single-shadow-soft: 0 10px 24px rgba(17, 36, 51, 0.06);
+	background:
+		radial-gradient(circle at 8% 8%, rgba(46, 163, 242, 0.08), transparent 38%),
+		radial-gradient(circle at 92% 5%, rgba(22, 134, 210, 0.06), transparent 42%),
+		linear-gradient(180deg, #f7fbff 0%, #eef6fc 45%, #f8fbfe 100%);
+	padding: 24px 16px 42px;
+	color: #112433;
+}
+
+.comarine-storage-unit-single * {
+	box-sizing: border-box;
+}
+
+.comarine-storage-unit-single__shell {
+	max-width: 1200px;
+	margin: 0 auto;
+}
+
+.comarine-storage-unit-single__notices .woocommerce-notices-wrapper,
+.comarine-storage-unit-single__notices {
+	margin-bottom: 14px;
+}
+
+.comarine-storage-unit-single__breadcrumbs {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	margin: 0 0 14px;
+	font-size: 0.92rem;
+	color: #5a7082;
+}
+
+.comarine-storage-unit-single__breadcrumbs a {
+	color: #1686d2;
+	text-decoration: none;
+	font-weight: 600;
+}
+
+.comarine-storage-unit-single__breadcrumbs a:hover,
+.comarine-storage-unit-single__breadcrumbs a:focus-visible {
+	text-decoration: underline;
+}
+
+.comarine-storage-unit-single__hero {
+	display: grid;
+	grid-template-columns: 1.12fr 0.88fr;
+	gap: 22px;
+	align-items: stretch;
+	margin-bottom: 22px;
+}
+
+.comarine-storage-unit-single__media-inner,
+.comarine-storage-unit-single__summary,
+.comarine-storage-unit-single__panel,
+.comarine-storage-unit-single__booking-shell,
+.comarine-storage-unit-single__related {
+	border: 1px solid rgba(159, 195, 221, 0.55);
+	border-radius: 22px;
+	background: rgba(255, 255, 255, 0.92);
+	box-shadow: var(--comarine-single-shadow-soft);
+}
+
+.comarine-storage-unit-single__media-inner {
+	position: relative;
+	overflow: hidden;
+	min-height: 340px;
+	background:
+		radial-gradient(circle at top right, rgba(46, 163, 242, 0.18), transparent 52%),
+		linear-gradient(180deg, #e6f2fb, #cfe2f1);
+}
+
+.comarine-storage-unit-single__image {
+	display: block;
+	width: 100%;
+	height: 100%;
+	min-height: 340px;
+	object-fit: cover;
+}
+
+.comarine-storage-unit-single__placeholder {
+	width: 100%;
+	height: 100%;
+	min-height: 340px;
+	background:
+		repeating-linear-gradient(
+			135deg,
+			rgba(255, 255, 255, 0.28) 0,
+			rgba(255, 255, 255, 0.28) 12px,
+			rgba(46, 163, 242, 0.1) 12px,
+			rgba(46, 163, 242, 0.1) 24px
+		),
+		linear-gradient(160deg, rgba(22, 134, 210, 0.35), rgba(46, 163, 242, 0.08));
+}
+
+.comarine-storage-unit-single__status-badge {
+	position: absolute;
+	top: 14px;
+	right: 14px;
+	display: inline-flex;
+	align-items: center;
+	padding: 7px 12px;
+	border-radius: 999px;
+	font-size: 0.84rem;
+	font-weight: 700;
+	background: rgba(255, 255, 255, 0.95);
+	border: 1px solid rgba(159, 195, 221, 0.85);
+	box-shadow: 0 6px 14px rgba(17, 36, 51, 0.08);
+}
+
+.comarine-storage-unit-single .comarine-status-available .comarine-storage-unit-single__status-badge {
+	color: #1f6a42;
+	border-color: #b7dfc5;
+	background: rgba(231, 246, 237, 0.95);
+}
+
+.comarine-storage-unit-single .comarine-status-reserved .comarine-storage-unit-single__status-badge,
+.comarine-storage-unit-single .comarine-status-occupied .comarine-storage-unit-single__status-badge {
+	color: #7a5604;
+	border-color: #efd39c;
+	background: rgba(255, 244, 220, 0.96);
+}
+
+.comarine-storage-unit-single .comarine-status-maintenance .comarine-storage-unit-single__status-badge,
+.comarine-storage-unit-single .comarine-status-archived .comarine-storage-unit-single__status-badge {
+	color: #49545a;
+	border-color: #d4d8dd;
+	background: rgba(238, 240, 242, 0.95);
+}
+
+.comarine-storage-unit-single__summary {
+	padding: 20px;
+	display: grid;
+	align-content: start;
+	gap: 14px;
+	background:
+		radial-gradient(circle at top right, rgba(46, 163, 242, 0.08), transparent 54%),
+		rgba(255, 255, 255, 0.92);
+}
+
+.comarine-storage-unit-single__eyebrow {
+	margin: 0;
+	font-size: 0.78rem;
+	font-weight: 700;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: #1686d2;
+}
+
+.comarine-storage-unit-single__title {
+	margin: 0;
+	font-size: clamp(1.6rem, 2vw + 1rem, 2.35rem);
+	line-height: 1.08;
+	letter-spacing: -0.03em;
+	color: #0f2231;
+}
+
+.comarine-storage-unit-single__lead {
+	margin: 0;
+	color: #4d6476;
+	font-size: 1rem;
+	line-height: 1.5;
+}
+
+.comarine-storage-unit-single__chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.comarine-storage-unit-single__chip {
+	display: inline-flex;
+	align-items: center;
+	padding: 7px 11px;
+	border-radius: 999px;
+	border: 1px solid #d9e5ef;
+	background: rgba(255, 255, 255, 0.96);
+	font-size: 0.84rem;
+	color: #112433;
+}
+
+.comarine-storage-unit-single__hero-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+}
+
+.comarine-storage-unit-single__button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 12px;
+	padding: 10px 14px;
+	font-weight: 700;
+	text-decoration: none;
+	color: #fff;
+	background: linear-gradient(180deg, #3cb0ff, #1686d2);
+	box-shadow: 0 10px 22px rgba(46, 163, 242, 0.2);
+	transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.comarine-storage-unit-single__button:hover,
+.comarine-storage-unit-single__button:focus-visible {
+	filter: saturate(1.05);
+	transform: translateY(-1px);
+	box-shadow: 0 12px 24px rgba(46, 163, 242, 0.24);
+}
+
+.comarine-storage-unit-single__button.is-ghost {
+	color: #1686d2;
+	background: rgba(234, 246, 255, 0.8);
+	border: 1px solid rgba(46, 163, 242, 0.22);
+	box-shadow: none;
+}
+
+.comarine-storage-unit-single__pricing-glance {
+	border: 1px solid #d9e5ef;
+	border-radius: 16px;
+	padding: 14px;
+	background:
+		linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(234, 246, 255, 0.65));
+}
+
+.comarine-storage-unit-single__pricing-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px 12px;
+	margin-bottom: 10px;
+	color: #4d6476;
+}
+
+.comarine-storage-unit-single__pricing-head strong {
+	color: #112433;
+}
+
+.comarine-storage-unit-single__price-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	gap: 7px;
+}
+
+.comarine-storage-unit-single__price-item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	padding: 8px 10px;
+	border-radius: 12px;
+	background: rgba(255, 255, 255, 0.9);
+	border: 1px solid #d9e5ef;
+}
+
+.comarine-storage-unit-single__price-item strong {
+	color: #1686d2;
+}
+
+.comarine-storage-unit-single__pricing-empty {
+	margin: 0;
+	color: #5a7082;
+}
+
+.comarine-storage-unit-single__layout {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(320px, 390px);
+	gap: 22px;
+	align-items: start;
+}
+
+.comarine-storage-unit-single__main {
+	display: grid;
+	gap: 18px;
+}
+
+.comarine-storage-unit-single__panel {
+	padding: 18px;
+}
+
+.comarine-storage-unit-single__panel-title {
+	margin: 0 0 12px;
+	font-size: 1.15rem;
+	letter-spacing: -0.01em;
+}
+
+.comarine-storage-unit-single__details-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 10px;
+}
+
+.comarine-storage-unit-single__detail-item {
+	padding: 12px;
+	border-radius: 14px;
+	border: 1px solid #d9e5ef;
+	background: rgba(247, 251, 255, 0.82);
+	display: grid;
+	gap: 4px;
+}
+
+.comarine-storage-unit-single__detail-label {
+	font-size: 0.78rem;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	color: #5a7082;
+	font-weight: 700;
+}
+
+.comarine-storage-unit-single__detail-value {
+	font-size: 0.95rem;
+	color: #112433;
+	word-break: break-word;
+}
+
+.comarine-storage-unit-single__features {
+	margin: 0;
+	padding-left: 18px;
+	display: grid;
+	gap: 6px;
+}
+
+.comarine-storage-unit-single__features li::marker {
+	color: #2ea3f2;
+}
+
+.comarine-storage-unit-single__content {
+	color: #243a4a;
+	line-height: 1.65;
+}
+
+.comarine-storage-unit-single__content > :first-child {
+	margin-top: 0;
+}
+
+.comarine-storage-unit-single__content > :last-child {
+	margin-bottom: 0;
+}
+
+.comarine-storage-unit-single__sidebar {
+	position: relative;
+}
+
+.comarine-storage-unit-single__booking-shell {
+	padding: 16px;
+	position: sticky;
+	top: 20px;
+	background:
+		radial-gradient(circle at top right, rgba(46, 163, 242, 0.08), transparent 56%),
+		rgba(255, 255, 255, 0.94);
+	box-shadow: var(--comarine-single-shadow);
+}
+
+.comarine-storage-unit-single__sidebar-head {
+	margin-bottom: 12px;
+}
+
+.comarine-storage-unit-single__sidebar-head h2 {
+	margin: 4px 0 6px;
+	font-size: 1.2rem;
+	line-height: 1.15;
+}
+
+.comarine-storage-unit-single__sidebar-head p:last-child {
+	margin: 0;
+	color: #5a7082;
+	font-size: 0.92rem;
+}
+
+.comarine-storage-unit-single .comarine-storage-units--single-template-booking {
+	padding: 0;
+	margin: 0;
+	background: transparent;
+	color: inherit;
+}
+
+.comarine-storage-unit-single .comarine-storage-units--single-template-booking .comarine-storage-units-grid {
+	grid-template-columns: 1fr;
+	gap: 0;
+}
+
+.comarine-storage-unit-single .comarine-storage-units--single-template-booking .comarine-storage-unit-card {
+	box-shadow: none;
+	border-radius: 16px;
+	background:
+		radial-gradient(circle at top right, rgba(46, 163, 242, 0.1), transparent 52%),
+		radial-gradient(circle at bottom left, rgba(22, 134, 210, 0.05), transparent 46%),
+		#f7fbff;
+}
+
+.comarine-storage-unit-single .comarine-storage-units--single-template-booking .comarine-storage-unit-card:hover {
+	transform: none;
+}
+
+.comarine-storage-unit-single__related {
+	margin-top: 22px;
+	padding: 18px;
+}
+
+.comarine-storage-unit-single__related-head {
+	margin-bottom: 12px;
+}
+
+.comarine-storage-unit-single__related-head h2 {
+	margin: 0 0 6px;
+	font-size: 1.18rem;
+}
+
+.comarine-storage-unit-single__related-head p {
+	margin: 0;
+	color: #5a7082;
+}
+
+.comarine-storage-unit-single .comarine-storage-units--latest-home {
+	padding: 0;
+	background: transparent;
+}
+
+.comarine-storage-unit-single .comarine-storage-units--latest-home .comarine-storage-units-grid {
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.comarine-storage-unit-single :focus-visible {
+	outline: 2px solid rgba(46, 163, 242, 0.28);
+	outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.comarine-storage-unit-single__button {
+		transition: none;
+	}
+}
+
+@media (max-width: 1100px) {
+	.comarine-storage-unit-single__hero {
+		grid-template-columns: 1fr;
+	}
+
+	.comarine-storage-unit-single__layout {
+		grid-template-columns: 1fr;
+	}
+
+	.comarine-storage-unit-single__booking-shell {
+		position: static;
+	}
+
+	.comarine-storage-unit-single .comarine-storage-units--latest-home .comarine-storage-units-grid {
+		grid-template-columns: 1fr 1fr;
+	}
+}
+
+@media (max-width: 680px) {
+	.comarine-storage-unit-single {
+		padding-left: 12px;
+		padding-right: 12px;
+	}
+
+	.comarine-storage-unit-single__summary,
+	.comarine-storage-unit-single__panel,
+	.comarine-storage-unit-single__booking-shell,
+	.comarine-storage-unit-single__related {
+		padding: 14px;
+		border-radius: 16px;
+	}
+
+	.comarine-storage-unit-single__details-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.comarine-storage-unit-single .comarine-storage-units--latest-home .comarine-storage-units-grid {
+		grid-template-columns: 1fr;
+	}
+}
+
+.comarine-storage-unit-card__datepicker-input {
+	background-image:
+		linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(234, 246, 255, 0.7));
+}
+
+.comarine-storage-unit-card__datepicker-note {
+	margin: 6px 0 0;
+	font-size: 0.78rem;
+	color: var(--comarine-muted);
+	line-height: 1.35;
+}
+
+.comarine-storage-unit-card__datepicker-note.is-error {
+	color: var(--comarine-danger-text);
+}
+
+.ui-datepicker {
+	z-index: 100000 !important;
+	background: #ffffff;
+	border: 1px solid #cdddea;
+	border-radius: 14px;
+	box-shadow: 0 16px 36px rgba(17, 36, 51, 0.14);
+	padding: 8px;
+	width: 19rem;
+}
+
+.ui-datepicker .ui-datepicker-header {
+	border: 0;
+	border-radius: 10px;
+	background: linear-gradient(180deg, #eff7ff, #e0f0ff);
+	color: #112433;
+	padding: 8px;
+	margin-bottom: 6px;
+}
+
+.ui-datepicker .ui-datepicker-prev,
+.ui-datepicker .ui-datepicker-next {
+	top: 8px;
+	width: 1.8rem;
+	height: 1.8rem;
+	border-radius: 999px;
+	cursor: pointer;
+}
+
+.ui-datepicker .ui-datepicker-prev:hover,
+.ui-datepicker .ui-datepicker-next:hover {
+	background: rgba(46, 163, 242, 0.12);
+}
+
+.ui-datepicker .ui-datepicker-prev span,
+.ui-datepicker .ui-datepicker-next span {
+	display: none;
+}
+
+.ui-datepicker .ui-datepicker-prev::before,
+.ui-datepicker .ui-datepicker-next::before {
+	display: block;
+	line-height: 1.8rem;
+	text-align: center;
+	font-weight: 700;
+	color: #112433;
+}
+
+.ui-datepicker .ui-datepicker-prev::before {
+	content: "<";
+}
+
+.ui-datepicker .ui-datepicker-next::before {
+	content: ">";
+}
+
+.ui-datepicker .ui-datepicker-title {
+	font-weight: 700;
+	font-size: 0.92rem;
+	line-height: 1.8rem;
+}
+
+.ui-datepicker table {
+	margin: 0;
+	font-size: 0.88rem;
+}
+
+.ui-datepicker th {
+	padding: 6px 0 4px;
+	color: #5a7082;
+	font-weight: 700;
+}
+
+.ui-datepicker td {
+	padding: 2px;
+}
+
+.ui-datepicker td a,
+.ui-datepicker td span {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 2rem;
+	height: 2rem;
+	border-radius: 999px;
+	border: 1px solid transparent;
+	text-decoration: none;
+}
+
+.ui-datepicker td a {
+	color: #112433;
+	background: #fff;
+}
+
+.ui-datepicker td a:hover,
+.ui-datepicker td a:focus {
+	border-color: rgba(46, 163, 242, 0.35);
+	background: rgba(46, 163, 242, 0.08);
+}
+
+.ui-datepicker td.ui-datepicker-current-day a {
+	background: linear-gradient(180deg, #3cb0ff, #1686d2);
+	color: #fff;
+	box-shadow: 0 6px 16px rgba(46, 163, 242, 0.24);
+}
+
+.ui-datepicker td.comarine-ui-day--blocked span,
+.ui-datepicker td.comarine-ui-day--blocked a {
+	background: #ffe7e4;
+	color: #8a2f26;
+	border-color: #f5c2bb;
+	text-decoration: line-through;
+	opacity: 0.85;
+}
+
+.ui-datepicker td.comarine-ui-day--capacity a {
+	border-color: rgba(46, 163, 242, 0.22);
+	background: rgba(234, 246, 255, 0.55);
+}
+
+.ui-datepicker td.comarine-ui-day--checkout a {
+	border-color: rgba(31, 106, 66, 0.25);
+	background: rgba(231, 246, 237, 0.65);
+	color: #1f6a42;
+}
+
+.ui-datepicker td.comarine-ui-day--loading span {
+	background: #eef3f8;
+	color: #6b7f90;
+	border-color: #d7e1ea;
+}

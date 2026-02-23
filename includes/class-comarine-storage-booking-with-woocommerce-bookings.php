@@ -757,13 +757,17 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 	 *
 	 * For legacy bookings created before capacity support, rows with no stored
 	 * `requested_area_m2` are treated as consuming the full current unit capacity.
+	 * When a date range is provided, only bookings overlapping that range are counted.
+	 * Otherwise, the snapshot reflects active bookings overlapping "now".
 	 *
 	 * @since 1.0.26
 	 *
-	 * @param int $unit_post_id Unit post ID.
+	 * @param int          $unit_post_id   Unit post ID.
+	 * @param string|mixed $range_start_ts Optional overlap range start (`Y-m-d` or `Y-m-d H:i:s`).
+	 * @param string|mixed $range_end_ts   Optional overlap range end (`Y-m-d` or `Y-m-d H:i:s`).
 	 * @return array<string, float|bool>
 	 */
-	public static function get_unit_capacity_availability( $unit_post_id ) {
+	public static function get_unit_capacity_availability( $unit_post_id, $range_start_ts = '', $range_end_ts = '' ) {
 		global $wpdb;
 
 		$unit_post_id = absint( $unit_post_id );
@@ -782,22 +786,45 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 
 		self::expire_stale_locks();
 
-		$table_name = self::get_table_name();
-		$now        = current_time( 'mysql' );
-
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$sql = $wpdb->prepare(
-			"SELECT requested_area_m2, unit_capacity_m2
-			FROM {$table_name}
+		$table_name       = self::get_table_name();
+		$now              = current_time( 'mysql' );
+		$normalized_range = self::normalize_booking_overlap_range_for_query( $range_start_ts, $range_end_ts );
+		$where_sql        = "
 			WHERE unit_post_id = %d
 			  AND (
 					status = 'paid'
 					OR status = 'reserved'
 					OR status = 'occupied'
 					OR (status IN ('locked','pending') AND (lock_expires_ts IS NULL OR lock_expires_ts >= %s))
-			  )",
-			$unit_post_id,
-			$now
+			  )";
+		$prepare_args     = array( $unit_post_id, $now );
+
+		if ( ! empty( $normalized_range ) ) {
+			$where_sql .= "
+			  AND (
+					start_ts IS NULL
+					OR end_ts IS NULL
+					OR (start_ts < %s AND end_ts > %s)
+			  )";
+			$prepare_args[] = $normalized_range['end'];
+			$prepare_args[] = $normalized_range['start'];
+		} else {
+			$where_sql .= "
+			  AND (
+					start_ts IS NULL
+					OR end_ts IS NULL
+					OR (start_ts < %s AND end_ts > %s)
+			  )";
+			$prepare_args[] = $now;
+			$prepare_args[] = $now;
+		}
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$sql = $wpdb->prepare(
+			"SELECT requested_area_m2, unit_capacity_m2
+			FROM {$table_name}
+			{$where_sql}",
+			$prepare_args
 		);
 
 		$rows = $wpdb->get_results( $sql );
@@ -836,19 +863,57 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 	}
 
 	/**
-	 * Determine if a unit has any active booking/lock in non-capacity mode.
+	 * Get day-by-day availability for a unit across a date range.
 	 *
-	 * @since 1.0.26
+	 * End date is exclusive.
 	 *
-	 * @param int $unit_post_id Unit post ID.
-	 * @return bool
+	 * @since 1.0.32
+	 *
+	 * @param int    $unit_post_id      Unit post ID.
+	 * @param string $range_start_date  Range start date (`Y-m-d`).
+	 * @param string $range_end_date    Range end date (`Y-m-d`, exclusive).
+	 * @return array<string, mixed>
 	 */
-	private static function has_any_active_booking_conflict( $unit_post_id ) {
+	public static function get_unit_daily_availability_map( $unit_post_id, $range_start_date, $range_end_date ) {
 		global $wpdb;
 
 		$unit_post_id = absint( $unit_post_id );
-		if ( $unit_post_id <= 0 || ! self::table_exists() ) {
-			return false;
+		$range        = self::normalize_daily_availability_date_range( $range_start_date, $range_end_date );
+		$capacity_m2  = self::get_unit_capacity_m2( $unit_post_id );
+		$is_capacity_managed = $capacity_m2 > 0;
+		$result = array(
+			'unit_post_id'          => $unit_post_id,
+			'is_capacity_managed'   => $is_capacity_managed,
+			'capacity_m2'           => $capacity_m2,
+			'range_start_date'      => isset( $range['start_date'] ) ? $range['start_date'] : '',
+			'range_end_date'        => isset( $range['end_date'] ) ? $range['end_date'] : '',
+			'days'                  => array(),
+		);
+
+		if ( $unit_post_id <= 0 || empty( $range ) ) {
+			return $result;
+		}
+
+		$timezone   = function_exists( 'wp_timezone' ) ? wp_timezone() : new DateTimeZone( 'UTC' );
+		$day_cursor = DateTimeImmutable::createFromFormat( '!Y-m-d', $range['start_date'], $timezone );
+		$range_end  = DateTimeImmutable::createFromFormat( '!Y-m-d', $range['end_date'], $timezone );
+		if ( ! $day_cursor instanceof DateTimeImmutable || ! $range_end instanceof DateTimeImmutable ) {
+			return $result;
+		}
+
+		while ( $day_cursor < $range_end ) {
+			$day_key = $day_cursor->format( 'Y-m-d' );
+			$result['days'][ $day_key ] = array(
+				'reserved_m2'   => 0.0,
+				'remaining_m2'  => $is_capacity_managed ? $capacity_m2 : 0.0,
+				'is_blocked'    => false,
+				'is_available'  => true,
+			);
+			$day_cursor = $day_cursor->modify( '+1 day' );
+		}
+
+		if ( ! self::table_exists() ) {
+			return $result;
 		}
 
 		self::expire_stale_locks();
@@ -858,7 +923,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$sql = $wpdb->prepare(
-			"SELECT COUNT(*)
+			"SELECT start_ts, end_ts, requested_area_m2, unit_capacity_m2
 			FROM {$table_name}
 			WHERE unit_post_id = %d
 			  AND (
@@ -866,9 +931,265 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 					OR status = 'reserved'
 					OR status = 'occupied'
 					OR (status IN ('locked','pending') AND (lock_expires_ts IS NULL OR lock_expires_ts >= %s))
+			  )
+			  AND (
+					start_ts IS NULL
+					OR end_ts IS NULL
+					OR (start_ts < %s AND end_ts > %s)
 			  )",
 			$unit_post_id,
-			$now
+			$now,
+			$range['end_dt'],
+			$range['start_dt']
+		);
+
+		$rows = $wpdb->get_results( $sql );
+		if ( empty( $rows ) || ! is_array( $rows ) ) {
+			return $result;
+		}
+
+		$range_start_day = DateTimeImmutable::createFromFormat( '!Y-m-d', $range['start_date'], $timezone );
+		$range_end_day   = DateTimeImmutable::createFromFormat( '!Y-m-d', $range['end_date'], $timezone );
+		if ( ! $range_start_day instanceof DateTimeImmutable || ! $range_end_day instanceof DateTimeImmutable ) {
+			return $result;
+		}
+
+		foreach ( $rows as $row ) {
+			if ( ! is_object( $row ) ) {
+				continue;
+			}
+
+			$row_start_ts = isset( $row->start_ts ) ? (string) $row->start_ts : '';
+			$row_end_ts   = isset( $row->end_ts ) ? (string) $row->end_ts : '';
+			$row_start_dt = self::parse_booking_datetime_value( $row_start_ts, $timezone );
+			$row_end_dt   = self::parse_booking_datetime_value( $row_end_ts, $timezone );
+
+			// Legacy safety fallback: rows missing interval data block the whole requested range.
+			if ( ! $row_start_dt instanceof DateTimeImmutable || ! $row_end_dt instanceof DateTimeImmutable || $row_end_dt <= $row_start_dt ) {
+				$row_start_day = $range_start_day;
+				$row_end_day   = $range_end_day;
+			} else {
+				$row_start_day = DateTimeImmutable::createFromFormat( '!Y-m-d', $row_start_dt->format( 'Y-m-d' ), $timezone );
+				$row_end_day   = DateTimeImmutable::createFromFormat( '!Y-m-d', $row_end_dt->format( 'Y-m-d' ), $timezone );
+				if ( ! $row_start_day instanceof DateTimeImmutable || ! $row_end_day instanceof DateTimeImmutable ) {
+					$row_start_day = $range_start_day;
+					$row_end_day   = $range_end_day;
+				}
+			}
+
+			if ( $row_start_day < $range_start_day ) {
+				$row_start_day = $range_start_day;
+			}
+			if ( $row_end_day > $range_end_day ) {
+				$row_end_day = $range_end_day;
+			}
+			if ( $row_end_day <= $row_start_day ) {
+				continue;
+			}
+
+			$consume_m2 = 0.0;
+			if ( $is_capacity_managed ) {
+				$row_requested_m2 = isset( $row->requested_area_m2 ) && is_numeric( $row->requested_area_m2 ) ? (float) $row->requested_area_m2 : 0.0;
+				if ( $row_requested_m2 > 0 ) {
+					$consume_m2 = $row_requested_m2;
+				} else {
+					$row_capacity_m2 = isset( $row->unit_capacity_m2 ) && is_numeric( $row->unit_capacity_m2 ) ? (float) $row->unit_capacity_m2 : 0.0;
+					$consume_m2      = $row_capacity_m2 > 0 ? $row_capacity_m2 : $capacity_m2;
+				}
+			}
+
+			$cursor = $row_start_day;
+			while ( $cursor < $row_end_day ) {
+				$day_key = $cursor->format( 'Y-m-d' );
+				if ( ! isset( $result['days'][ $day_key ] ) || ! is_array( $result['days'][ $day_key ] ) ) {
+					$cursor = $cursor->modify( '+1 day' );
+					continue;
+				}
+
+				if ( $is_capacity_managed ) {
+					$current_reserved = isset( $result['days'][ $day_key ]['reserved_m2'] ) ? (float) $result['days'][ $day_key ]['reserved_m2'] : 0.0;
+					$result['days'][ $day_key ]['reserved_m2'] = round( $current_reserved + max( 0.0, $consume_m2 ), 2 );
+				} else {
+					$result['days'][ $day_key ]['is_blocked'] = true;
+				}
+
+				$cursor = $cursor->modify( '+1 day' );
+			}
+		}
+
+		foreach ( $result['days'] as $day_key => $day_state ) {
+			$day_state = is_array( $day_state ) ? $day_state : array();
+			if ( $is_capacity_managed ) {
+				$reserved_m2  = isset( $day_state['reserved_m2'] ) ? max( 0.0, (float) $day_state['reserved_m2'] ) : 0.0;
+				$remaining_m2 = max( 0.0, round( $capacity_m2 - $reserved_m2, 2 ) );
+				$day_state['reserved_m2']  = round( $reserved_m2, 2 );
+				$day_state['remaining_m2'] = $remaining_m2;
+				$day_state['is_blocked']   = $remaining_m2 <= 0;
+				$day_state['is_available'] = $remaining_m2 > 0;
+			} else {
+				$day_state['reserved_m2']  = 0.0;
+				$day_state['remaining_m2'] = 0.0;
+				$day_state['is_available'] = empty( $day_state['is_blocked'] );
+			}
+
+			$result['days'][ $day_key ] = $day_state;
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Normalize a daily availability query date range.
+	 *
+	 * End date is exclusive and clamped to a sane horizon.
+	 *
+	 * @since 1.0.32
+	 *
+	 * @param mixed $start_date Raw start date.
+	 * @param mixed $end_date   Raw end date.
+	 * @return array<string, string>
+	 */
+	private static function normalize_daily_availability_date_range( $start_date, $end_date ) {
+		$timezone = function_exists( 'wp_timezone' ) ? wp_timezone() : new DateTimeZone( 'UTC' );
+		$start    = self::normalize_date_only_value( $start_date, $timezone );
+		$end      = self::normalize_date_only_value( $end_date, $timezone );
+
+		if ( '' === $start || '' === $end ) {
+			return array();
+		}
+
+		$start_dt = DateTimeImmutable::createFromFormat( '!Y-m-d', $start, $timezone );
+		$end_dt   = DateTimeImmutable::createFromFormat( '!Y-m-d', $end, $timezone );
+		if ( ! $start_dt instanceof DateTimeImmutable || ! $end_dt instanceof DateTimeImmutable || $end_dt <= $start_dt ) {
+			return array();
+		}
+
+		$max_end_dt = $start_dt->modify( '+730 days' );
+		if ( $end_dt > $max_end_dt ) {
+			$end_dt = $max_end_dt;
+		}
+
+		return array(
+			'start_date' => $start_dt->format( 'Y-m-d' ),
+			'end_date'   => $end_dt->format( 'Y-m-d' ),
+			'start_dt'   => $start_dt->format( 'Y-m-d 00:00:00' ),
+			'end_dt'     => $end_dt->format( 'Y-m-d 00:00:00' ),
+		);
+	}
+
+	/**
+	 * Normalize a date-only (`Y-m-d`) value.
+	 *
+	 * @since 1.0.32
+	 *
+	 * @param mixed        $value    Raw value.
+	 * @param DateTimeZone $timezone Site timezone.
+	 * @return string
+	 */
+	private static function normalize_date_only_value( $value, $timezone ) {
+		if ( ! is_scalar( $value ) ) {
+			return '';
+		}
+
+		$value = trim( (string) $value );
+		if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $value ) ) {
+			return '';
+		}
+
+		$dt = DateTimeImmutable::createFromFormat( '!Y-m-d', $value, $timezone );
+		if ( ! $dt instanceof DateTimeImmutable || $dt->format( 'Y-m-d' ) !== $value ) {
+			return '';
+		}
+
+		return $value;
+	}
+
+	/**
+	 * Parse a booking datetime string from the DB.
+	 *
+	 * @since 1.0.32
+	 *
+	 * @param string       $value    Datetime string.
+	 * @param DateTimeZone $timezone Site timezone.
+	 * @return DateTimeImmutable|null
+	 */
+	private static function parse_booking_datetime_value( $value, $timezone ) {
+		$value = trim( (string) $value );
+		if ( '' === $value ) {
+			return null;
+		}
+
+		$dt = DateTimeImmutable::createFromFormat( 'Y-m-d H:i:s', $value, $timezone );
+		if ( $dt instanceof DateTimeImmutable ) {
+			return $dt;
+		}
+
+		try {
+			return new DateTimeImmutable( $value, $timezone );
+		} catch ( Exception $e ) {
+			return null;
+		}
+	}
+
+	/**
+	 * Determine if a unit has any active booking/lock in non-capacity mode.
+	 *
+	 * @since 1.0.26
+	 *
+	 * @param int          $unit_post_id   Unit post ID.
+	 * @param string|mixed $range_start_ts Optional overlap range start (`Y-m-d` or `Y-m-d H:i:s`).
+	 * @param string|mixed $range_end_ts   Optional overlap range end (`Y-m-d` or `Y-m-d H:i:s`).
+	 * @return bool
+	 */
+	private static function has_any_active_booking_conflict( $unit_post_id, $range_start_ts = '', $range_end_ts = '' ) {
+		global $wpdb;
+
+		$unit_post_id = absint( $unit_post_id );
+		if ( $unit_post_id <= 0 || ! self::table_exists() ) {
+			return false;
+		}
+
+		self::expire_stale_locks();
+
+		$table_name       = self::get_table_name();
+		$now              = current_time( 'mysql' );
+		$normalized_range = self::normalize_booking_overlap_range_for_query( $range_start_ts, $range_end_ts );
+		$where_sql        = "
+			WHERE unit_post_id = %d
+			  AND (
+					status = 'paid'
+					OR status = 'reserved'
+					OR status = 'occupied'
+					OR (status IN ('locked','pending') AND (lock_expires_ts IS NULL OR lock_expires_ts >= %s))
+			  )";
+		$prepare_args     = array( $unit_post_id, $now );
+
+		if ( ! empty( $normalized_range ) ) {
+			$where_sql .= "
+			  AND (
+					start_ts IS NULL
+					OR end_ts IS NULL
+					OR (start_ts < %s AND end_ts > %s)
+			  )";
+			$prepare_args[] = $normalized_range['end'];
+			$prepare_args[] = $normalized_range['start'];
+		} else {
+			$where_sql .= "
+			  AND (
+					start_ts IS NULL
+					OR end_ts IS NULL
+					OR (start_ts < %s AND end_ts > %s)
+			  )";
+			$prepare_args[] = $now;
+			$prepare_args[] = $now;
+		}
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$sql = $wpdb->prepare(
+			"SELECT COUNT(*)
+			FROM {$table_name}
+			{$where_sql}",
+			$prepare_args
 		);
 
 		$count = $wpdb->get_var( $sql );
@@ -881,21 +1202,91 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 	 *
 	 * @since 1.0.3
 	 *
-	 * @param int $unit_post_id Unit post ID.
+	 * @param int          $unit_post_id   Unit post ID.
+	 * @param string|mixed $range_start_ts Optional overlap range start (`Y-m-d` or `Y-m-d H:i:s`).
+	 * @param string|mixed $range_end_ts   Optional overlap range end (`Y-m-d` or `Y-m-d H:i:s`).
 	 * @return bool
 	 */
-	public static function has_conflicting_booking( $unit_post_id ) {
+	public static function has_conflicting_booking( $unit_post_id, $range_start_ts = '', $range_end_ts = '' ) {
 		$unit_post_id = absint( $unit_post_id );
 		if ( $unit_post_id <= 0 ) {
 			return false;
 		}
 
-		$capacity_snapshot = self::get_unit_capacity_availability( $unit_post_id );
+		$capacity_snapshot = self::get_unit_capacity_availability( $unit_post_id, $range_start_ts, $range_end_ts );
 		if ( ! empty( $capacity_snapshot['is_capacity_managed'] ) ) {
 			return ! empty( $capacity_snapshot['is_full'] );
 		}
 
-		return self::has_any_active_booking_conflict( $unit_post_id );
+		return self::has_any_active_booking_conflict( $unit_post_id, $range_start_ts, $range_end_ts );
+	}
+
+	/**
+	 * Normalize optional booking overlap range values for SQL comparisons.
+	 *
+	 * Range end is treated as exclusive.
+	 *
+	 * @since 1.0.32
+	 *
+	 * @param mixed $range_start Raw range start.
+	 * @param mixed $range_end   Raw range end.
+	 * @return array{start:string,end:string}|array<string, never>
+	 */
+	private static function normalize_booking_overlap_range_for_query( $range_start, $range_end ) {
+		$start = self::normalize_overlap_boundary_datetime_for_query( $range_start );
+		$end   = self::normalize_overlap_boundary_datetime_for_query( $range_end );
+
+		if ( '' === $start || '' === $end ) {
+			return array();
+		}
+
+		if ( $end <= $start ) {
+			return array();
+		}
+
+		return array(
+			'start' => $start,
+			'end'   => $end,
+		);
+	}
+
+	/**
+	 * Normalize a date/datetime boundary for booking overlap SQL queries.
+	 *
+	 * @since 1.0.32
+	 *
+	 * @param mixed $value Raw boundary value.
+	 * @return string Normalized `Y-m-d H:i:s` or empty string when invalid.
+	 */
+	private static function normalize_overlap_boundary_datetime_for_query( $value ) {
+		if ( $value instanceof DateTimeInterface ) {
+			return $value->format( 'Y-m-d H:i:s' );
+		}
+
+		if ( ! is_scalar( $value ) ) {
+			return '';
+		}
+
+		$value = trim( (string) $value );
+		if ( '' === $value ) {
+			return '';
+		}
+
+		if ( preg_match( '/^\d{4}-\d{2}-\d{2}$/', $value ) ) {
+			return $value . ' 00:00:00';
+		}
+
+		if ( preg_match( '/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $value ) ) {
+			return $value;
+		}
+
+		try {
+			$timezone = function_exists( 'wp_timezone' ) ? wp_timezone() : new DateTimeZone( 'UTC' );
+			$dt       = new DateTimeImmutable( $value, $timezone );
+			return $dt->format( 'Y-m-d H:i:s' );
+		} catch ( Exception $e ) {
+			return '';
+		}
 	}
 
 	/**
@@ -983,6 +1374,10 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 			$unit_capacity_m2 = self::get_unit_capacity_m2( $unit_post_id );
 		}
 
+		$requested_end_dt = $end_dt instanceof DateTimeImmutable
+			? $end_dt
+			: $start_dt->modify( '+' . self::DURATION_MONTHS[ $duration_key ] . ' months' );
+
 		if ( $unit_capacity_m2 > 0 ) {
 			if ( $requested_area_m2 <= 0 ) {
 				return new WP_Error( 'comarine_invalid_area', __( 'Please enter the area (m2) you want to book.', 'comarine-storage-booking-with-woocommerce' ) );
@@ -999,7 +1394,11 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 				);
 			}
 
-			$capacity_snapshot = self::get_unit_capacity_availability( $unit_post_id );
+			$capacity_snapshot = self::get_unit_capacity_availability(
+				$unit_post_id,
+				$start_dt->format( 'Y-m-d H:i:s' ),
+				$requested_end_dt->format( 'Y-m-d H:i:s' )
+			);
 			$remaining_m2      = isset( $capacity_snapshot['remaining_m2'] ) ? (float) $capacity_snapshot['remaining_m2'] : $unit_capacity_m2;
 			$unit_capacity_m2  = isset( $capacity_snapshot['capacity_m2'] ) ? (float) $capacity_snapshot['capacity_m2'] : $unit_capacity_m2;
 
@@ -1013,14 +1412,18 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 					)
 				);
 			}
-		} elseif ( self::has_any_active_booking_conflict( $unit_post_id ) ) {
+		} elseif ( self::has_any_active_booking_conflict(
+			$unit_post_id,
+			$start_dt->format( 'Y-m-d H:i:s' ),
+			$requested_end_dt->format( 'Y-m-d H:i:s' )
+		) ) {
 			return new WP_Error( 'comarine_unit_unavailable', __( 'This unit is no longer available for booking.', 'comarine-storage-booking-with-woocommerce' ) );
 		}
 
 		$now_dt          = new DateTimeImmutable( current_time( 'mysql' ), $site_timezone );
 		$lock_expires_dt = $now_dt->modify( '+' . $lock_ttl . ' minutes' );
 		if ( ! $end_dt instanceof DateTimeImmutable ) {
-			$end_dt = $start_dt->modify( '+' . self::DURATION_MONTHS[ $duration_key ] . ' months' );
+			$end_dt = $requested_end_dt;
 		}
 		$lock_token      = wp_generate_password( 32, false, false );
 		$table_name      = self::get_table_name();

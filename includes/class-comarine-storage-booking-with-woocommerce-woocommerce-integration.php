@@ -52,6 +52,94 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 	}
 
 	/**
+	 * AJAX: Get daily availability for a storage unit date range (for frontend datepicker UI).
+	 *
+	 * @since 1.0.32
+	 *
+	 * @return void
+	 */
+	public function ajax_get_daily_unit_availability() {
+		$nonce = isset( $_REQUEST['nonce'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['nonce'] ) ) : '';
+		if ( ! wp_verify_nonce( $nonce, 'comarine_storage_booking_public_availability' ) ) {
+			wp_send_json_error(
+				array(
+					'message' => __( 'Invalid availability request.', 'comarine-storage-booking-with-woocommerce' ),
+				),
+				403
+			);
+		}
+
+		$unit_post_id = isset( $_REQUEST['unit_post_id'] ) ? absint( wp_unslash( $_REQUEST['unit_post_id'] ) ) : 0;
+		if ( $unit_post_id <= 0 ) {
+			wp_send_json_error(
+				array(
+					'message' => __( 'Invalid storage unit.', 'comarine-storage-booking-with-woocommerce' ),
+				),
+				400
+			);
+		}
+
+		$unit = get_post( $unit_post_id );
+		if ( ! $unit || COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE !== $unit->post_type || 'publish' !== $unit->post_status ) {
+			wp_send_json_error(
+				array(
+					'message' => __( 'Storage unit not found.', 'comarine-storage-booking-with-woocommerce' ),
+				),
+				404
+			);
+		}
+
+		$site_timezone = function_exists( 'wp_timezone' ) ? wp_timezone() : new DateTimeZone( 'UTC' );
+		$today_dt      = DateTimeImmutable::createFromFormat( '!Y-m-d', wp_date( 'Y-m-d', null, $site_timezone ), $site_timezone );
+		if ( ! $today_dt instanceof DateTimeImmutable ) {
+			$today_dt = new DateTimeImmutable( 'today', $site_timezone );
+		}
+
+		$start_date = isset( $_REQUEST['start_date'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['start_date'] ) ) : $today_dt->format( 'Y-m-d' );
+		$end_date   = isset( $_REQUEST['end_date'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['end_date'] ) ) : '';
+
+		if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $start_date ) ) {
+			$start_date = $today_dt->format( 'Y-m-d' );
+		}
+
+		if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $end_date ) ) {
+			$end_date = $today_dt->modify( '+540 days' )->format( 'Y-m-d' );
+		}
+
+		if ( class_exists( 'Comarine_Storage_Booking_With_Woocommerce_Bookings' )
+			&& method_exists( 'Comarine_Storage_Booking_With_Woocommerce_Bookings', 'get_unit_daily_availability_map' )
+		) {
+			$availability = Comarine_Storage_Booking_With_Woocommerce_Bookings::get_unit_daily_availability_map( $unit_post_id, $start_date, $end_date );
+		} else {
+			$availability = array(
+				'unit_post_id'        => $unit_post_id,
+				'is_capacity_managed' => false,
+				'capacity_m2'         => 0.0,
+				'range_start_date'    => $start_date,
+				'range_end_date'      => $end_date,
+				'days'                => array(),
+			);
+		}
+
+		$unit_status = sanitize_key( (string) get_post_meta( $unit_post_id, '_csu_status', true ) );
+		if ( '' === $unit_status ) {
+			$unit_status = 'available';
+		}
+
+		$manual_block_statuses = array( 'maintenance', 'archived' );
+		$blocked_by_status     = in_array( $unit_status, $manual_block_statuses, true );
+
+		wp_send_json_success(
+			array(
+				'unit_post_id'       => $unit_post_id,
+				'unit_status'        => $unit_status,
+				'blocked_by_status'  => $blocked_by_status,
+				'availability'       => $availability,
+			)
+		);
+	}
+
+	/**
 	 * Periodically expire stale booking locks.
 	 *
 	 * @since 1.0.3
@@ -164,7 +252,23 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 			$booking_day_count    = (int) $date_range_validation['day_count'];
 		}
 
-		$capacity_snapshot = $this->get_unit_capacity_booking_snapshot( $unit_post_id );
+		$availability_range_end_date = '';
+		if ( 'daily' === $duration_key ) {
+			$availability_range_end_date = $requested_end_date;
+		} elseif ( class_exists( 'Comarine_Storage_Booking_With_Woocommerce_Bookings' )
+			&& isset( Comarine_Storage_Booking_With_Woocommerce_Bookings::DURATION_MONTHS[ $duration_key ] )
+		) {
+			$site_timezone = function_exists( 'wp_timezone' ) ? wp_timezone() : new DateTimeZone( 'UTC' );
+			$start_dt_for_overlap = DateTimeImmutable::createFromFormat( '!Y-m-d', $requested_start_date, $site_timezone );
+			if ( $start_dt_for_overlap instanceof DateTimeImmutable ) {
+				$end_dt_for_overlap = $start_dt_for_overlap->modify( '+' . (int) Comarine_Storage_Booking_With_Woocommerce_Bookings::DURATION_MONTHS[ $duration_key ] . ' months' );
+				if ( $end_dt_for_overlap instanceof DateTimeImmutable ) {
+					$availability_range_end_date = $end_dt_for_overlap->format( 'Y-m-d' );
+				}
+			}
+		}
+
+		$capacity_snapshot = $this->get_unit_capacity_booking_snapshot( $unit_post_id, $requested_start_date, $availability_range_end_date );
 		$unit_capacity_m2  = isset( $capacity_snapshot['capacity_m2'] ) ? (float) $capacity_snapshot['capacity_m2'] : 0.0;
 		if ( ! empty( $capacity_snapshot['is_capacity_managed'] ) ) {
 			if ( $requested_area_m2 <= 0 ) {
@@ -791,6 +895,7 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 				'checkout'      => '1',
 				'show_filters'  => '1',
 				'sort'          => 'default',
+				'include_ids'   => '',
 				'wrapper_class' => '',
 				'card_action'   => 'book',
 			),
@@ -803,8 +908,24 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 		$show_filters   = '0' !== (string) $atts['show_filters'];
 		$default_status = sanitize_key( (string) $atts['status'] );
 		$sort_mode      = sanitize_key( (string) $atts['sort'] );
+		$raw_include_ids = trim( (string) $atts['include_ids'] );
 		$wrapper_class  = sanitize_html_class( (string) $atts['wrapper_class'] );
 		$card_action    = sanitize_key( (string) $atts['card_action'] );
+		$include_ids    = array();
+
+		if ( '' !== $raw_include_ids ) {
+			$parts = preg_split( '/[\s,]+/', $raw_include_ids );
+			if ( is_array( $parts ) ) {
+				foreach ( $parts as $part ) {
+					$maybe_id = absint( $part );
+					if ( $maybe_id > 0 ) {
+						$include_ids[] = $maybe_id;
+					}
+				}
+			}
+
+			$include_ids = array_values( array_unique( $include_ids ) );
+		}
 
 		if ( ! in_array( $card_action, array( 'book', 'single' ), true ) ) {
 			$card_action = 'book';
@@ -836,7 +957,11 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 			'posts_per_page' => -1,
 		);
 
-		if ( 'latest' === $sort_mode ) {
+		if ( ! empty( $include_ids ) ) {
+			$query_args['post__in']       = $include_ids;
+			$query_args['posts_per_page'] = count( $include_ids );
+			$query_args['orderby']        = 'post__in';
+		} elseif ( 'latest' === $sort_mode ) {
 			$query_args['orderby'] = 'date';
 			$query_args['order']   = 'DESC';
 		} else {
@@ -889,6 +1014,7 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 			$unit_dimensions = (string) get_post_meta( $unit_id, '_csu_dimensions', true );
 			$unit_floor   = (string) get_post_meta( $unit_id, '_csu_floor', true );
 			$durations    = $this->get_unit_duration_prices( $unit_id );
+			$uses_daily_date_range = isset( $durations['daily'] ) && is_numeric( $durations['daily'] ) && (float) $durations['daily'] > 0;
 			$normalized_status = $unit_status ? sanitize_key( $unit_status ) : 'available';
 			$capacity_snapshot = $this->get_unit_capacity_booking_snapshot( $unit_id );
 			$has_conflict = class_exists( 'Comarine_Storage_Booking_With_Woocommerce_Bookings' )
@@ -896,7 +1022,7 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 					? ! empty( $capacity_snapshot['is_full'] )
 					: Comarine_Storage_Booking_With_Woocommerce_Bookings::has_conflicting_booking( $unit_id ) )
 				: false;
-			$can_book     = 'available' === $normalized_status && ! empty( $durations ) && $container_product_id > 0 && ! $has_conflict;
+			$can_book     = 'available' === $normalized_status && ! empty( $durations ) && $container_product_id > 0 && ( $uses_daily_date_range || ! $has_conflict );
 			$default_key  = ! empty( $durations ) ? array_key_first( $durations ) : '';
 			$unit_size_float = is_numeric( $unit_size ) ? (float) $unit_size : null;
 			$from_price    = ! empty( $durations ) ? (float) min( $durations ) : 0.0;
@@ -957,7 +1083,6 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 			$default_start_date = $this->get_default_booking_start_date_input_value();
 			$default_end_date   = $this->get_default_booking_end_date_input_value( $default_start_date );
 			$unit_permalink     = get_permalink( $unit_id );
-			$uses_daily_date_range = isset( $durations['daily'] ) && is_numeric( $durations['daily'] ) && (float) $durations['daily'] > 0;
 			if ( $uses_daily_date_range ) {
 				$default_key = 'daily';
 			}
@@ -1619,11 +1744,15 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 	 *
 	 * @since 1.0.26
 	 *
-	 * @param int $unit_post_id Unit post ID.
+	 * @param int    $unit_post_id Unit post ID.
+	 * @param string $range_start  Optional overlap range start date (`Y-m-d`).
+	 * @param string $range_end    Optional overlap range end date (`Y-m-d`, exclusive).
 	 * @return array<string, float|bool>
 	 */
-	private function get_unit_capacity_booking_snapshot( $unit_post_id ) {
+	private function get_unit_capacity_booking_snapshot( $unit_post_id, $range_start = '', $range_end = '' ) {
 		$unit_post_id = absint( $unit_post_id );
+		$range_start  = is_string( $range_start ) ? trim( $range_start ) : '';
+		$range_end    = is_string( $range_end ) ? trim( $range_end ) : '';
 		$fallback = array(
 			'is_capacity_managed' => false,
 			'capacity_m2'         => 0.0,
@@ -1637,7 +1766,7 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 		}
 
 		if ( class_exists( 'Comarine_Storage_Booking_With_Woocommerce_Bookings' ) && method_exists( 'Comarine_Storage_Booking_With_Woocommerce_Bookings', 'get_unit_capacity_availability' ) ) {
-			$snapshot = Comarine_Storage_Booking_With_Woocommerce_Bookings::get_unit_capacity_availability( $unit_post_id );
+			$snapshot = Comarine_Storage_Booking_With_Woocommerce_Bookings::get_unit_capacity_availability( $unit_post_id, $range_start, $range_end );
 			if ( is_array( $snapshot ) ) {
 				return wp_parse_args( $snapshot, $fallback );
 			}

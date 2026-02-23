@@ -74,6 +74,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Public {
 		 */
 
 		wp_enqueue_style( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'css/comarine-storage-booking-with-woocommerce-public.css', array(), $this->version, 'all' );
+		wp_enqueue_style( 'jquery-ui-datepicker' );
 
 	}
 
@@ -96,7 +97,37 @@ class Comarine_Storage_Booking_With_Woocommerce_Public {
 		 * class.
 		 */
 
-		wp_enqueue_script( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'js/comarine-storage-booking-with-woocommerce-public.js', array( 'jquery' ), $this->version, false );
+		wp_enqueue_script( 'jquery-ui-datepicker' );
+		if ( function_exists( 'wp_localize_jquery_ui_datepicker' ) ) {
+			wp_localize_jquery_ui_datepicker();
+		}
+
+		wp_enqueue_script( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'js/comarine-storage-booking-with-woocommerce-public.js', array( 'jquery', 'jquery-ui-datepicker' ), $this->version, false );
+
+		wp_localize_script(
+			$this->plugin_name,
+			'comarineStorageBookingPublic',
+			array(
+				'ajaxUrl'               => admin_url( 'admin-ajax.php' ),
+				'availabilityAction'    => 'comarine_storage_booking_daily_availability',
+				'availabilityNonce'     => wp_create_nonce( 'comarine_storage_booking_public_availability' ),
+				'availabilityHorizonDays' => 540,
+				'datepicker'            => array(
+					'dateFormat'  => 'yy-mm-dd',
+					'firstDay'    => (int) get_option( 'start_of_week', 1 ),
+					'changeMonth' => true,
+					'changeYear'  => true,
+				),
+				'i18n'                  => array(
+					'loadingAvailability'  => __( 'Loading availability...', 'comarine-storage-booking-with-woocommerce' ),
+					'availabilityError'    => __( 'Availability could not be loaded. Dates will be validated at checkout.', 'comarine-storage-booking-with-woocommerce' ),
+					'noCapacityForDate'    => __( 'Unavailable on this date', 'comarine-storage-booking-with-woocommerce' ),
+					'insufficientArea'     => __( 'Not enough available area for selected m2', 'comarine-storage-booking-with-woocommerce' ),
+					'selectStartDateFirst' => __( 'Select start date first', 'comarine-storage-booking-with-woocommerce' ),
+					'endDateBlocked'       => __( 'Selected range includes unavailable dates', 'comarine-storage-booking-with-woocommerce' ),
+				),
+			)
+		);
 
 	}
 

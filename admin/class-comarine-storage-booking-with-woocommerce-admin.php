@@ -423,6 +423,14 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 				$this->handle_create_demo_units_action( $redirect_page );
 				break;
 
+			case 'delete_demo_units':
+				$this->handle_delete_demo_units_action( $redirect_page );
+				break;
+
+			case 'regenerate_demo_units':
+				$this->handle_regenerate_demo_units_action( $redirect_page );
+				break;
+
 			default:
 				$this->redirect_after_setup_action(
 					$redirect_page,
@@ -444,8 +452,11 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			return;
 		}
 
-		$product_id         = isset( $_GET['comarine_product_id'] ) ? absint( wp_unslash( $_GET['comarine_product_id'] ) ) : 0;
+		$product_id          = isset( $_GET['comarine_product_id'] ) ? absint( wp_unslash( $_GET['comarine_product_id'] ) ) : 0;
 		$created_units_count = isset( $_GET['comarine_units_created'] ) ? absint( wp_unslash( $_GET['comarine_units_created'] ) ) : 0;
+		$deleted_units_count = isset( $_GET['comarine_units_deleted'] ) ? absint( wp_unslash( $_GET['comarine_units_deleted'] ) ) : 0;
+		$deleted_bookings_count = isset( $_GET['comarine_bookings_deleted'] ) ? absint( wp_unslash( $_GET['comarine_bookings_deleted'] ) ) : 0;
+		$deleted_audit_count = isset( $_GET['comarine_audit_deleted'] ) ? absint( wp_unslash( $_GET['comarine_audit_deleted'] ) ) : 0;
 		$class              = 'notice-info';
 		$message            = '';
 
@@ -495,6 +506,37 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			case 'demo_units_post_type_unavailable':
 				$class   = 'notice-error';
 				$message = __( 'Storage Units post type is not available yet. Reload the page and try creating demo units again.', 'comarine-storage-booking-with-woocommerce' );
+				break;
+			case 'demo_units_deleted':
+				$class   = 'notice-success';
+				$message = $deleted_units_count > 0
+					? sprintf(
+						/* translators: 1: demo units deleted, 2: booking rows deleted, 3: audit rows deleted */
+						__( 'Deleted %1$d demo storage units and cleaned up %2$d booking rows and %3$d audit rows.', 'comarine-storage-booking-with-woocommerce' ),
+						$deleted_units_count,
+						$deleted_bookings_count,
+						$deleted_audit_count
+					)
+					: __( 'Demo data was deleted.', 'comarine-storage-booking-with-woocommerce' );
+				break;
+			case 'demo_units_none_found':
+				$class   = 'notice-info';
+				$message = __( 'No demo storage units were found, so nothing was deleted.', 'comarine-storage-booking-with-woocommerce' );
+				break;
+			case 'demo_units_delete_failed':
+				$class   = 'notice-error';
+				$message = __( 'Demo storage units could not be deleted automatically. Please check permissions and try again.', 'comarine-storage-booking-with-woocommerce' );
+				break;
+			case 'demo_units_regenerated':
+				$class   = 'notice-success';
+				$message = sprintf(
+					/* translators: 1: old demo units deleted, 2: booking rows deleted, 3: audit rows deleted, 4: new demo units created */
+					__( 'Regenerated demo data: deleted %1$d demo units, cleaned %2$d booking rows and %3$d audit rows, then created %4$d fresh demo units.', 'comarine-storage-booking-with-woocommerce' ),
+					$deleted_units_count,
+					$deleted_bookings_count,
+					$deleted_audit_count,
+					$created_units_count
+				);
 				break;
 			case 'invalid_nonce':
 				$class   = 'notice-error';
@@ -663,7 +705,102 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			$redirect_page,
 			array(
 				'comarine_setup_notice' => 'demo_units_created',
-				'comarine_units_created'=> $created_count,
+				'comarine_units_created' => $created_count,
+			)
+		);
+	}
+
+	/**
+	 * Handle deleting demo storage units and related demo booking data.
+	 *
+	 * @since    1.0.32
+	 *
+	 * @param string $redirect_page Page slug to redirect back to.
+	 * @return void
+	 */
+	private function handle_delete_demo_units_action( $redirect_page ) {
+		$post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' )
+			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE
+			: 'comarine_storageunit';
+
+		if ( ! post_type_exists( $post_type ) ) {
+			$this->register_storage_units_post_type_for_overview();
+		}
+
+		$result = $this->delete_demo_storage_units_data();
+		if ( ! empty( $result['units_found'] ) && empty( $result['units_deleted'] ) ) {
+			$this->redirect_after_setup_action(
+				$redirect_page,
+				array( 'comarine_setup_notice' => 'demo_units_delete_failed' )
+			);
+		}
+
+		if ( empty( $result['units_found'] ) ) {
+			$this->redirect_after_setup_action(
+				$redirect_page,
+				array( 'comarine_setup_notice' => 'demo_units_none_found' )
+			);
+		}
+
+		$this->redirect_after_setup_action(
+			$redirect_page,
+			array(
+				'comarine_setup_notice'   => 'demo_units_deleted',
+				'comarine_units_deleted'  => (int) $result['units_deleted'],
+				'comarine_bookings_deleted' => (int) $result['bookings_deleted'],
+				'comarine_audit_deleted'  => (int) $result['audit_deleted'],
+			)
+		);
+	}
+
+	/**
+	 * Handle regenerating demo data by deleting existing demo units and creating new ones.
+	 *
+	 * @since    1.0.32
+	 *
+	 * @param string $redirect_page Page slug to redirect back to.
+	 * @return void
+	 */
+	private function handle_regenerate_demo_units_action( $redirect_page ) {
+		$post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' )
+			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE
+			: 'comarine_storageunit';
+
+		if ( ! post_type_exists( $post_type ) ) {
+			$this->register_storage_units_post_type_for_overview();
+		}
+
+		if ( ! post_type_exists( $post_type ) ) {
+			$this->redirect_after_setup_action(
+				$redirect_page,
+				array( 'comarine_setup_notice' => 'demo_units_post_type_unavailable' )
+			);
+		}
+
+		$delete_result = $this->delete_demo_storage_units_data();
+		if ( ! empty( $delete_result['units_found'] ) && empty( $delete_result['units_deleted'] ) ) {
+			$this->redirect_after_setup_action(
+				$redirect_page,
+				array( 'comarine_setup_notice' => 'demo_units_delete_failed' )
+			);
+		}
+
+		$created_count = $this->create_demo_storage_units( 5 );
+		if ( $created_count <= 0 ) {
+			$this->redirect_after_setup_action(
+				$redirect_page,
+				array( 'comarine_setup_notice' => 'demo_units_create_failed' )
+			);
+		}
+
+		$this->redirect_after_setup_action(
+			$redirect_page,
+			array(
+				'comarine_setup_notice'    => 'demo_units_regenerated',
+				'comarine_units_deleted'   => (int) $delete_result['units_deleted'],
+				'comarine_bookings_deleted' => (int) $delete_result['bookings_deleted'],
+				'comarine_audit_deleted'   => (int) $delete_result['audit_deleted'],
+				'comarine_units_created'   => $created_count,
 			)
 		);
 	}
@@ -729,6 +866,119 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		}
 
 		return $created;
+	}
+
+	/**
+	 * Delete demo storage units and cleanup related booking/audit rows.
+	 *
+	 * Demo units are identified by the `_comarine_demo_storage_unit = 1` marker meta.
+	 *
+	 * @since    1.0.32
+	 *
+	 * @return array<string, int>
+	 */
+	private function delete_demo_storage_units_data() {
+		global $wpdb;
+
+		$result = array(
+			'units_found'      => 0,
+			'units_deleted'    => 0,
+			'bookings_deleted' => 0,
+			'audit_deleted'    => 0,
+		);
+
+		$demo_unit_ids = $this->get_demo_storage_unit_ids();
+		$result['units_found'] = count( $demo_unit_ids );
+
+		if ( empty( $demo_unit_ids ) ) {
+			return $result;
+		}
+
+		$demo_unit_ids = array_values(
+			array_filter(
+				array_map( 'absint', $demo_unit_ids ),
+				static function ( $id ) {
+					return $id > 0;
+				}
+			)
+		);
+
+		if ( empty( $demo_unit_ids ) ) {
+			$result['units_found'] = 0;
+			return $result;
+		}
+
+		if ( class_exists( 'Comarine_Storage_Booking_With_Woocommerce_Bookings' ) ) {
+			$placeholders = implode( ',', array_fill( 0, count( $demo_unit_ids ), '%d' ) );
+
+			if ( method_exists( 'Comarine_Storage_Booking_With_Woocommerce_Bookings', 'table_exists' )
+				&& method_exists( 'Comarine_Storage_Booking_With_Woocommerce_Bookings', 'get_table_name' )
+				&& Comarine_Storage_Booking_With_Woocommerce_Bookings::table_exists()
+			) {
+				$table_name = Comarine_Storage_Booking_With_Woocommerce_Bookings::get_table_name();
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$deleted_bookings = $wpdb->query(
+					$wpdb->prepare(
+						"DELETE FROM {$table_name} WHERE unit_post_id IN ({$placeholders})",
+						$demo_unit_ids
+					)
+				);
+				$result['bookings_deleted'] = false !== $deleted_bookings ? (int) $deleted_bookings : 0;
+			}
+
+			if ( method_exists( 'Comarine_Storage_Booking_With_Woocommerce_Bookings', 'audit_table_exists' )
+				&& method_exists( 'Comarine_Storage_Booking_With_Woocommerce_Bookings', 'get_audit_table_name' )
+				&& Comarine_Storage_Booking_With_Woocommerce_Bookings::audit_table_exists()
+			) {
+				$audit_table_name = Comarine_Storage_Booking_With_Woocommerce_Bookings::get_audit_table_name();
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$deleted_audit = $wpdb->query(
+					$wpdb->prepare(
+						"DELETE FROM {$audit_table_name} WHERE unit_post_id IN ({$placeholders})",
+						$demo_unit_ids
+					)
+				);
+				$result['audit_deleted'] = false !== $deleted_audit ? (int) $deleted_audit : 0;
+			}
+		}
+
+		foreach ( $demo_unit_ids as $demo_unit_id ) {
+			$deleted = wp_delete_post( $demo_unit_id, true );
+			if ( $deleted ) {
+				$result['units_deleted']++;
+			}
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Get all demo storage unit post IDs created by setup actions.
+	 *
+	 * @since    1.0.32
+	 *
+	 * @return array<int, int>
+	 */
+	private function get_demo_storage_unit_ids() {
+		$post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' )
+			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE
+			: 'comarine_storageunit';
+
+		$ids = get_posts(
+			array(
+				'post_type'      => $post_type,
+				'post_status'    => array( 'publish', 'future', 'draft', 'pending', 'private', 'trash' ),
+				'posts_per_page' => -1,
+				'orderby'        => 'ID',
+				'order'          => 'DESC',
+				'fields'         => 'ids',
+				'meta_key'       => '_comarine_demo_storage_unit',
+				'meta_value'     => '1',
+				'no_found_rows'  => true,
+			)
+		);
+
+		return array_map( 'absint', is_array( $ids ) ? $ids : array() );
 	}
 
 	/**
@@ -1916,7 +2166,11 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		echo '<div class="comarine-overview-summary__actions">';
 		echo '<a class="button button-primary" href="' . esc_url( $this->get_settings_page_url() ) . '">' . esc_html__( 'Open Settings', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
 		echo '<a class="button" href="' . esc_url( $this->get_storage_units_list_url() ) . '">' . esc_html__( 'View Storage Units', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
+		$delete_demo_confirm_message = __( 'Delete all demo storage units and related bookings/audit rows created for testing?', 'comarine-storage-booking-with-woocommerce' );
+		$regenerate_demo_confirm_message = __( 'Regenerate demo data? This deletes existing demo storage units and related demo bookings/audit rows, then creates 5 fresh demo units.', 'comarine-storage-booking-with-woocommerce' );
 		echo '<a class="button" href="' . esc_url( $this->get_setup_action_url( 'create_demo_units', $this->get_overview_page_slug() ) ) . '">' . esc_html__( 'Create 5 Demo Units', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
+		echo '<a class="button" href="' . esc_url( $this->get_setup_action_url( 'regenerate_demo_units', $this->get_overview_page_slug() ) ) . '" onclick="return window.confirm(\'' . esc_js( $regenerate_demo_confirm_message ) . '\');">' . esc_html__( 'Regenerate Demo Data', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
+		echo '<a class="button" href="' . esc_url( $this->get_setup_action_url( 'delete_demo_units', $this->get_overview_page_slug() ) ) . '" onclick="return window.confirm(\'' . esc_js( $delete_demo_confirm_message ) . '\');">' . esc_html__( 'Delete Demo Data', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
 		echo '<a class="button" href="' . esc_url( $this->get_bookings_page_url() ) . '">' . esc_html__( 'Open Bookings', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
 		echo '<a class="button" href="' . esc_url( $this->get_overview_page_url() ) . '">' . esc_html__( 'Refresh Overview', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
 		if ( ! empty( $next_action['url'] ) && ! empty( $next_action['label'] ) ) {
@@ -2126,7 +2380,24 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		echo '<a class="button button-secondary" href="' . esc_url( $this->get_setup_action_url( 'create_demo_units', $this->get_settings_page_slug() ) ) . '">';
 		echo esc_html__( 'Create 5 Demo Units', 'comarine-storage-booking-with-woocommerce' );
 		echo '</a> ';
-		echo esc_html__( 'Adds 5 demo Storage Units with random capacities and prices so you can test bookings, then delete them later.', 'comarine-storage-booking-with-woocommerce' );
+		echo esc_html__( 'Adds 5 demo Storage Units with random capacities and prices so you can test bookings.', 'comarine-storage-booking-with-woocommerce' );
+		echo '</p>';
+
+		$delete_demo_confirm_message = __( 'Delete all demo storage units and related bookings/audit rows created for testing?', 'comarine-storage-booking-with-woocommerce' );
+		$regenerate_demo_confirm_message = __( 'Regenerate demo data? This deletes existing demo storage units and related demo bookings/audit rows, then creates 5 fresh demo units.', 'comarine-storage-booking-with-woocommerce' );
+
+		echo '<p class="description">';
+		echo '<a class="button button-secondary" href="' . esc_url( $this->get_setup_action_url( 'regenerate_demo_units', $this->get_settings_page_slug() ) ) . '" onclick="return window.confirm(\'' . esc_js( $regenerate_demo_confirm_message ) . '\');">';
+		echo esc_html__( 'Regenerate Demo Data', 'comarine-storage-booking-with-woocommerce' );
+		echo '</a> ';
+		echo esc_html__( 'Deletes existing demo units (and their booking/audit rows) and creates a fresh demo dataset.', 'comarine-storage-booking-with-woocommerce' );
+		echo '</p>';
+
+		echo '<p class="description">';
+		echo '<a class="button button-secondary" href="' . esc_url( $this->get_setup_action_url( 'delete_demo_units', $this->get_settings_page_slug() ) ) . '" onclick="return window.confirm(\'' . esc_js( $delete_demo_confirm_message ) . '\');">';
+		echo esc_html__( 'Delete Demo Data', 'comarine-storage-booking-with-woocommerce' );
+		echo '</a> ';
+		echo esc_html__( 'Removes demo units created by the setup action and cleans related booking/audit rows.', 'comarine-storage-booking-with-woocommerce' );
 		echo '</p>';
 	}
 

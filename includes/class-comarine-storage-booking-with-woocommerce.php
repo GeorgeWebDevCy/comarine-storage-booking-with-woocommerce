@@ -167,6 +167,9 @@ class Comarine_Storage_Booking_With_Woocommerce {
 		$this->loader->add_action( 'init', $wc_integration, 'register_shortcodes', 20 );
 		$this->loader->add_action( 'init', $wc_integration, 'maybe_expire_stale_locks', 30 );
 		$this->loader->add_action( 'template_redirect', $wc_integration, 'maybe_handle_booking_submission' );
+		$this->loader->add_action( 'wp_ajax_comarine_storage_booking_daily_availability', $wc_integration, 'ajax_get_daily_unit_availability' );
+		$this->loader->add_action( 'wp_ajax_nopriv_comarine_storage_booking_daily_availability', $wc_integration, 'ajax_get_daily_unit_availability' );
+		$this->loader->add_filter( 'template_include', $storage_units, 'filter_single_storage_unit_template', 20 );
 
 		// WooCommerce booking item/cart/order integration hooks.
 		$this->loader->add_filter( 'woocommerce_get_cart_item_from_session', $wc_integration, 'restore_cart_item_from_session', 10, 3 );

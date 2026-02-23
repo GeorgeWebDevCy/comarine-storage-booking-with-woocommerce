@@ -100,6 +100,36 @@ class Comarine_Storage_Booking_With_Woocommerce_Storage_Units {
 	}
 
 	/**
+	 * Provide a plugin single template for Storage Units when the theme has no CPT-specific template.
+	 *
+	 * @since 1.0.32
+	 *
+	 * @param string $template Resolved template path.
+	 * @return string
+	 */
+	public function filter_single_storage_unit_template( $template ) {
+		if ( is_admin() ) {
+			return $template;
+		}
+
+		if ( ! function_exists( 'is_singular' ) || ! is_singular( $this->get_post_type() ) ) {
+			return $template;
+		}
+
+		$theme_specific_template = locate_template( array( 'single-' . $this->get_post_type() . '.php' ) );
+		if ( '' !== (string) $theme_specific_template ) {
+			return $template;
+		}
+
+		$plugin_template = plugin_dir_path( dirname( __FILE__ ) ) . 'public/partials/comarine-storage-booking-with-woocommerce-single-storage-unit.php';
+		if ( file_exists( $plugin_template ) ) {
+			return $plugin_template;
+		}
+
+		return $template;
+	}
+
+	/**
 	 * Add meta boxes for storage unit details.
 	 *
 	 * @since 1.0.2
