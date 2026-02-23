@@ -2319,9 +2319,7 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 			return $start_date;
 		}
 
-		$date_format = (string) get_option( 'date_format', 'Y-m-d' );
-
-		return wp_date( $date_format, $start_dt->getTimestamp(), $site_timezone );
+		return wp_date( 'd-m-Y', $start_dt->getTimestamp(), $site_timezone );
 	}
 
 	/**
