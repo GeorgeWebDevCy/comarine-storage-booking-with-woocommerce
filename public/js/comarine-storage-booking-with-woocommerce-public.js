@@ -21,11 +21,43 @@
 	}
 
 	function parseDateOnly( value ) {
-		if ( typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test( value ) ) {
+		if ( typeof value !== 'string' ) {
 			return null;
 		}
 
-		var dt = new Date( value + 'T00:00:00' );
+		var normalized = value.trim();
+		var parts = null;
+		var year = 0;
+		var month = 0;
+		var day = 0;
+		if ( !normalized ) {
+			return null;
+		}
+
+		if ( /^\d{2}-\d{2}-\d{4}$/.test( normalized ) ) {
+			parts = normalized.match( /^(\d{2})-(\d{2})-(\d{4})$/ );
+			day = Number( parts[ 1 ] );
+			month = Number( parts[ 2 ] );
+			year = Number( parts[ 3 ] );
+		} else if ( /^\d{4}-\d{2}-\d{2}$/.test( normalized ) ) {
+			parts = normalized.match( /^(\d{4})-(\d{2})-(\d{2})$/ );
+			year = Number( parts[ 1 ] );
+			month = Number( parts[ 2 ] );
+			day = Number( parts[ 3 ] );
+		} else {
+			return null;
+		}
+
+		var dt = new Date( year, month - 1, day );
+		if (
+			Number.isNaN( dt.getTime() ) ||
+			dt.getFullYear() !== year ||
+			dt.getMonth() !== month - 1 ||
+			dt.getDate() !== day
+		) {
+			return null;
+		}
+
 		return Number.isNaN( dt.getTime() ) ? null : dt;
 	}
 
@@ -38,6 +70,43 @@
 		var month = String( dateObj.getMonth() + 1 ).padStart( 2, '0' );
 		var day = String( dateObj.getDate() ).padStart( 2, '0' );
 		return year + '-' + month + '-' + day;
+	}
+
+	function formatDisplayDateOnly( dateObj ) {
+		if ( !( dateObj instanceof Date ) || Number.isNaN( dateObj.getTime() ) ) {
+			return '';
+		}
+
+		var day = String( dateObj.getDate() ).padStart( 2, '0' );
+		var month = String( dateObj.getMonth() + 1 ).padStart( 2, '0' );
+		var year = dateObj.getFullYear();
+		return day + '-' + month + '-' + year;
+	}
+
+	function setDateInputValue( $input, dateObj ) {
+		if ( !$input || !$input.length ) {
+			return;
+		}
+
+		$input.val( formatDisplayDateOnly( dateObj ) );
+	}
+
+	function normalizeDateInputsForSubmit( $form ) {
+		if ( !$form || !$form.length ) {
+			return;
+		}
+
+		[ 'comarine_start_date', 'comarine_end_date' ].forEach( function( fieldName ) {
+			var $input = $form.find( 'input[name="' + fieldName + '"]' );
+			if ( !$input.length ) {
+				return;
+			}
+
+			var parsed = parseDateOnly( $input.val() );
+			if ( parsed ) {
+				$input.val( formatDateOnly( parsed ) );
+			}
+		} );
 	}
 
 	function addDays( dateObj, days ) {
@@ -165,8 +234,10 @@
 				var minEnd = addDays( startDtForMin, 1 );
 				var minEndStr = formatDateOnly( minEnd );
 				$endInput.attr( 'min', minEndStr );
-				if ( !$endInput.val() || $endInput.val() <= startValForMin ) {
-					$endInput.val( minEndStr ).trigger( 'change' );
+				var currentEndForMin = parseDateOnly( $endInput.val() );
+				if ( !currentEndForMin || currentEndForMin <= startDtForMin ) {
+					setDateInputValue( $endInput, minEnd );
+					$endInput.trigger( 'change' );
 				}
 			}
 		}
@@ -543,7 +614,8 @@
 			if ( currentEnd && startDate && ( currentEnd <= startDate || !isContinuousRangeAvailableForForm( $form, startDate, currentEnd ) ) ) {
 				var nextSuggested = addDays( startDate, 1 );
 				if ( nextSuggested && isContinuousRangeAvailableForForm( $form, startDate, nextSuggested ) ) {
-					$endInput.val( formatDateOnly( nextSuggested ) ).trigger( 'change' );
+					setDateInputValue( $endInput, nextSuggested );
+					$endInput.trigger( 'change' );
 				}
 			}
 
@@ -582,12 +654,18 @@
 			}
 
 			$input.attr( 'autocomplete', 'off' );
+			$input.attr( 'placeholder', 'dd-mm-yyyy' );
 			$input.addClass( 'comarine-storage-unit-card__datepicker-input' );
+
+			var normalizedDate = parseDateOnly( $input.val() );
+			if ( normalizedDate ) {
+				setDateInputValue( $input, normalizedDate );
+			}
 		} );
 
 		var cfg = getPublicConfig();
 		var datepickerOptions = $.extend( {}, cfg.datepicker || {}, {
-			dateFormat: 'yy-mm-dd',
+			dateFormat: 'dd-mm-yy',
 			showAnim: '',
 			beforeShow: function() {
 				fetchDailyAvailabilityForForm( $form );
@@ -646,7 +724,7 @@
 						if ( !currentEnd || currentEnd <= startDate || !isContinuousRangeAvailableForForm( $form, startDate, currentEnd ) ) {
 							var proposedEnd = endMin;
 							if ( isContinuousRangeAvailableForForm( $form, startDate, proposedEnd ) ) {
-								$endInput.val( formatDateOnly( proposedEnd ) );
+								setDateInputValue( $endInput, proposedEnd );
 							}
 						}
 					}
@@ -706,6 +784,10 @@
 
 		$form.on( 'change', 'input[name="comarine_duration_key"]', function() {
 			refreshDailyDatepickers( $form );
+		} );
+
+		$form.on( 'submit', function() {
+			normalizeDateInputsForSubmit( $form );
 		} );
 
 		fetchDailyAvailabilityForForm( $form );

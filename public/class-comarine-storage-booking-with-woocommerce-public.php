@@ -113,7 +113,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Public {
 				'availabilityNonce'     => wp_create_nonce( 'comarine_storage_booking_public_availability' ),
 				'availabilityHorizonDays' => 540,
 				'datepicker'            => array(
-					'dateFormat'  => 'yy-mm-dd',
+					'dateFormat'  => 'dd-mm-yy',
 					'firstDay'    => (int) get_option( 'start_of_week', 1 ),
 					'changeMonth' => true,
 					'changeYear'  => true,
