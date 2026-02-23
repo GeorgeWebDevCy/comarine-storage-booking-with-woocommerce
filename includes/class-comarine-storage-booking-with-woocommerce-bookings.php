@@ -26,6 +26,24 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 	);
 
 	/**
+	 * Supported booking statuses.
+	 *
+	 * @since 1.0.5
+	 *
+	 * @var array<string, string>
+	 */
+	const STATUSES = array(
+		'pending'   => 'Pending',
+		'locked'    => 'Locked',
+		'paid'      => 'Paid',
+		'cancelled' => 'Cancelled',
+		'expired'   => 'Expired',
+		'refunded'  => 'Refunded',
+		'reserved'  => 'Reserved',
+		'occupied'  => 'Occupied',
+	);
+
+	/**
 	 * Get the bookings table name.
 	 *
 	 * @since 1.0.2
@@ -136,21 +154,170 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 	 * @return array<int, object>
 	 */
 	public static function get_recent_bookings( $limit = 20 ) {
+		return self::get_bookings(
+			array(
+				'limit' => $limit,
+			)
+		);
+	}
+
+	/**
+	 * Get bookings with optional filters.
+	 *
+	 * @since 1.0.5
+	 *
+	 * @param array<string, mixed> $args Query args.
+	 * @return array<int, object>
+	 */
+	public static function get_bookings( $args = array() ) {
 		global $wpdb;
 
 		if ( ! self::table_exists() ) {
 			return array();
 		}
 
+		$defaults = array(
+			'limit'     => 20,
+			'offset'    => 0,
+			'status'    => '',
+			'order_id'  => 0,
+			'booking_id' => 0,
+		);
+		$args     = wp_parse_args( $args, $defaults );
+
 		$table_name = self::get_table_name();
-		$limit      = max( 1, min( 100, (int) $limit ) );
+		$limit      = max( 1, min( 200, (int) $args['limit'] ) );
+		$offset     = max( 0, (int) $args['offset'] );
+		$status     = sanitize_key( (string) $args['status'] );
+		$order_id   = absint( $args['order_id'] );
+		$booking_id = absint( $args['booking_id'] );
+
+		$where_parts = array( '1=1' );
+		$params      = array();
+
+		if ( '' !== $status ) {
+			$where_parts[] = 'status = %s';
+			$params[]      = $status;
+		}
+
+		if ( $order_id > 0 ) {
+			$where_parts[] = 'order_id = %d';
+			$params[]      = $order_id;
+		}
+
+		if ( $booking_id > 0 ) {
+			$where_parts[] = 'id = %d';
+			$params[]      = $booking_id;
+		}
+
+		$where_sql = implode( ' AND ', $where_parts );
 
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$query = $wpdb->prepare( "SELECT * FROM {$table_name} ORDER BY created_ts DESC, id DESC LIMIT %d", $limit );
+		$query_template = "SELECT * FROM {$table_name} WHERE {$where_sql} ORDER BY created_ts DESC, id DESC LIMIT %d OFFSET %d";
+		$params[]       = $limit;
+		$params[]       = $offset;
+		$query          = $wpdb->prepare( $query_template, $params );
 
 		$rows = $wpdb->get_results( $query );
 
 		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
+	 * Count bookings with optional filters.
+	 *
+	 * @since 1.0.5
+	 *
+	 * @param array<string, mixed> $args Count filters.
+	 * @return int
+	 */
+	public static function count_bookings_filtered( $args = array() ) {
+		global $wpdb;
+
+		if ( ! self::table_exists() ) {
+			return 0;
+		}
+
+		$defaults = array(
+			'status'   => '',
+			'order_id' => 0,
+			'booking_id' => 0,
+		);
+		$args     = wp_parse_args( $args, $defaults );
+
+		$table_name = self::get_table_name();
+		$status     = sanitize_key( (string) $args['status'] );
+		$order_id   = absint( $args['order_id'] );
+		$booking_id = absint( $args['booking_id'] );
+
+		$where_parts = array( '1=1' );
+		$params      = array();
+
+		if ( '' !== $status ) {
+			$where_parts[] = 'status = %s';
+			$params[]      = $status;
+		}
+
+		if ( $order_id > 0 ) {
+			$where_parts[] = 'order_id = %d';
+			$params[]      = $order_id;
+		}
+
+		if ( $booking_id > 0 ) {
+			$where_parts[] = 'id = %d';
+			$params[]      = $booking_id;
+		}
+
+		$where_sql = implode( ' AND ', $where_parts );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$query_template = "SELECT COUNT(*) FROM {$table_name} WHERE {$where_sql}";
+		$query          = empty( $params ) ? $query_template : $wpdb->prepare( $query_template, $params );
+		$count          = $wpdb->get_var( $query );
+
+		return (int) $count;
+	}
+
+	/**
+	 * Get bookings linked to a WooCommerce order.
+	 *
+	 * @since 1.0.5
+	 *
+	 * @param int $order_id Order ID.
+	 * @return array<int, object>
+	 */
+	public static function get_bookings_for_order( $order_id ) {
+		return self::get_bookings(
+			array(
+				'order_id' => absint( $order_id ),
+				'limit'    => 200,
+			)
+		);
+	}
+
+	/**
+	 * Get supported booking statuses.
+	 *
+	 * @since 1.0.5
+	 *
+	 * @return array<string, string>
+	 */
+	public static function get_status_options() {
+		return self::STATUSES;
+	}
+
+	/**
+	 * Get a human-readable booking status label.
+	 *
+	 * @since 1.0.5
+	 *
+	 * @param string $status Status key.
+	 * @return string
+	 */
+	public static function get_status_label( $status ) {
+		$status  = sanitize_key( (string) $status );
+		$options = self::get_status_options();
+
+		return isset( $options[ $status ] ) ? $options[ $status ] : $status;
 	}
 
 	/**
@@ -549,6 +716,27 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 	 */
 	public static function mark_booking_expired( $booking_id ) {
 		return self::update_booking_status( $booking_id, 'expired', 0, true );
+	}
+
+	/**
+	 * Manually set a booking status from admin tooling.
+	 *
+	 * @since 1.0.5
+	 *
+	 * @param int    $booking_id Booking ID.
+	 * @param string $status     New status.
+	 * @return bool
+	 */
+	public static function set_booking_status( $booking_id, $status ) {
+		$status = sanitize_key( (string) $status );
+
+		if ( ! array_key_exists( $status, self::get_status_options() ) ) {
+			return false;
+		}
+
+		$release_lock = in_array( $status, array( 'paid', 'cancelled', 'expired', 'refunded', 'reserved', 'occupied' ), true );
+
+		return self::update_booking_status( $booking_id, $status, 0, $release_lock );
 	}
 
 	/**

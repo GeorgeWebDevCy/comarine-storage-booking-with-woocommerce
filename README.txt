@@ -5,7 +5,7 @@ Tags: storage, booking, woocommerce
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.4
+Stable tag: 1.0.5
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Requires Plugins: woocommerce, jcc-payment-gateway-for-wc
@@ -31,6 +31,8 @@ Current implemented milestone includes:
 - JCC-compatible paid trigger via WooCommerce `completed` status
 - Cart/checkout lock validation with invalid booking cleanup
 - Admin warnings for missing/invalid booking container product setup
+- Bookings admin filters + manual status/unit actions
+- Booking summary block in WooCommerce order admin screen
 
 == Installation ==
 
@@ -59,6 +61,11 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 3. Admin booking management screen.
 
 == Changelog ==
+
+= 1.0.5 =
+* Added Bookings admin filters (status/order/booking ID) and manual booking/unit status actions.
+* Added WooCommerce order admin booking summary panel with links to units/bookings.
+* Added booking helper query/status methods for admin tooling.
 
 = 1.0.4 =
 * Hardened booking lock expiry so rows already linked to an order are not auto-expired by stale lock cleanup.
@@ -91,6 +98,9 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 * Added activation/runtime dependency checks for WooCommerce and JCC Payment Gateway for WooCommerce.
 
 == Upgrade Notice ==
+
+= 1.0.5 =
+Adds practical admin tooling: booking management actions and booking visibility in WooCommerce order admin.
 
 = 1.0.4 =
 Hardens booking lock behavior and checkout validation, reducing stale/invalid lock edge cases during checkout.

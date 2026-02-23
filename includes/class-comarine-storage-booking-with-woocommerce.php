@@ -202,7 +202,9 @@ class Comarine_Storage_Booking_With_Woocommerce {
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts' );
 		$this->loader->add_action( 'admin_menu', $plugin_admin, 'register_admin_menu' );
 		$this->loader->add_action( 'admin_init', $plugin_admin, 'register_settings' );
+		$this->loader->add_action( 'admin_init', $plugin_admin, 'handle_bookings_admin_actions' );
 		$this->loader->add_action( 'admin_notices', $plugin_admin, 'maybe_show_configuration_notices' );
+		$this->loader->add_action( 'woocommerce_admin_order_data_after_order_details', $plugin_admin, 'render_order_booking_summary' );
 
 		$this->loader->add_action( 'add_meta_boxes', $storage_units, 'add_meta_boxes' );
 		$this->loader->add_action( 'save_post_' . $storage_unit_post_type, $storage_units, 'save_unit_meta', 10, 3 );

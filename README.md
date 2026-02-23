@@ -19,6 +19,8 @@ Implemented in the codebase so far:
 - WooCommerce order synchronization hooks (JCC `completed` treated as paid)
 - Checkout/cart lock validation and automatic cleanup of invalid booking items
 - Admin configuration warnings for missing/invalid booking container product setup
+- Bookings admin filters and manual booking/unit status actions
+- Booking summary panel on WooCommerce order admin pages
 
 Not implemented yet (next milestones):
 
@@ -27,6 +29,7 @@ Not implemented yet (next milestones):
 - Atomic lock transactions / stronger concurrency protections
 - Add-ons and pricing rules
 - Email/SMS notifications
+- CSV export and audit log for manual admin status changes
 
 ## Requirements
 

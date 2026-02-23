@@ -562,6 +562,11 @@ Create settings page:
 - Stale lock cleanup no longer expires rows already linked to an order (prevents late-payment race issues)
 - Admin configuration warnings added for missing/invalid booking container product setup
 
+### Milestone 4 (Implemented - Admin Operations UX)
+- Bookings admin screen now supports filtering by status/order/booking ID
+- Manual booking status actions (paid/cancelled/refunded) and unit status overrides from bookings table
+- WooCommerce order admin page shows linked CoMarine booking summary for staff visibility
+
 ### Next Milestone (Planned)
 - Booking container product setting + WooCommerce cart item metadata
 - Reservation lock creation + lock TTL handling
