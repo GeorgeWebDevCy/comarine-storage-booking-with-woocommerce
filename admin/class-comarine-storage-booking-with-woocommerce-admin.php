@@ -164,6 +164,80 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	}
 
 	/**
+	 * Ensure the Storage Units CPT list/add-new screens appear under the plugin menu.
+	 *
+	 * Some WordPress admin menu setups don't automatically inject custom post type
+	 * submenus when `show_in_menu` points to a custom top-level plugin page.
+	 *
+	 * @since    1.0.17
+	 *
+	 * @return void
+	 */
+	public function ensure_storage_units_submenus() {
+		$menu_slug = 'comarine-storage-bookings';
+		$post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' )
+			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE
+			: 'comarine_storage_unit';
+		$list_slug = 'edit.php?post_type=' . $post_type;
+		$add_slug  = 'post-new.php?post_type=' . $post_type;
+
+		global $submenu;
+		$existing_slugs = array();
+		if ( isset( $submenu[ $menu_slug ] ) && is_array( $submenu[ $menu_slug ] ) ) {
+			foreach ( $submenu[ $menu_slug ] as $submenu_item ) {
+				if ( isset( $submenu_item[2] ) ) {
+					$existing_slugs[] = (string) $submenu_item[2];
+				}
+			}
+		}
+
+		if ( ! in_array( $list_slug, $existing_slugs, true ) ) {
+			add_submenu_page(
+				$menu_slug,
+				__( 'Storage Units', 'comarine-storage-booking-with-woocommerce' ),
+				__( 'Storage Units', 'comarine-storage-booking-with-woocommerce' ),
+				'edit_posts',
+				$list_slug
+			);
+		}
+
+		if ( ! in_array( $add_slug, $existing_slugs, true ) ) {
+			add_submenu_page(
+				$menu_slug,
+				__( 'Add New Storage Unit', 'comarine-storage-booking-with-woocommerce' ),
+				__( 'Add New', 'comarine-storage-booking-with-woocommerce' ),
+				'edit_posts',
+				$add_slug
+			);
+		}
+
+		if ( isset( $submenu[ $menu_slug ] ) && is_array( $submenu[ $menu_slug ] ) ) {
+			$order = array(
+				$menu_slug                          => 10,
+				$list_slug                          => 20,
+				$add_slug                           => 30,
+				$this->get_settings_page_slug()     => 40,
+			);
+
+			usort(
+				$submenu[ $menu_slug ],
+				static function ( $a, $b ) use ( $order ) {
+					$a_slug = isset( $a[2] ) ? (string) $a[2] : '';
+					$b_slug = isset( $b[2] ) ? (string) $b[2] : '';
+					$a_pos  = isset( $order[ $a_slug ] ) ? $order[ $a_slug ] : 1000;
+					$b_pos  = isset( $order[ $b_slug ] ) ? $order[ $b_slug ] : 1000;
+
+					if ( $a_pos === $b_pos ) {
+						return strnatcasecmp( $a_slug, $b_slug );
+					}
+
+					return $a_pos <=> $b_pos;
+				}
+			);
+		}
+	}
+
+	/**
 	 * Add a quick link to the plugin admin screen on the Plugins page.
 	 *
 	 * @since    1.0.14

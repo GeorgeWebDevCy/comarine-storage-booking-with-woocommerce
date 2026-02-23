@@ -2,7 +2,7 @@
 
 WordPress plugin for CoMarine storage unit bookings with WooCommerce checkout integration.
 
-## Current Status (Milestone 15)
+## Current Status (Milestone 16)
 
 Implemented in the codebase so far:
 
@@ -35,6 +35,7 @@ Implemented in the codebase so far:
 - Admin booking/audit date-time displays now follow WordPress date/time settings
 - Frontend shortcode UI refreshed with a blue (`#2ea3f2`) visual theme and improved card/filter polish
 - Plugin admin screens (Bookings/Settings + Storage Units CPT) now have a scoped visual refresh without affecting other admin pages
+- Plugin menu now explicitly ensures `Storage Units` and `Add New` submenus appear under `CoMarine Storage` (fallback for WP submenu edge cases)
 - Settings page for booking container product, lock TTL, paid unit status, and currency
 - Shortcode `[comarine_storage_units]` for initial frontend booking entry
 - Booking lock creation + cart item metadata + price snapshot handling
@@ -101,3 +102,4 @@ If you deploy from source, include `vendor/` (or run `composer install` as part 
 12. Open a page with `[comarine_storage_units]`, test filters, and verify card availability messages / booking button states.
 13. Configure add-ons in `CoMarine Storage > Settings`, select them during booking, and confirm totals/meta in cart and order.
 14. Confirm the refreshed plugin UI styling (frontend shortcode + plugin admin screens) appears correctly and does not alter non-plugin site/admin screens.
+15. Confirm `CoMarine Storage` shows `Bookings`, `Storage Units`, `Add New`, and `Settings` in the admin menu.

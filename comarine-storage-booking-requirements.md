@@ -631,6 +631,10 @@ Create settings page:
 - Restricted plugin admin CSS/JS asset loading to plugin-related admin screens only
 - Kept styling scoped to plugin wrappers/body classes to avoid affecting unrelated site/admin screens
 
+### Milestone 16 (Implemented - Admin Menu Units Submenu Fallback)
+- Added a late `admin_menu` fallback that explicitly ensures `Storage Units` and `Add New` appear under the `CoMarine Storage` menu
+- Preserved submenu ordering so the plugin menu consistently shows `Bookings`, `Storage Units`, `Add New`, and `Settings`
+
 ### Next Milestone (Planned)
 - Frontend UX improvements (images/gallery support, better empty/loading states)
 - Stronger concurrency controls / atomic locking for unit reservation conflicts
