@@ -585,8 +585,14 @@ Create settings page:
 - Added Booking Detail panel in admin with booking/unit/order/customer snapshot and quick actions
 - Added Units Status Overview panel (available/reserved/occupied/maintenance/archived/unknown counts)
 
+### Milestone 8 (Implemented - Safer Bulk Admin Actions)
+- Added secure bulk actions to the Bookings admin table (POST + nonce + capability checks)
+- Added bulk booking status updates (paid/cancelled/refunded) with per-booking audit log entries
+- Added bulk unit status updates (available/reserved/occupied) reusing audited unit status change logic
+- Added bulk action result notices with updated/failed counts
+
 ### Next Milestone (Planned)
 - Frontend UX improvements (availability messaging, clearer unit details, add-ons UI)
 - Stronger concurrency controls / atomic locking for unit reservation conflicts
 - Reporting enhancements (exports beyond admin table filters, richer analytics summaries)
-- Admin workflow refinements (audit reasons/notes, safer bulk actions)
+- Admin workflow refinements (audit reasons/notes, safer destructive action confirmations)

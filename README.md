@@ -2,7 +2,7 @@
 
 WordPress plugin for CoMarine storage unit bookings with WooCommerce checkout integration.
 
-## Current Status (Milestone 7)
+## Current Status (Milestone 8)
 
 Implemented in the codebase so far:
 
@@ -19,6 +19,8 @@ Implemented in the codebase so far:
 - Customer column in bookings admin and customer fields in CSV export
 - Booking detail panel in Bookings admin (selected booking summary + actions)
 - Units status overview panel on the Bookings admin screen
+- Bulk actions on the Bookings admin table (with nonce/capability checks)
+- Audit logging for bulk booking status changes and bulk unit status overrides
 - Settings page for booking container product, lock TTL, paid unit status, and currency
 - Shortcode `[comarine_storage_units]` for initial frontend booking entry
 - Booking lock creation + cart item metadata + price snapshot handling
@@ -80,3 +82,4 @@ If you deploy from source, include `vendor/` (or run `composer install` as part 
 7. In `Storage Units > Bookings`, apply unit/date filters and confirm the list and `Export CSV` output match.
 8. Click `View` on a booking row and confirm the Booking Detail panel appears with links/actions.
 9. Use a manual booking/unit action and confirm the new audit entry appears.
+10. Select multiple bookings, apply a bulk action (for example `Cancel Booking`), and verify the result notice + audit log rows.

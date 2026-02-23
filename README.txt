@@ -5,7 +5,7 @@ Tags: storage, booking, woocommerce
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.8
+Stable tag: 1.0.9
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Requires Plugins: woocommerce, jcc-payment-gateway-for-wc
@@ -38,6 +38,8 @@ Current implemented milestone includes:
 - Bookings admin and CSV export now include customer details when available
 - Bookings admin now includes a "View" action with a booking detail panel
 - Bookings admin now shows a units status overview summary (available/reserved/occupied/etc.)
+- Bookings admin table now supports secure bulk actions for booking and unit updates
+- Bulk booking status changes write audit log entries with per-booking tracking
 - Booking summary block in WooCommerce order admin screen
 
 == Installation ==
@@ -67,6 +69,12 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 3. Admin booking management screen.
 
 == Changelog ==
+
+= 1.0.9 =
+* Added secure bulk actions to the Bookings admin table (nonce/capability checked).
+* Added bulk booking status updates (paid/cancelled/refunded) with audit logging.
+* Added bulk unit status updates (available/reserved/occupied) from the Bookings admin table.
+* Added bulk action result notices with updated/failed counts.
 
 = 1.0.8 =
 * Added "View" row action and booking detail panel in Bookings admin.
@@ -120,6 +128,9 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 * Added activation/runtime dependency checks for WooCommerce and JCC Payment Gateway for WooCommerce.
 
 == Upgrade Notice ==
+
+= 1.0.9 =
+Adds secure bulk actions in Bookings admin, including audit-logged bulk booking status changes.
 
 = 1.0.8 =
 Adds a booking detail view in admin plus a units status overview panel for staff visibility.
