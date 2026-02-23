@@ -5,7 +5,7 @@ Tags: storage, booking, woocommerce
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.2
+Stable tag: 1.0.3
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Requires Plugins: woocommerce, jcc-payment-gateway-for-wc
@@ -25,6 +25,10 @@ Current implemented milestone includes:
 - Unit detail meta fields in wp-admin
 - `wp_comarine_bookings` custom table creation on activation (with WP table prefix)
 - Basic Bookings admin overview page
+- Booking settings page (container product / lock TTL / paid unit status)
+- Shortcode `[comarine_storage_units]` and initial booking form flow
+- Booking locks + WooCommerce cart/order metadata synchronization
+- JCC-compatible paid trigger via WooCommerce `completed` status
 
 == Installation ==
 
@@ -54,6 +58,13 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 
 == Changelog ==
 
+= 1.0.3 =
+* Added settings page for booking container product, lock TTL, paid unit status, and currency.
+* Added `[comarine_storage_units]` shortcode and initial frontend booking form flow.
+* Added booking lock lifecycle helpers (lock create, expire, cancel, assign order, paid/cancelled/refunded).
+* Added WooCommerce cart item metadata, price snapshot handling, and order line item booking meta.
+* Added order status synchronization hooks (JCC `completed` treated as successful payment).
+
 = 1.0.2 =
 * Added Storage Unit custom post type registration (`comarine_storage_unit`).
 * Added admin meta fields and list columns for unit details/pricing/status.
@@ -71,6 +82,9 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 * Added activation/runtime dependency checks for WooCommerce and JCC Payment Gateway for WooCommerce.
 
 == Upgrade Notice ==
+
+= 1.0.3 =
+Adds the first WooCommerce booking flow scaffolding: shortcode booking form, locks, cart metadata, and order sync hooks.
 
 = 1.0.2 =
 Adds the first functional booking foundation: storage units CPT, unit admin fields, and bookings table scaffolding.

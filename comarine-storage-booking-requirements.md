@@ -492,6 +492,7 @@ All POST endpoints require nonce.
 ## 22) Implementation Notes About JCC Plugin
 
 - Our plugin must treat `processing` and `completed` as successful payment states, because gateways (including JCC) may set the paid status differently depending on product type (physical vs virtual).
+- Current JCC behavior confirmed in this project context: successful payments set WooCommerce order status to `completed`.
 - Do not hardcode gateway IDs. Use WC order status transitions instead.
 
 ---
@@ -546,6 +547,14 @@ Create settings page:
 - Admin meta fields for core unit data (code, size, floor, pricing, status)
 - `wp_comarine_bookings` custom table creation via `dbDelta()` on activation
 - Basic Bookings admin overview screen (placeholder list)
+
+### Milestone 2 (Implemented - Initial WooCommerce Flow Scaffolding)
+- Plugin settings page for booking container product, lock TTL, paid unit status, and currency snapshot
+- Frontend shortcode `[comarine_storage_units]` with initial booking form / duration selection
+- Booking lock creation before checkout + cart item metadata snapshots
+- WooCommerce order line item booking metadata + order-to-booking linking
+- Order status hooks to mark bookings paid/cancelled/refunded
+- JCC successful payment path handled via WooCommerce `completed` status hook
 
 ### Next Milestone (Planned)
 - Booking container product setting + WooCommerce cart item metadata

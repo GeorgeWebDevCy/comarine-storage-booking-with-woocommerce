@@ -16,7 +16,7 @@
  * Plugin Name:       Comarine Storage booking with WooCommerce
  * Plugin URI:        https://www.georgenicolaou.me/plugins/comarine-storage-booking-with-woocommerce/
  * Description:       Booking plugin for CoMarine Storage Units
- * Version:           1.0.2
+ * Version:           1.0.3
  * Author:            George Nicolaou
  * Author URI:        https://www.georgenicolaou.me//
  * License:           GPL-2.0+
@@ -42,13 +42,71 @@ if ( file_exists( $comarine_storage_booking_with_woocommerce_autoload ) ) {
  * Start at version 1.0.0 and use SemVer - https://semver.org
  * Rename this for your plugin and update it as you release new versions.
  */
-define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_VERSION', '1.0.2' );
+define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_VERSION', '1.0.3' );
 define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_DB_VERSION', '1.0.0' );
 define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE', 'comarine_storage_unit' );
 define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_BOOKINGS_TABLE_SUFFIX', 'comarine_bookings' );
+define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_SETTINGS_OPTION', 'comarine_storage_booking_with_woocommerce_settings' );
 define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_WC_PLUGIN_FILE', 'woocommerce/woocommerce.php' );
 // JCC dependency note (WordPress.org plugin slug): jcc-payment-gateway-for-wc.
 define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_JCC_PLUGIN_FILE', 'jcc-payment-gateway-for-wc/jcc-payment-gateway-for-wc.php' );
+
+/**
+ * Get plugin settings defaults.
+ *
+ * @since 1.0.3
+ *
+ * @return array<string, mixed>
+ */
+function comarine_storage_booking_with_woocommerce_get_default_settings() {
+	return array(
+		'booking_container_product_id' => 0,
+		'lock_ttl_minutes'             => 15,
+		'paid_unit_status'             => 'reserved',
+		'currency'                     => 'EUR',
+	);
+}
+
+/**
+ * Get plugin settings merged with defaults.
+ *
+ * @since 1.0.3
+ *
+ * @return array<string, mixed>
+ */
+function comarine_storage_booking_with_woocommerce_get_settings() {
+	$settings = get_option( COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_SETTINGS_OPTION, array() );
+	if ( ! is_array( $settings ) ) {
+		$settings = array();
+	}
+
+	return wp_parse_args( $settings, comarine_storage_booking_with_woocommerce_get_default_settings() );
+}
+
+/**
+ * Get a single plugin setting value.
+ *
+ * @since 1.0.3
+ *
+ * @param string $key     Setting key.
+ * @param mixed  $default Optional default override.
+ * @return mixed
+ */
+function comarine_storage_booking_with_woocommerce_get_setting( $key, $default = null ) {
+	$settings = comarine_storage_booking_with_woocommerce_get_settings();
+
+	if ( array_key_exists( $key, $settings ) ) {
+		return $settings[ $key ];
+	}
+
+	if ( null !== $default ) {
+		return $default;
+	}
+
+	$defaults = comarine_storage_booking_with_woocommerce_get_default_settings();
+
+	return array_key_exists( $key, $defaults ) ? $defaults[ $key ] : null;
+}
 
 /**
  * Load WordPress plugin admin helper functions when needed.

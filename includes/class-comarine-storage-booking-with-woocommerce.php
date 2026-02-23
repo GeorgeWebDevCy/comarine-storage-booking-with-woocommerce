@@ -117,6 +117,7 @@ class Comarine_Storage_Booking_With_Woocommerce {
 		 */
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-comarine-storage-booking-with-woocommerce-bookings.php';
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-comarine-storage-booking-with-woocommerce-storage-units.php';
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-comarine-storage-booking-with-woocommerce-woocommerce-integration.php';
 
 		/**
 		 * The class responsible for defining all actions that occur in the admin area.
@@ -158,8 +159,29 @@ class Comarine_Storage_Booking_With_Woocommerce {
 	 */
 	private function define_domain_hooks() {
 		$storage_units = new Comarine_Storage_Booking_With_Woocommerce_Storage_Units( $this->get_plugin_name(), $this->get_version() );
+		$wc_integration = new Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration( $this->get_plugin_name(), $this->get_version() );
 
 		$this->loader->add_action( 'init', $storage_units, 'register_post_type', 5 );
+		$this->loader->add_action( 'init', $wc_integration, 'register_shortcodes', 20 );
+		$this->loader->add_action( 'init', $wc_integration, 'maybe_expire_stale_locks', 30 );
+		$this->loader->add_action( 'template_redirect', $wc_integration, 'maybe_handle_booking_submission' );
+
+		// WooCommerce booking item/cart/order integration hooks.
+		$this->loader->add_filter( 'woocommerce_get_cart_item_from_session', $wc_integration, 'restore_cart_item_from_session', 10, 3 );
+		$this->loader->add_filter( 'woocommerce_get_item_data', $wc_integration, 'display_cart_item_data', 10, 2 );
+		$this->loader->add_filter( 'woocommerce_cart_item_name', $wc_integration, 'filter_cart_item_name', 10, 3 );
+		$this->loader->add_action( 'woocommerce_before_calculate_totals', $wc_integration, 'apply_booking_prices_to_cart' );
+		$this->loader->add_action( 'woocommerce_check_cart_items', $wc_integration, 'validate_booking_cart_items' );
+		$this->loader->add_action( 'woocommerce_cart_item_removed', $wc_integration, 'handle_cart_item_removed', 10, 2 );
+		$this->loader->add_action( 'woocommerce_checkout_create_order_line_item', $wc_integration, 'add_booking_meta_to_order_line_item', 10, 4 );
+		$this->loader->add_action( 'woocommerce_checkout_order_processed', $wc_integration, 'link_bookings_to_order', 10, 3 );
+
+		// JCC marks successful payments as "completed". Keep "processing" as a gateway compatibility fallback.
+		$this->loader->add_action( 'woocommerce_order_status_completed', $wc_integration, 'handle_order_completed', 10, 2 );
+		$this->loader->add_action( 'woocommerce_order_status_processing', $wc_integration, 'handle_order_processing', 10, 2 );
+		$this->loader->add_action( 'woocommerce_order_status_failed', $wc_integration, 'handle_order_failed', 10, 2 );
+		$this->loader->add_action( 'woocommerce_order_status_cancelled', $wc_integration, 'handle_order_cancelled', 10, 2 );
+		$this->loader->add_action( 'woocommerce_order_status_refunded', $wc_integration, 'handle_order_refunded', 10, 2 );
 	}
 
 	/**
@@ -178,6 +200,7 @@ class Comarine_Storage_Booking_With_Woocommerce {
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_styles' );
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts' );
 		$this->loader->add_action( 'admin_menu', $plugin_admin, 'register_admin_menu' );
+		$this->loader->add_action( 'admin_init', $plugin_admin, 'register_settings' );
 
 		$this->loader->add_action( 'add_meta_boxes', $storage_units, 'add_meta_boxes' );
 		$this->loader->add_action( 'save_post_' . $storage_unit_post_type, $storage_units, 'save_unit_meta', 10, 3 );

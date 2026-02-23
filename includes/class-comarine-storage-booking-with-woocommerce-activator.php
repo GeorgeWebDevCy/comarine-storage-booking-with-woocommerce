@@ -38,6 +38,13 @@ class Comarine_Storage_Booking_With_Woocommerce_Activator {
 		$storage_units = new Comarine_Storage_Booking_With_Woocommerce_Storage_Units();
 		$storage_units->register_post_type();
 
+		if ( function_exists( 'comarine_storage_booking_with_woocommerce_get_settings' ) ) {
+			update_option(
+				COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_SETTINGS_OPTION,
+				comarine_storage_booking_with_woocommerce_get_settings()
+			);
+		}
+
 		flush_rewrite_rules();
 	}
 

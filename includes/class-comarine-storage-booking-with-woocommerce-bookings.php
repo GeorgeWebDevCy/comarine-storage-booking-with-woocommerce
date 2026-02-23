@@ -13,6 +13,19 @@
 class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 
 	/**
+	 * Supported booking duration keys mapped to months.
+	 *
+	 * @since 1.0.3
+	 *
+	 * @var array<string, int>
+	 */
+	const DURATION_MONTHS = array(
+		'monthly' => 1,
+		'6m'      => 6,
+		'12m'     => 12,
+	);
+
+	/**
 	 * Get the bookings table name.
 	 *
 	 * @since 1.0.2
@@ -138,5 +151,396 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 		$rows = $wpdb->get_results( $query );
 
 		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
+	 * Expire stale locks.
+	 *
+	 * @since 1.0.3
+	 *
+	 * @return int Affected rows.
+	 */
+	public static function expire_stale_locks() {
+		global $wpdb;
+
+		if ( ! self::table_exists() ) {
+			return 0;
+		}
+
+		$table_name = self::get_table_name();
+		$now        = current_time( 'mysql' );
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$sql = $wpdb->prepare(
+			"UPDATE {$table_name}
+			SET status = %s, updated_ts = %s
+			WHERE status IN ('locked','pending')
+				AND lock_expires_ts IS NOT NULL
+				AND lock_expires_ts < %s",
+			'expired',
+			$now,
+			$now
+		);
+
+		$result = $wpdb->query( $sql );
+
+		return is_numeric( $result ) ? (int) $result : 0;
+	}
+
+	/**
+	 * Determine if a unit has an active lock or paid booking.
+	 *
+	 * @since 1.0.3
+	 *
+	 * @param int $unit_post_id Unit post ID.
+	 * @return bool
+	 */
+	public static function has_conflicting_booking( $unit_post_id ) {
+		global $wpdb;
+
+		$unit_post_id = absint( $unit_post_id );
+		if ( $unit_post_id <= 0 || ! self::table_exists() ) {
+			return false;
+		}
+
+		self::expire_stale_locks();
+
+		$table_name = self::get_table_name();
+		$now        = current_time( 'mysql' );
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$sql = $wpdb->prepare(
+			"SELECT COUNT(*)
+			FROM {$table_name}
+			WHERE unit_post_id = %d
+			  AND (
+					status = 'paid'
+					OR status = 'reserved'
+					OR status = 'occupied'
+					OR (status IN ('locked','pending') AND (lock_expires_ts IS NULL OR lock_expires_ts >= %s))
+			  )",
+			$unit_post_id,
+			$now
+		);
+
+		$count = $wpdb->get_var( $sql );
+
+		return ( (int) $count ) > 0;
+	}
+
+	/**
+	 * Create a locked booking row before checkout.
+	 *
+	 * @since 1.0.3
+	 *
+	 * @param array<string, mixed> $args Booking args.
+	 * @return array<string, mixed>|WP_Error
+	 */
+	public static function create_locked_booking( $args ) {
+		global $wpdb;
+
+		if ( ! self::table_exists() ) {
+			self::create_table();
+		}
+
+		$unit_post_id  = isset( $args['unit_post_id'] ) ? absint( $args['unit_post_id'] ) : 0;
+		$unit_code     = isset( $args['unit_code'] ) ? sanitize_text_field( (string) $args['unit_code'] ) : '';
+		$duration_key  = isset( $args['duration_key'] ) ? sanitize_key( (string) $args['duration_key'] ) : '';
+		$price_total   = isset( $args['price_total'] ) ? (float) $args['price_total'] : 0.0;
+		$currency      = isset( $args['currency'] ) ? strtoupper( sanitize_text_field( (string) $args['currency'] ) ) : 'EUR';
+		$user_id       = isset( $args['user_id'] ) ? absint( $args['user_id'] ) : 0;
+		$lock_ttl      = isset( $args['lock_ttl_minutes'] ) ? max( 1, min( 120, (int) $args['lock_ttl_minutes'] ) ) : 15;
+
+		if ( $unit_post_id <= 0 ) {
+			return new WP_Error( 'comarine_invalid_unit', __( 'Invalid storage unit.', 'comarine-storage-booking-with-woocommerce' ) );
+		}
+
+		if ( ! isset( self::DURATION_MONTHS[ $duration_key ] ) ) {
+			return new WP_Error( 'comarine_invalid_duration', __( 'Invalid booking duration selected.', 'comarine-storage-booking-with-woocommerce' ) );
+		}
+
+		if ( $price_total <= 0 ) {
+			return new WP_Error( 'comarine_invalid_price', __( 'Invalid booking price.', 'comarine-storage-booking-with-woocommerce' ) );
+		}
+
+		if ( self::has_conflicting_booking( $unit_post_id ) ) {
+			return new WP_Error( 'comarine_unit_unavailable', __( 'This unit is no longer available for booking.', 'comarine-storage-booking-with-woocommerce' ) );
+		}
+
+		$now_dt          = new DateTimeImmutable( current_time( 'mysql' ) );
+		$lock_expires_dt = $now_dt->modify( '+' . $lock_ttl . ' minutes' );
+		$end_dt          = $now_dt->modify( '+' . self::DURATION_MONTHS[ $duration_key ] . ' months' );
+		$lock_token      = wp_generate_password( 32, false, false );
+		$table_name      = self::get_table_name();
+
+		$inserted = $wpdb->insert(
+			$table_name,
+			array(
+				'unit_post_id'     => $unit_post_id,
+				'unit_code'        => $unit_code,
+				'order_id'         => 0,
+				'user_id'          => $user_id > 0 ? $user_id : null,
+				'duration_key'     => $duration_key,
+				'start_ts'         => $now_dt->format( 'Y-m-d H:i:s' ),
+				'end_ts'           => $end_dt->format( 'Y-m-d H:i:s' ),
+				'price_total'      => number_format( $price_total, 2, '.', '' ),
+				'currency'         => $currency ?: 'EUR',
+				'status'           => 'locked',
+				'lock_token'       => $lock_token,
+				'lock_expires_ts'  => $lock_expires_dt->format( 'Y-m-d H:i:s' ),
+				'created_ts'       => $now_dt->format( 'Y-m-d H:i:s' ),
+				'updated_ts'       => $now_dt->format( 'Y-m-d H:i:s' ),
+			),
+			array(
+				'%d',
+				'%s',
+				'%d',
+				'%d',
+				'%s',
+				'%s',
+				'%s',
+				'%f',
+				'%s',
+				'%s',
+				'%s',
+				'%s',
+				'%s',
+				'%s',
+			)
+		);
+
+		if ( false === $inserted ) {
+			return new WP_Error( 'comarine_booking_insert_failed', __( 'Could not create booking lock.', 'comarine-storage-booking-with-woocommerce' ) );
+		}
+
+		return array(
+			'booking_id'       => (int) $wpdb->insert_id,
+			'lock_token'       => $lock_token,
+			'lock_expires_ts'  => $lock_expires_dt->format( 'Y-m-d H:i:s' ),
+			'duration_key'     => $duration_key,
+			'price_total'      => number_format( $price_total, 2, '.', '' ),
+			'currency'         => $currency ?: 'EUR',
+		);
+	}
+
+	/**
+	 * Get a booking row by ID.
+	 *
+	 * @since 1.0.3
+	 *
+	 * @param int $booking_id Booking ID.
+	 * @return object|null
+	 */
+	public static function get_booking( $booking_id ) {
+		global $wpdb;
+
+		$booking_id = absint( $booking_id );
+		if ( $booking_id <= 0 || ! self::table_exists() ) {
+			return null;
+		}
+
+		$table_name = self::get_table_name();
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$sql = $wpdb->prepare( "SELECT * FROM {$table_name} WHERE id = %d LIMIT 1", $booking_id );
+
+		return $wpdb->get_row( $sql );
+	}
+
+	/**
+	 * Attach an order ID to a booking lock.
+	 *
+	 * @since 1.0.3
+	 *
+	 * @param int    $booking_id Booking ID.
+	 * @param string $lock_token Lock token.
+	 * @param int    $order_id   Order ID.
+	 * @return bool
+	 */
+	public static function assign_order_to_booking( $booking_id, $lock_token, $order_id ) {
+		global $wpdb;
+
+		if ( ! self::table_exists() ) {
+			return false;
+		}
+
+		$booking_id = absint( $booking_id );
+		$order_id   = absint( $order_id );
+		$lock_token = sanitize_text_field( (string) $lock_token );
+		$now        = current_time( 'mysql' );
+
+		if ( $booking_id <= 0 || $order_id <= 0 || '' === $lock_token ) {
+			return false;
+		}
+
+		$table_name = self::get_table_name();
+		$result     = $wpdb->update(
+			$table_name,
+			array(
+				'order_id'    => $order_id,
+				'status'      => 'pending',
+				'updated_ts'  => $now,
+			),
+			array(
+				'id'        => $booking_id,
+				'lock_token' => $lock_token,
+			),
+			array( '%d', '%s', '%s' ),
+			array( '%d', '%s' )
+		);
+
+		return false !== $result;
+	}
+
+	/**
+	 * Mark booking as paid and release lock.
+	 *
+	 * @since 1.0.3
+	 *
+	 * @param int $booking_id Booking ID.
+	 * @param int $order_id   Optional order ID.
+	 * @return bool
+	 */
+	public static function mark_booking_paid( $booking_id, $order_id = 0 ) {
+		return self::update_booking_status( $booking_id, 'paid', $order_id, true );
+	}
+
+	/**
+	 * Mark booking as cancelled and release lock.
+	 *
+	 * @since 1.0.3
+	 *
+	 * @param int $booking_id Booking ID.
+	 * @param int $order_id   Optional order ID.
+	 * @return bool
+	 */
+	public static function mark_booking_cancelled( $booking_id, $order_id = 0 ) {
+		return self::update_booking_status( $booking_id, 'cancelled', $order_id, true );
+	}
+
+	/**
+	 * Mark booking as refunded and release lock.
+	 *
+	 * @since 1.0.3
+	 *
+	 * @param int $booking_id Booking ID.
+	 * @param int $order_id   Optional order ID.
+	 * @return bool
+	 */
+	public static function mark_booking_refunded( $booking_id, $order_id = 0 ) {
+		return self::update_booking_status( $booking_id, 'refunded', $order_id, true );
+	}
+
+	/**
+	 * Mark booking as expired and release lock.
+	 *
+	 * @since 1.0.3
+	 *
+	 * @param int $booking_id Booking ID.
+	 * @return bool
+	 */
+	public static function mark_booking_expired( $booking_id ) {
+		return self::update_booking_status( $booking_id, 'expired', 0, true );
+	}
+
+	/**
+	 * Release/cancel a booking lock by ID + token, used for cart removal.
+	 *
+	 * @since 1.0.3
+	 *
+	 * @param int    $booking_id Booking ID.
+	 * @param string $lock_token Lock token.
+	 * @return bool
+	 */
+	public static function cancel_booking_lock( $booking_id, $lock_token ) {
+		global $wpdb;
+
+		if ( ! self::table_exists() ) {
+			return false;
+		}
+
+		$booking_id = absint( $booking_id );
+		$lock_token = sanitize_text_field( (string) $lock_token );
+		$now        = current_time( 'mysql' );
+
+		if ( $booking_id <= 0 || '' === $lock_token ) {
+			return false;
+		}
+
+		$table_name = self::get_table_name();
+		$result     = $wpdb->update(
+			$table_name,
+			array(
+				'status'          => 'cancelled',
+				'lock_token'      => null,
+				'lock_expires_ts' => null,
+				'updated_ts'      => $now,
+			),
+			array(
+				'id'         => $booking_id,
+				'lock_token' => $lock_token,
+				'order_id'   => 0,
+			),
+			array( '%s', '%s', '%s', '%s' ),
+			array( '%d', '%s', '%d' )
+		);
+
+		return false !== $result;
+	}
+
+	/**
+	 * Update a booking status.
+	 *
+	 * @since 1.0.3
+	 *
+	 * @param int    $booking_id   Booking ID.
+	 * @param string $status       New status.
+	 * @param int    $order_id     Optional order ID.
+	 * @param bool   $release_lock Whether to clear lock columns.
+	 * @return bool
+	 */
+	private static function update_booking_status( $booking_id, $status, $order_id = 0, $release_lock = false ) {
+		global $wpdb;
+
+		if ( ! self::table_exists() ) {
+			return false;
+		}
+
+		$booking_id = absint( $booking_id );
+		$order_id   = absint( $order_id );
+		$status     = sanitize_key( $status );
+		$now        = current_time( 'mysql' );
+
+		if ( $booking_id <= 0 || '' === $status ) {
+			return false;
+		}
+
+		$data = array(
+			'status'     => $status,
+			'updated_ts' => $now,
+		);
+		$formats = array( '%s', '%s' );
+
+		if ( $order_id > 0 ) {
+			$data['order_id'] = $order_id;
+			$formats[]        = '%d';
+		}
+
+		if ( $release_lock ) {
+			$data['lock_token']      = null;
+			$data['lock_expires_ts'] = null;
+			$formats[]               = '%s';
+			$formats[]               = '%s';
+		}
+
+		$table_name = self::get_table_name();
+		$result     = $wpdb->update(
+			$table_name,
+			$data,
+			array( 'id' => $booking_id ),
+			$formats,
+			array( '%d' )
+		);
+
+		return false !== $result;
 	}
 }

@@ -13,13 +13,18 @@ Implemented in the codebase so far:
 - Storage Unit admin list columns for key metadata
 - Bookings custom database table (`wp_comarine_bookings` with prefix-aware table name)
 - Basic admin "Bookings" submenu page (overview / placeholder list)
+- Settings page for booking container product, lock TTL, paid unit status, and currency
+- Shortcode `[comarine_storage_units]` for initial frontend booking entry
+- Booking lock creation + cart item metadata + price snapshot handling
+- WooCommerce order synchronization hooks (JCC `completed` treated as paid)
 
 Not implemented yet (next milestones):
 
 - Frontend booking flow
-- WooCommerce cart/checkout booking synchronization
-- Reservation locking lifecycle
-- Order status -> booking status transitions
+- Advanced availability filtering/search UI
+- Atomic lock transactions / stronger concurrency protections
+- Add-ons and pricing rules
+- Email/SMS notifications
 
 ## Requirements
 
@@ -53,3 +58,11 @@ Versioning note: feature milestones committed to `main` should also bump the plu
 ## Packaging Note
 
 If you deploy from source, include `vendor/` (or run `composer install` as part of your build/release step).
+
+## Quick Test Flow (Current Milestone)
+
+1. Create a virtual WooCommerce product to use as the booking container.
+2. Open `Storage Units > Settings` and select that product.
+3. Create one or more `Storage Units` and set prices/status.
+4. Add the shortcode `[comarine_storage_units]` to a page.
+5. Book a unit and complete checkout (JCC sets order status to `completed` on success).
