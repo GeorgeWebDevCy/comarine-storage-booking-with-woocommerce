@@ -158,6 +158,15 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 
 		add_submenu_page(
 			$menu_slug,
+			__( 'Calendar', 'comarine-storage-booking-with-woocommerce' ),
+			__( 'Calendar', 'comarine-storage-booking-with-woocommerce' ),
+			$this->get_admin_capability(),
+			$this->get_calendar_page_slug(),
+			array( $this, 'render_calendar_page' )
+		);
+
+		add_submenu_page(
+			$menu_slug,
 			__( 'Settings', 'comarine-storage-booking-with-woocommerce' ),
 			__( 'Settings', 'comarine-storage-booking-with-woocommerce' ),
 			$this->get_admin_capability(),
@@ -223,6 +232,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		if ( isset( $submenu[ $menu_slug ] ) && is_array( $submenu[ $menu_slug ] ) ) {
 			$order = array(
 				$menu_slug                          => 10,
+				$this->get_calendar_page_slug()     => 12,
 				$this->get_overview_page_slug()     => 15,
 				$list_slug                          => 20,
 				$add_slug                           => 30,
@@ -1528,6 +1538,246 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	}
 
 	/**
+	 * Render a month calendar view of bookings.
+	 *
+	 * @since    1.0.31
+	 *
+	 * @return void
+	 */
+	public function render_calendar_page() {
+		if ( ! current_user_can( $this->get_admin_capability() ) ) {
+			wp_die( esc_html__( 'You do not have permission to access this page.', 'comarine-storage-booking-with-woocommerce' ) );
+		}
+
+		if ( ! class_exists( 'Comarine_Storage_Booking_With_Woocommerce_Bookings' ) ) {
+			echo '<div class="wrap comarine-storage-booking-admin comarine-storage-booking-admin--calendar"><h1>' . esc_html__( 'Bookings Calendar', 'comarine-storage-booking-with-woocommerce' ) . '</h1>';
+			echo '<div class="notice notice-error"><p>' . esc_html__( 'Bookings helper class is not loaded.', 'comarine-storage-booking-with-woocommerce' ) . '</p></div></div>';
+			return;
+		}
+
+		$calendar = $this->get_calendar_view_context_from_request();
+		$bookings = $this->get_calendar_bookings_for_range( $calendar['grid_start'], $calendar['grid_end'] );
+
+		$month_bookings  = array();
+		$active_count    = 0;
+		$status_counts   = array();
+		$booked_unit_ids = array();
+		$capacity_count  = 0;
+
+		foreach ( $bookings as $booking ) {
+			if ( ! $this->booking_overlaps_datetime_range( $booking, $calendar['month_start'], $calendar['month_end'] ) ) {
+				continue;
+			}
+
+			$month_bookings[] = $booking;
+
+			$status = isset( $booking->status ) ? sanitize_key( (string) $booking->status ) : '';
+			if ( '' === $status ) {
+				$status = 'pending';
+			}
+
+			if ( ! isset( $status_counts[ $status ] ) ) {
+				$status_counts[ $status ] = 0;
+			}
+			$status_counts[ $status ]++;
+
+			if ( ! in_array( $status, array( 'cancelled', 'expired', 'refunded' ), true ) ) {
+				$active_count++;
+			}
+
+			$unit_post_id = isset( $booking->unit_post_id ) ? absint( $booking->unit_post_id ) : 0;
+			if ( $unit_post_id > 0 ) {
+				$booked_unit_ids[ $unit_post_id ] = true;
+			}
+
+			$requested_area_m2 = isset( $booking->requested_area_m2 ) ? (float) $booking->requested_area_m2 : 0.0;
+			$unit_capacity_m2  = isset( $booking->unit_capacity_m2 ) ? (float) $booking->unit_capacity_m2 : 0.0;
+			if ( $requested_area_m2 > 0 || $unit_capacity_m2 > 0 ) {
+				$capacity_count++;
+			}
+		}
+
+		$events_by_day     = $this->build_calendar_day_segments( $bookings, $calendar['grid_start'], $calendar['grid_end'] );
+		$visible_day_items = 0;
+		foreach ( $events_by_day as $day_events ) {
+			$visible_day_items += is_array( $day_events ) ? count( $day_events ) : 0;
+		}
+
+		$status_options = Comarine_Storage_Booking_With_Woocommerce_Bookings::get_status_options();
+		uksort(
+			$status_counts,
+			static function ( $a, $b ) use ( $status_options ) {
+				$a_index = array_search( $a, array_keys( $status_options ), true );
+				$b_index = array_search( $b, array_keys( $status_options ), true );
+
+				if ( false === $a_index ) {
+					$a_index = 999;
+				}
+				if ( false === $b_index ) {
+					$b_index = 999;
+				}
+
+				if ( $a_index === $b_index ) {
+					return strnatcasecmp( (string) $a, (string) $b );
+				}
+
+				return (int) $a_index <=> (int) $b_index;
+			}
+		);
+
+		global $wp_locale;
+		$week_start      = (int) get_option( 'start_of_week', 1 );
+		$weekday_labels  = array();
+		for ( $i = 0; $i < 7; $i++ ) {
+			$weekday_number = ( $week_start + $i ) % 7;
+			$weekday_label  = '';
+
+			if ( isset( $wp_locale ) && is_object( $wp_locale ) && method_exists( $wp_locale, 'get_weekday' ) && method_exists( $wp_locale, 'get_weekday_abbrev' ) ) {
+				$weekday_full  = (string) $wp_locale->get_weekday( $weekday_number );
+				$weekday_label = (string) $wp_locale->get_weekday_abbrev( $weekday_full );
+			}
+
+			if ( '' === $weekday_label ) {
+				$fallback_dt    = DateTimeImmutable::createFromFormat( '!Y-m-d', '2024-01-07', wp_timezone() );
+				$fallback_label = '';
+				if ( $fallback_dt instanceof DateTimeImmutable ) {
+					$fallback_label = wp_date( 'D', $fallback_dt->modify( '+' . $weekday_number . ' days' )->getTimestamp(), wp_timezone() );
+				}
+				$weekday_label = '' !== $fallback_label ? $fallback_label : (string) $weekday_number;
+			}
+
+			$weekday_labels[] = $weekday_label;
+		}
+
+		$month_label = wp_date( 'F Y', $calendar['month_start']->getTimestamp(), wp_timezone() );
+		$today_month = wp_date( 'Y-m', ( new DateTimeImmutable( 'now', wp_timezone() ) )->getTimestamp(), wp_timezone() );
+
+		echo '<div class="wrap comarine-storage-booking-admin comarine-storage-booking-admin--calendar">';
+		echo '<h1>' . esc_html__( 'Bookings Calendar', 'comarine-storage-booking-with-woocommerce' ) . '</h1>';
+		echo '<p>' . esc_html__( 'Monthly calendar view of all booking records. Use month navigation to inspect upcoming and historical bookings and click any card to open the full booking details.', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
+
+		echo '<section class="comarine-admin-panel comarine-calendar-board">';
+		echo '<div class="comarine-calendar-toolbar">';
+		echo '<div class="comarine-calendar-toolbar__main">';
+		echo '<span class="comarine-calendar-toolbar__eyebrow">' . esc_html__( 'Calendar View', 'comarine-storage-booking-with-woocommerce' ) . '</span>';
+		echo '<h2>' . esc_html( $month_label ) . '</h2>';
+		echo '<p>' . esc_html__( 'Bookings are displayed across their occupied date range. Daily bookings use an end date that is exclusive (checkout day is not highlighted).', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
+		echo '</div>';
+		echo '<div class="comarine-calendar-toolbar__actions">';
+		echo '<a class="button" href="' . esc_url( $this->get_calendar_page_url( array( 'comarine_calendar_month' => $calendar['previous_month'] ) ) ) . '">' . esc_html__( 'Previous Month', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
+		echo '<a class="button" href="' . esc_url( $this->get_calendar_page_url( array( 'comarine_calendar_month' => $today_month ) ) ) . '">' . esc_html__( 'Current Month', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
+		echo '<a class="button" href="' . esc_url( $this->get_calendar_page_url( array( 'comarine_calendar_month' => $calendar['next_month'] ) ) ) . '">' . esc_html__( 'Next Month', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
+		echo '<a class="button button-primary" href="' . esc_url( $this->get_bookings_page_url() ) . '">' . esc_html__( 'Open Bookings Table', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
+		echo '</div>';
+		echo '</div>';
+
+		echo '<div class="comarine-calendar-stats">';
+		echo '<div class="comarine-overview-stat-card is-primary">';
+		echo '<span class="comarine-overview-stat-card__label">' . esc_html__( 'Bookings In Month', 'comarine-storage-booking-with-woocommerce' ) . '</span>';
+		echo '<strong class="comarine-overview-stat-card__value">' . esc_html( (string) count( $month_bookings ) ) . '</strong>';
+		echo '<span class="comarine-overview-stat-card__hint">' . esc_html__( 'Rows overlapping this month', 'comarine-storage-booking-with-woocommerce' ) . '</span>';
+		echo '</div>';
+		echo '<div class="comarine-overview-stat-card is-ok">';
+		echo '<span class="comarine-overview-stat-card__label">' . esc_html__( 'Active / Pending', 'comarine-storage-booking-with-woocommerce' ) . '</span>';
+		echo '<strong class="comarine-overview-stat-card__value">' . esc_html( (string) $active_count ) . '</strong>';
+		echo '<span class="comarine-overview-stat-card__hint">' . esc_html__( 'Excludes cancelled/expired/refunded', 'comarine-storage-booking-with-woocommerce' ) . '</span>';
+		echo '</div>';
+		echo '<div class="comarine-overview-stat-card is-neutral">';
+		echo '<span class="comarine-overview-stat-card__label">' . esc_html__( 'Units Booked', 'comarine-storage-booking-with-woocommerce' ) . '</span>';
+		echo '<strong class="comarine-overview-stat-card__value">' . esc_html( (string) count( $booked_unit_ids ) ) . '</strong>';
+		echo '<span class="comarine-overview-stat-card__hint">' . esc_html__( 'Unique units touched this month', 'comarine-storage-booking-with-woocommerce' ) . '</span>';
+		echo '</div>';
+		echo '<div class="comarine-overview-stat-card is-warning">';
+		echo '<span class="comarine-overview-stat-card__label">' . esc_html__( 'Calendar Entries', 'comarine-storage-booking-with-woocommerce' ) . '</span>';
+		echo '<strong class="comarine-overview-stat-card__value">' . esc_html( (string) $visible_day_items ) . '</strong>';
+		echo '<span class="comarine-overview-stat-card__hint">' . esc_html( sprintf( __( '%d capacity-based bookings visible', 'comarine-storage-booking-with-woocommerce' ), (int) $capacity_count ) ) . '</span>';
+		echo '</div>';
+		echo '</div>';
+
+		echo '<div class="comarine-calendar-legend">';
+		if ( empty( $status_counts ) ) {
+			echo '<span class="comarine-calendar-legend__empty">' . esc_html__( 'No bookings overlap this month.', 'comarine-storage-booking-with-woocommerce' ) . '</span>';
+		} else {
+			foreach ( $status_counts as $status_key => $status_count ) {
+				echo '<span class="comarine-calendar-legend__item is-' . esc_attr( sanitize_html_class( $status_key ) ) . '">';
+				echo '<span class="comarine-calendar-legend__dot" aria-hidden="true"></span>';
+				echo '<span class="comarine-calendar-legend__label">' . esc_html( Comarine_Storage_Booking_With_Woocommerce_Bookings::get_status_label( $status_key ) ) . '</span>';
+				echo '<strong class="comarine-calendar-legend__count">' . esc_html( (string) (int) $status_count ) . '</strong>';
+				echo '</span>';
+			}
+		}
+		echo '</div>';
+		echo '</section>';
+
+		echo '<section class="comarine-admin-panel comarine-calendar-grid-panel">';
+		echo '<div class="comarine-calendar-grid-shell">';
+		echo '<div class="comarine-calendar-grid" role="grid" aria-label="' . esc_attr( sprintf( __( 'Bookings calendar for %s', 'comarine-storage-booking-with-woocommerce' ), $month_label ) ) . '">';
+
+		foreach ( $weekday_labels as $weekday_label ) {
+			echo '<div class="comarine-calendar-grid__weekday" role="columnheader">' . esc_html( $weekday_label ) . '</div>';
+		}
+
+		$today_key       = wp_date( 'Y-m-d', ( new DateTimeImmutable( 'now', wp_timezone() ) )->getTimestamp(), wp_timezone() );
+		$displayed_month = $calendar['month_start']->format( 'Y-m' );
+		$day_cursor      = $calendar['grid_start'];
+
+		for ( $cell_index = 0; $cell_index < 42; $cell_index++ ) {
+			$day_key            = $day_cursor->format( 'Y-m-d' );
+			$is_current_month   = ( $day_cursor->format( 'Y-m' ) === $displayed_month );
+			$is_today           = ( $day_key === $today_key );
+			$day_events         = isset( $events_by_day[ $day_key ] ) && is_array( $events_by_day[ $day_key ] ) ? $events_by_day[ $day_key ] : array();
+			$visible_event_max  = 3;
+			$has_overflow       = count( $day_events ) > $visible_event_max;
+			$visible_day_events = array_slice( $day_events, 0, $visible_event_max );
+			$overflow_events    = $has_overflow ? array_slice( $day_events, $visible_event_max ) : array();
+
+			$day_classes = array( 'comarine-calendar-day' );
+			if ( ! $is_current_month ) {
+				$day_classes[] = 'is-outside-month';
+			}
+			if ( $is_today ) {
+				$day_classes[] = 'is-today';
+			}
+			if ( ! empty( $day_events ) ) {
+				$day_classes[] = 'has-bookings';
+			}
+
+			echo '<div class="' . esc_attr( implode( ' ', $day_classes ) ) . '" role="gridcell" aria-label="' . esc_attr( wp_date( get_option( 'date_format', 'Y-m-d' ), $day_cursor->getTimestamp(), wp_timezone() ) ) . '">';
+			echo '<div class="comarine-calendar-day__header">';
+			echo '<span class="comarine-calendar-day__number">' . esc_html( $day_cursor->format( 'j' ) ) . '</span>';
+			if ( ! empty( $day_events ) ) {
+				echo '<span class="comarine-calendar-day__count">' . esc_html( sprintf( _n( '%d booking', '%d bookings', count( $day_events ), 'comarine-storage-booking-with-woocommerce' ), count( $day_events ) ) ) . '</span>';
+			}
+			echo '</div>';
+
+			echo '<div class="comarine-calendar-day__events">';
+			foreach ( $visible_day_events as $segment ) {
+				$this->render_calendar_day_event_link( $segment );
+			}
+
+			if ( $has_overflow ) {
+				echo '<details class="comarine-calendar-day__more">';
+				echo '<summary>' . esc_html( sprintf( _n( '+%d more', '+%d more', count( $overflow_events ), 'comarine-storage-booking-with-woocommerce' ), count( $overflow_events ) ) ) . '</summary>';
+				echo '<div class="comarine-calendar-day__more-list">';
+				foreach ( $overflow_events as $segment ) {
+					$this->render_calendar_day_event_link( $segment );
+				}
+				echo '</div>';
+				echo '</details>';
+			}
+			echo '</div>';
+			echo '</div>';
+
+			$day_cursor = $day_cursor->modify( '+1 day' );
+		}
+
+		echo '</div>';
+		echo '</div>';
+		echo '</section>';
+		echo '</div>';
+	}
+
+	/**
 	 * Render the settings page.
 	 *
 	 * @since    1.0.3
@@ -2318,6 +2568,17 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	}
 
 	/**
+	 * Get calendar page slug.
+	 *
+	 * @since    1.0.31
+	 *
+	 * @return string
+	 */
+	private function get_calendar_page_slug() {
+		return 'comarine-storage-calendar';
+	}
+
+	/**
 	 * Get overview page slug.
 	 *
 	 * @since    1.0.19
@@ -2340,6 +2601,22 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			array( 'page' => $this->get_overview_page_slug() ),
 			admin_url( 'admin.php' )
 		);
+	}
+
+	/**
+	 * Build the bookings calendar admin page URL.
+	 *
+	 * @since    1.0.31
+	 *
+	 * @param array<string, scalar> $args Optional query args.
+	 * @return string
+	 */
+	private function get_calendar_page_url( $args = array() ) {
+		$base_args = array(
+			'page' => $this->get_calendar_page_slug(),
+		);
+
+		return add_query_arg( array_merge( $base_args, $args ), admin_url( 'admin.php' ) );
 	}
 
 	/**
@@ -3130,6 +3407,351 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	}
 
 	/**
+	 * Build calendar month/grid context from the current admin request.
+	 *
+	 * @since    1.0.31
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function get_calendar_view_context_from_request() {
+		$raw_month = isset( $_GET['comarine_calendar_month'] ) // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			? sanitize_text_field( wp_unslash( $_GET['comarine_calendar_month'] ) ) // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			: '';
+
+		$timezone    = wp_timezone();
+		$month_start = null;
+
+		if ( preg_match( '/^\d{4}-\d{2}$/', $raw_month ) ) {
+			$parsed = DateTimeImmutable::createFromFormat( '!Y-m', $raw_month, $timezone );
+			if ( $parsed instanceof DateTimeImmutable && $parsed->format( 'Y-m' ) === $raw_month ) {
+				$month_start = $parsed;
+			}
+		}
+
+		if ( ! $month_start instanceof DateTimeImmutable ) {
+			$month_start = DateTimeImmutable::createFromFormat( '!Y-m-d', wp_date( 'Y-m-01', ( new DateTimeImmutable( 'now', $timezone ) )->getTimestamp(), $timezone ), $timezone );
+		}
+
+		if ( ! $month_start instanceof DateTimeImmutable ) {
+			$month_start = new DateTimeImmutable( 'first day of this month 00:00:00', $timezone );
+		}
+
+		$month_end  = $month_start->modify( 'first day of next month' );
+		$week_start = (int) get_option( 'start_of_week', 1 );
+		$week_start = ( $week_start >= 0 && $week_start <= 6 ) ? $week_start : 1;
+		$days_back  = ( 7 + (int) $month_start->format( 'w' ) - $week_start ) % 7;
+		$grid_start = $month_start->modify( '-' . $days_back . ' days' );
+		$grid_end   = $grid_start->modify( '+42 days' );
+
+		return array(
+			'month_start'    => $month_start,
+			'month_end'      => $month_end,
+			'grid_start'     => $grid_start,
+			'grid_end'       => $grid_end,
+			'previous_month' => $month_start->modify( '-1 month' )->format( 'Y-m' ),
+			'next_month'     => $month_start->modify( '+1 month' )->format( 'Y-m' ),
+			'month_key'      => $month_start->format( 'Y-m' ),
+		);
+	}
+
+	/**
+	 * Fetch bookings overlapping a calendar date range.
+	 *
+	 * @since    1.0.31
+	 *
+	 * @param DateTimeImmutable $range_start Inclusive range start.
+	 * @param DateTimeImmutable $range_end   Exclusive range end.
+	 * @return array<int, object>
+	 */
+	private function get_calendar_bookings_for_range( $range_start, $range_end ) {
+		if ( ! class_exists( 'Comarine_Storage_Booking_With_Woocommerce_Bookings' ) ) {
+			return array();
+		}
+
+		$results    = array();
+		$offset     = 0;
+		$limit      = 200;
+		$loop_guard = 0;
+
+		do {
+			$batch = Comarine_Storage_Booking_With_Woocommerce_Bookings::get_bookings(
+				array(
+					'limit'  => $limit,
+					'offset' => $offset,
+				)
+			);
+
+			if ( empty( $batch ) ) {
+				break;
+			}
+
+			foreach ( $batch as $booking ) {
+				if ( $this->booking_overlaps_datetime_range( $booking, $range_start, $range_end ) ) {
+					$results[] = $booking;
+				}
+			}
+
+			$offset += $limit;
+			$loop_guard++;
+		} while ( count( $batch ) === $limit && $loop_guard < 100 );
+
+		usort(
+			$results,
+			function ( $a, $b ) {
+				$a_interval = $this->get_booking_calendar_interval( $a );
+				$b_interval = $this->get_booking_calendar_interval( $b );
+
+				$a_ts = ( $a_interval && isset( $a_interval['start'] ) && $a_interval['start'] instanceof DateTimeImmutable ) ? $a_interval['start']->getTimestamp() : PHP_INT_MAX;
+				$b_ts = ( $b_interval && isset( $b_interval['start'] ) && $b_interval['start'] instanceof DateTimeImmutable ) ? $b_interval['start']->getTimestamp() : PHP_INT_MAX;
+
+				if ( $a_ts === $b_ts ) {
+					$a_id = isset( $a->id ) ? (int) $a->id : 0;
+					$b_id = isset( $b->id ) ? (int) $b->id : 0;
+					return $a_id <=> $b_id;
+				}
+
+				return $a_ts <=> $b_ts;
+			}
+		);
+
+		return $results;
+	}
+
+	/**
+	 * Determine whether a booking overlaps the provided date range.
+	 *
+	 * @since    1.0.31
+	 *
+	 * @param object            $booking     Booking row.
+	 * @param DateTimeImmutable $range_start Inclusive range start.
+	 * @param DateTimeImmutable $range_end   Exclusive range end.
+	 * @return bool
+	 */
+	private function booking_overlaps_datetime_range( $booking, $range_start, $range_end ) {
+		$interval = $this->get_booking_calendar_interval( $booking );
+		if ( ! $interval ) {
+			return false;
+		}
+
+		$start_ts = isset( $interval['start'] ) && $interval['start'] instanceof DateTimeImmutable ? $interval['start']->getTimestamp() : 0;
+		$end_ts   = isset( $interval['end_exclusive'] ) && $interval['end_exclusive'] instanceof DateTimeImmutable ? $interval['end_exclusive']->getTimestamp() : 0;
+
+		return $start_ts < $range_end->getTimestamp() && $end_ts > $range_start->getTimestamp();
+	}
+
+	/**
+	 * Normalize a booking row into a calendar interval.
+	 *
+	 * @since    1.0.31
+	 *
+	 * @param object $booking Booking row.
+	 * @return array<string, DateTimeImmutable>|null
+	 */
+	private function get_booking_calendar_interval( $booking ) {
+		if ( ! is_object( $booking ) ) {
+			return null;
+		}
+
+		$start_raw = '';
+		foreach ( array( 'start_ts', 'created_ts' ) as $field ) {
+			if ( isset( $booking->{$field} ) && '' !== trim( (string) $booking->{$field} ) ) {
+				$start_raw = (string) $booking->{$field};
+				break;
+			}
+		}
+
+		$start_dt = '' !== $start_raw ? $this->parse_wp_local_datetime_string( $start_raw ) : null;
+		if ( ! $start_dt instanceof DateTimeImmutable ) {
+			return null;
+		}
+
+		$end_dt = null;
+		if ( isset( $booking->end_ts ) && '' !== trim( (string) $booking->end_ts ) ) {
+			$end_dt = $this->parse_wp_local_datetime_string( (string) $booking->end_ts );
+		}
+
+		if ( ! $end_dt instanceof DateTimeImmutable || $end_dt <= $start_dt ) {
+			$end_dt = $start_dt->modify( '+1 day' );
+		}
+
+		$display_end = $end_dt->modify( '-1 second' );
+		if ( $display_end < $start_dt ) {
+			$display_end = $start_dt;
+		}
+
+		return array(
+			'start'         => $start_dt,
+			'end_exclusive' => $end_dt,
+			'display_end'   => $display_end,
+		);
+	}
+
+	/**
+	 * Build day-cell booking segments for the admin calendar month grid.
+	 *
+	 * @since    1.0.31
+	 *
+	 * @param array<int, object> $bookings   Booking rows.
+	 * @param DateTimeImmutable   $grid_start Inclusive grid start.
+	 * @param DateTimeImmutable   $grid_end   Exclusive grid end.
+	 * @return array<string, array<int, array<string, mixed>>>
+	 */
+	private function build_calendar_day_segments( $bookings, $grid_start, $grid_end ) {
+		$events_by_day = array();
+		$timezone      = wp_timezone();
+		$last_grid_day = $grid_end->modify( '-1 day' );
+
+		foreach ( $bookings as $booking ) {
+			$interval = $this->get_booking_calendar_interval( $booking );
+			if ( ! $interval || ! $this->booking_overlaps_datetime_range( $booking, $grid_start, $grid_end ) ) {
+				continue;
+			}
+
+			$start_day = DateTimeImmutable::createFromFormat( '!Y-m-d', $interval['start']->format( 'Y-m-d' ), $timezone );
+			$end_day   = DateTimeImmutable::createFromFormat( '!Y-m-d', $interval['display_end']->format( 'Y-m-d' ), $timezone );
+			if ( ! $start_day instanceof DateTimeImmutable || ! $end_day instanceof DateTimeImmutable ) {
+				continue;
+			}
+
+			if ( $start_day < $grid_start ) {
+				$start_day = $grid_start;
+			}
+			if ( $end_day > $last_grid_day ) {
+				$end_day = $last_grid_day;
+			}
+			if ( $end_day < $start_day ) {
+				continue;
+			}
+
+			$booking_id   = isset( $booking->id ) ? absint( $booking->id ) : 0;
+			$status       = isset( $booking->status ) ? sanitize_key( (string) $booking->status ) : 'pending';
+			$status_label = class_exists( 'Comarine_Storage_Booking_With_Woocommerce_Bookings' )
+				? Comarine_Storage_Booking_With_Woocommerce_Bookings::get_status_label( $status )
+				: ucfirst( $status );
+
+			$unit_code = trim( isset( $booking->unit_code ) ? (string) $booking->unit_code : '' );
+			if ( '' === $unit_code ) {
+				$unit_post_id = isset( $booking->unit_post_id ) ? absint( $booking->unit_post_id ) : 0;
+				if ( $unit_post_id > 0 ) {
+					$unit_code = (string) get_the_title( $unit_post_id );
+				}
+			}
+			if ( '' === $unit_code ) {
+				$unit_code = __( 'Storage Unit', 'comarine-storage-booking-with-woocommerce' );
+			}
+
+			$label = '#' . ( $booking_id > 0 ? (string) $booking_id : '?' ) . ' ' . $unit_code;
+			$price = trim( ( isset( $booking->price_total ) ? (string) $booking->price_total : '' ) . ' ' . ( isset( $booking->currency ) ? (string) $booking->currency : '' ) );
+			$area  = $this->format_booking_area_summary( $booking, true );
+			$meta  = array_filter(
+				array(
+					$status_label,
+					'-' !== $area ? $area : '',
+				),
+				static function ( $value ) {
+					return '' !== trim( (string) $value );
+				}
+			);
+
+			$tooltip_parts = array(
+				$label,
+				sprintf(
+					/* translators: %s: booking status label */
+					__( 'Status: %s', 'comarine-storage-booking-with-woocommerce' ),
+					$status_label
+				),
+				sprintf(
+					/* translators: %s: booking start */
+					__( 'Start: %s', 'comarine-storage-booking-with-woocommerce' ),
+					$this->format_admin_datetime_display( isset( $booking->start_ts ) ? (string) $booking->start_ts : '', '-' )
+				),
+				sprintf(
+					/* translators: %s: booking end */
+					__( 'End: %s', 'comarine-storage-booking-with-woocommerce' ),
+					$this->format_admin_datetime_display( isset( $booking->end_ts ) ? (string) $booking->end_ts : '', '-' )
+				),
+			);
+			if ( '' !== $price ) {
+				$tooltip_parts[] = sprintf(
+					/* translators: %s: booking price */
+					__( 'Price: %s', 'comarine-storage-booking-with-woocommerce' ),
+					$price
+				);
+			}
+			if ( '-' !== $area ) {
+				$tooltip_parts[] = sprintf(
+					/* translators: %s: booking area summary */
+					__( 'Area: %s', 'comarine-storage-booking-with-woocommerce' ),
+					$area
+				);
+			}
+
+			$start_key = $interval['start']->format( 'Y-m-d' );
+			$end_key   = $interval['display_end']->format( 'Y-m-d' );
+			$cursor    = $start_day;
+
+			while ( $cursor <= $end_day ) {
+				$day_key = $cursor->format( 'Y-m-d' );
+
+				if ( ! isset( $events_by_day[ $day_key ] ) ) {
+					$events_by_day[ $day_key ] = array();
+				}
+
+				$events_by_day[ $day_key ][] = array(
+					'booking_id'       => $booking_id,
+					'status'           => $status,
+					'label'            => $label,
+					'meta'             => implode( ' | ', $meta ),
+					'link'             => $this->get_bookings_page_url( array( 'booking_id' => $booking_id ) ),
+					'tooltip'          => implode( ' | ', $tooltip_parts ),
+					'is_start'         => ( $day_key === $start_key ),
+					'is_end'           => ( $day_key === $end_key ),
+					'continues_before' => ( $day_key !== $start_key ),
+					'continues_after'  => ( $day_key !== $end_key ),
+				);
+
+				$cursor = $cursor->modify( '+1 day' );
+			}
+		}
+
+		return $events_by_day;
+	}
+
+	/**
+	 * Render a booking link within a calendar day cell.
+	 *
+	 * @since    1.0.31
+	 *
+	 * @param array<string, mixed> $segment Calendar segment data.
+	 * @return void
+	 */
+	private function render_calendar_day_event_link( $segment ) {
+		if ( ! is_array( $segment ) || empty( $segment['link'] ) || empty( $segment['label'] ) ) {
+			return;
+		}
+
+		$status  = isset( $segment['status'] ) ? sanitize_html_class( (string) $segment['status'] ) : 'pending';
+		$classes = array(
+			'comarine-calendar-event',
+			'is-' . $status,
+		);
+
+		if ( ! empty( $segment['continues_before'] ) ) {
+			$classes[] = 'is-continued-before';
+		}
+		if ( ! empty( $segment['continues_after'] ) ) {
+			$classes[] = 'is-continued-after';
+		}
+
+		echo '<a class="' . esc_attr( implode( ' ', $classes ) ) . '" href="' . esc_url( (string) $segment['link'] ) . '" title="' . esc_attr( isset( $segment['tooltip'] ) ? (string) $segment['tooltip'] : '' ) . '">';
+		echo '<span class="comarine-calendar-event__title">' . esc_html( (string) $segment['label'] ) . '</span>';
+		if ( ! empty( $segment['meta'] ) ) {
+			echo '<span class="comarine-calendar-event__meta">' . esc_html( (string) $segment['meta'] ) . '</span>';
+		}
+		echo '</a>';
+	}
+
+	/**
 	 * Get customer display info for a booking row.
 	 *
 	 * @since    1.0.7
@@ -3897,6 +4519,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			'edit-' . $post_type,
 			$post_type,
 			'toplevel_page_comarine-storage-bookings',
+			'comarine-storage-bookings_page_' . $this->get_calendar_page_slug(),
 			'comarine-storage-bookings_page_' . $this->get_overview_page_slug(),
 			'comarine-storage-bookings_page_' . $this->get_settings_page_slug(),
 		);
