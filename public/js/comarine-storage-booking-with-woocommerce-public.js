@@ -50,6 +50,21 @@
 		return next;
 	}
 
+	function addMonths( dateObj, months ) {
+		if ( !( dateObj instanceof Date ) || Number.isNaN( dateObj.getTime() ) ) {
+			return null;
+		}
+
+		var count = Number( months || 0 );
+		if ( !Number.isFinite( count ) ) {
+			count = 0;
+		}
+
+		var next = new Date( dateObj.getTime() );
+		next.setMonth( next.getMonth() + count );
+		return Number.isNaN( next.getTime() ) ? null : next;
+	}
+
 	function getTodayDate() {
 		return parseDateOnly( formatDateOnly( new Date() ) );
 	}
@@ -81,6 +96,39 @@
 
 		var $hidden = $form.find( 'input[type="hidden"][name="comarine_duration_key"]' );
 		return $hidden.length ? $hidden.val() : '';
+	}
+
+	function getDurationMonthsForKey( durationKey ) {
+		var key = ( durationKey || '' ).toString();
+		var monthsByKey = {
+			monthly: 1,
+			'6m': 6,
+			'12m': 12
+		};
+
+		if ( Object.prototype.hasOwnProperty.call( monthsByKey, key ) ) {
+			return monthsByKey[ key ];
+		}
+
+		return 0;
+	}
+
+	function getSelectedDurationRangeEndForForm( $form, startDateObj ) {
+		if ( !( startDateObj instanceof Date ) || Number.isNaN( startDateObj.getTime() ) ) {
+			return null;
+		}
+
+		var selectedKey = ( getSelectedDurationKey( $form ) || '' ).toString();
+		if ( !selectedKey || selectedKey === 'daily' ) {
+			return null;
+		}
+
+		var months = getDurationMonthsForKey( selectedKey );
+		if ( months <= 0 ) {
+			return null;
+		}
+
+		return addMonths( startDateObj, months );
 	}
 
 	function parsePricePreviewPayload( $form ) {
@@ -504,12 +552,12 @@
 	}
 
 	function ensureDailyDatepickersForForm( $form ) {
-		if ( !$form || !$form.length || $form.data( 'comarineDailyDatepickerReady' ) ) {
+		if ( !$form || !$form.length || $form.data( 'comarineDatepickerReady' ) ) {
 			return;
 		}
 
 		var payload = parsePricePreviewPayload( $form );
-		if ( !payload || !payload.uses_daily ) {
+		if ( !payload ) {
 			return;
 		}
 
@@ -519,7 +567,8 @@
 
 		var $startInput = $form.find( 'input[name="comarine_start_date"]' );
 		var $endInput = $form.find( 'input[name="comarine_end_date"]' );
-		if ( !$startInput.length || !$endInput.length ) {
+		var hasDailyRange = !!payload.uses_daily && !!$endInput.length;
+		if ( !$startInput.length ) {
 			return;
 		}
 
@@ -554,74 +603,98 @@
 					return [ false, 'comarine-ui-day--loading', getI18n( 'loadingAvailability', 'Loading availability...' ) ];
 				}
 
-				var dayState = getDayStateForForm( $form, dateObj );
-				if ( !dayState.known && !state.loaded ) {
-					return [ true, '', '' ];
-				}
-
-				if ( !dayState.available ) {
-					return [ false, 'comarine-ui-day--blocked', dayState.reason || getI18n( 'noCapacityForDate', 'Unavailable on this date' ) ];
-				}
-
-				if ( state.isCapacityManaged && Number.isFinite( dayState.remaining ) ) {
-					return [ true, dayState.remaining <= 0 ? 'comarine-ui-day--blocked' : 'comarine-ui-day--capacity', '' ];
-				}
-
-				return [ true, '', '' ];
-			},
-			onSelect: function( selectedDate ) {
-				var startDate = parseDateOnly( selectedDate );
-				var endMin = startDate ? addDays( startDate, 1 ) : null;
-				if ( endMin ) {
-					$endInput.datepicker( 'option', 'minDate', endMin );
-
-					var currentEnd = parseDateOnly( $endInput.val() );
-					if ( !currentEnd || currentEnd <= startDate || !isContinuousRangeAvailableForForm( $form, startDate, currentEnd ) ) {
-						var proposedEnd = endMin;
-						if ( isContinuousRangeAvailableForForm( $form, startDate, proposedEnd ) ) {
-							$endInput.val( formatDateOnly( proposedEnd ) );
-						}
+				if ( hasDailyRange ) {
+					var dayState = getDayStateForForm( $form, dateObj );
+					if ( !dayState.known && !state.loaded ) {
+						return [ true, '', '' ];
 					}
-				}
 
-				$endInput.datepicker( 'refresh' );
-				$startInput.trigger( 'change' );
-				$endInput.trigger( 'change' );
-			}
-		} ) );
+					if ( !dayState.available ) {
+						return [ false, 'comarine-ui-day--blocked', dayState.reason || getI18n( 'noCapacityForDate', 'Unavailable on this date' ) ];
+					}
 
-		$endInput.datepicker( $.extend( {}, datepickerOptions, {
-			minDate: 1,
-			beforeShowDay: function( dateObj ) {
-				var state = getOrCreateAvailabilityState( $form );
-				var startDate = parseDateOnly( $startInput.val() );
+					if ( state.isCapacityManaged && Number.isFinite( dayState.remaining ) ) {
+						return [ true, dayState.remaining <= 0 ? 'comarine-ui-day--blocked' : 'comarine-ui-day--capacity', '' ];
+					}
 
-				if ( state.loading && !state.loaded ) {
-					return [ false, 'comarine-ui-day--loading', getI18n( 'loadingAvailability', 'Loading availability...' ) ];
-				}
-
-				if ( !startDate ) {
-					return [ false, 'comarine-ui-day--blocked', getI18n( 'selectStartDateFirst', 'Select start date first' ) ];
-				}
-
-				if ( dateObj <= startDate ) {
-					return [ false, 'comarine-ui-day--blocked', getI18n( 'endDateBlocked', 'Selected range includes unavailable dates' ) ];
+					return [ true, '', '' ];
 				}
 
 				if ( !state.loaded ) {
 					return [ true, '', '' ];
 				}
 
-				if ( !isContinuousRangeAvailableForForm( $form, startDate, dateObj ) ) {
+				var rangeEnd = getSelectedDurationRangeEndForForm( $form, dateObj );
+				if ( !( rangeEnd instanceof Date ) || Number.isNaN( rangeEnd.getTime() ) ) {
+					return [ true, '', '' ];
+				}
+
+				if ( !isContinuousRangeAvailableForForm( $form, dateObj, rangeEnd ) ) {
 					return [ false, 'comarine-ui-day--blocked', getI18n( 'endDateBlocked', 'Selected range includes unavailable dates' ) ];
 				}
 
-				return [ true, 'comarine-ui-day--checkout', '' ];
+				return [ true, state.isCapacityManaged ? 'comarine-ui-day--capacity' : '', '' ];
 			},
-			onSelect: function() {
-				$endInput.trigger( 'change' );
+			onSelect: function( selectedDate ) {
+				var startDate = parseDateOnly( selectedDate );
+				if ( hasDailyRange ) {
+					var endMin = startDate ? addDays( startDate, 1 ) : null;
+					if ( endMin ) {
+						$endInput.datepicker( 'option', 'minDate', endMin );
+
+						var currentEnd = parseDateOnly( $endInput.val() );
+						if ( !currentEnd || currentEnd <= startDate || !isContinuousRangeAvailableForForm( $form, startDate, currentEnd ) ) {
+							var proposedEnd = endMin;
+							if ( isContinuousRangeAvailableForForm( $form, startDate, proposedEnd ) ) {
+								$endInput.val( formatDateOnly( proposedEnd ) );
+							}
+						}
+					}
+
+					$endInput.datepicker( 'refresh' );
+				}
+
+				$startInput.trigger( 'change' );
+				if ( hasDailyRange ) {
+					$endInput.trigger( 'change' );
+				}
 			}
 		} ) );
+
+		if ( hasDailyRange ) {
+			$endInput.datepicker( $.extend( {}, datepickerOptions, {
+				minDate: 1,
+				beforeShowDay: function( dateObj ) {
+					var state = getOrCreateAvailabilityState( $form );
+					var startDate = parseDateOnly( $startInput.val() );
+
+					if ( state.loading && !state.loaded ) {
+						return [ false, 'comarine-ui-day--loading', getI18n( 'loadingAvailability', 'Loading availability...' ) ];
+					}
+
+					if ( !startDate ) {
+						return [ false, 'comarine-ui-day--blocked', getI18n( 'selectStartDateFirst', 'Select start date first' ) ];
+					}
+
+					if ( dateObj <= startDate ) {
+						return [ false, 'comarine-ui-day--blocked', getI18n( 'endDateBlocked', 'Selected range includes unavailable dates' ) ];
+					}
+
+					if ( !state.loaded ) {
+						return [ true, '', '' ];
+					}
+
+					if ( !isContinuousRangeAvailableForForm( $form, startDate, dateObj ) ) {
+						return [ false, 'comarine-ui-day--blocked', getI18n( 'endDateBlocked', 'Selected range includes unavailable dates' ) ];
+					}
+
+					return [ true, 'comarine-ui-day--checkout', '' ];
+				},
+				onSelect: function() {
+					$endInput.trigger( 'change' );
+				}
+			} ) );
+		}
 
 		$form.on( 'input change', 'input[name="comarine_requested_area_m2"]', function() {
 			refreshDailyDatepickers( $form );
@@ -631,8 +704,12 @@
 			refreshDailyDatepickers( $form );
 		} );
 
+		$form.on( 'change', 'input[name="comarine_duration_key"]', function() {
+			refreshDailyDatepickers( $form );
+		} );
+
 		fetchDailyAvailabilityForForm( $form );
-		$form.data( 'comarineDailyDatepickerReady', true );
+		$form.data( 'comarineDatepickerReady', true );
 	}
 
 	$( function() {

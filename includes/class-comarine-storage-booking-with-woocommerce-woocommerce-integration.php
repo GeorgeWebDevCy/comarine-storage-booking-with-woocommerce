@@ -1022,7 +1022,7 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 					? ! empty( $capacity_snapshot['is_full'] )
 					: Comarine_Storage_Booking_With_Woocommerce_Bookings::has_conflicting_booking( $unit_id ) )
 				: false;
-			$can_book     = 'available' === $normalized_status && ! empty( $durations ) && $container_product_id > 0 && ( $uses_daily_date_range || ! $has_conflict );
+			$can_book     = 'available' === $normalized_status && ! empty( $durations ) && $container_product_id > 0;
 			$default_key  = ! empty( $durations ) ? array_key_first( $durations ) : '';
 			$unit_size_float = is_numeric( $unit_size ) ? (float) $unit_size : null;
 			$from_price    = ! empty( $durations ) ? (float) min( $durations ) : 0.0;
@@ -1043,6 +1043,7 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 				'durations'         => $durations,
 				'default_duration'  => $default_key,
 				'can_book'          => $can_book,
+				'has_conflict'      => $has_conflict,
 				'from_price'        => $from_price,
 				'features'          => $features,
 				'excerpt'           => $excerpt,
@@ -1074,6 +1075,7 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 			$durations = $card['durations'];
 			$default_key = (string) $card['default_duration'];
 			$can_book = ! empty( $card['can_book'] );
+			$has_conflict = ! empty( $card['has_conflict'] );
 			$capacity_snapshot = isset( $card['capacity_snapshot'] ) && is_array( $card['capacity_snapshot'] ) ? $card['capacity_snapshot'] : array();
 			$is_capacity_managed = ! empty( $capacity_snapshot['is_capacity_managed'] );
 			$capacity_total_m2 = $is_capacity_managed && isset( $capacity_snapshot['capacity_m2'] ) ? (float) $capacity_snapshot['capacity_m2'] : 0.0;
@@ -1226,7 +1228,9 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 					if ( ! $can_book && '' !== (string) $card['unavailable_reason'] ) {
 						echo '<p class="comarine-storage-unit-card__availability-note is-unavailable">' . esc_html( (string) $card['unavailable_reason'] ) . '</p>';
 					} elseif ( $can_book ) {
-						if ( $is_capacity_managed ) {
+						if ( $has_conflict ) {
+							echo '<p class="comarine-storage-unit-card__availability-note is-available">' . esc_html__( 'Some dates are already booked. Select an available start date from the calendar and the plugin will block unavailable ranges automatically.', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
+						} elseif ( $is_capacity_managed ) {
 							echo '<p class="comarine-storage-unit-card__availability-note is-available">' . esc_html( sprintf( __( 'Available now. %s m2 can still be booked and your selected area will be locked for checkout.', 'comarine-storage-booking-with-woocommerce' ), $this->format_area_m2( max( 0, $capacity_remaining_m2 ) ) ) ) . '</p>';
 						} else {
 							echo '<p class="comarine-storage-unit-card__availability-note is-available">' . esc_html__( 'Available now. Your selection will be locked for checkout.', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
