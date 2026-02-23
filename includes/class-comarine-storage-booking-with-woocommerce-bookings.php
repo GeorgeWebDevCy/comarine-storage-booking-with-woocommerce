@@ -915,6 +915,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 		$unit_post_id  = isset( $args['unit_post_id'] ) ? absint( $args['unit_post_id'] ) : 0;
 		$unit_code     = isset( $args['unit_code'] ) ? sanitize_text_field( (string) $args['unit_code'] ) : '';
 		$duration_key  = isset( $args['duration_key'] ) ? sanitize_key( (string) $args['duration_key'] ) : '';
+		$start_date    = isset( $args['start_date'] ) ? sanitize_text_field( (string) $args['start_date'] ) : '';
 		$requested_area_m2 = isset( $args['requested_area_m2'] ) && is_numeric( $args['requested_area_m2'] ) ? round( (float) $args['requested_area_m2'], 2 ) : 0.0;
 		$unit_capacity_m2  = isset( $args['unit_capacity_m2'] ) && is_numeric( $args['unit_capacity_m2'] ) ? round( (float) $args['unit_capacity_m2'], 2 ) : 0.0;
 		$price_total   = isset( $args['price_total'] ) ? (float) $args['price_total'] : 0.0;
@@ -933,6 +934,27 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 		if ( $price_total <= 0 ) {
 			return new WP_Error( 'comarine_invalid_price', __( 'Invalid booking price.', 'comarine-storage-booking-with-woocommerce' ) );
 		}
+
+		$site_timezone = function_exists( 'wp_timezone' ) ? wp_timezone() : new DateTimeZone( 'UTC' );
+		$today_date    = wp_date( 'Y-m-d', null, $site_timezone );
+		if ( '' === $start_date ) {
+			return new WP_Error( 'comarine_missing_start_date', __( 'Please select a booking start date.', 'comarine-storage-booking-with-woocommerce' ) );
+		}
+
+		if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $start_date ) ) {
+			return new WP_Error( 'comarine_invalid_start_date', __( 'Invalid booking start date selected.', 'comarine-storage-booking-with-woocommerce' ) );
+		}
+
+		$start_dt = DateTimeImmutable::createFromFormat( '!Y-m-d', $start_date, $site_timezone );
+		if ( ! $start_dt || $start_dt->format( 'Y-m-d' ) !== $start_date ) {
+			return new WP_Error( 'comarine_invalid_start_date', __( 'Invalid booking start date selected.', 'comarine-storage-booking-with-woocommerce' ) );
+		}
+
+		if ( $start_date < $today_date ) {
+			return new WP_Error( 'comarine_start_date_in_past', __( 'Booking start date cannot be in the past.', 'comarine-storage-booking-with-woocommerce' ) );
+		}
+
+		$start_dt = $start_dt->setTime( 0, 0, 0 );
 
 		if ( $unit_capacity_m2 <= 0 ) {
 			$unit_capacity_m2 = self::get_unit_capacity_m2( $unit_post_id );
@@ -972,9 +994,9 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 			return new WP_Error( 'comarine_unit_unavailable', __( 'This unit is no longer available for booking.', 'comarine-storage-booking-with-woocommerce' ) );
 		}
 
-		$now_dt          = new DateTimeImmutable( current_time( 'mysql' ) );
+		$now_dt          = new DateTimeImmutable( current_time( 'mysql' ), $site_timezone );
 		$lock_expires_dt = $now_dt->modify( '+' . $lock_ttl . ' minutes' );
-		$end_dt          = $now_dt->modify( '+' . self::DURATION_MONTHS[ $duration_key ] . ' months' );
+		$end_dt          = $start_dt->modify( '+' . self::DURATION_MONTHS[ $duration_key ] . ' months' );
 		$lock_token      = wp_generate_password( 32, false, false );
 		$table_name      = self::get_table_name();
 
@@ -986,7 +1008,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 				'order_id'         => 0,
 				'user_id'          => $user_id > 0 ? $user_id : null,
 				'duration_key'     => $duration_key,
-				'start_ts'         => $now_dt->format( 'Y-m-d H:i:s' ),
+				'start_ts'         => $start_dt->format( 'Y-m-d H:i:s' ),
 				'end_ts'           => $end_dt->format( 'Y-m-d H:i:s' ),
 				'requested_area_m2'=> $requested_area_m2 > 0 ? number_format( $requested_area_m2, 2, '.', '' ) : '0.00',
 				'unit_capacity_m2' => $unit_capacity_m2 > 0 ? number_format( $unit_capacity_m2, 2, '.', '' ) : '0.00',
@@ -1026,6 +1048,9 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 			'booking_id'       => (int) $wpdb->insert_id,
 			'lock_token'       => $lock_token,
 			'lock_expires_ts'  => $lock_expires_dt->format( 'Y-m-d H:i:s' ),
+			'start_date'       => $start_dt->format( 'Y-m-d' ),
+			'start_ts'         => $start_dt->format( 'Y-m-d H:i:s' ),
+			'end_ts'           => $end_dt->format( 'Y-m-d H:i:s' ),
 			'duration_key'     => $duration_key,
 			'requested_area_m2'=> $requested_area_m2 > 0 ? number_format( $requested_area_m2, 2, '.', '' ) : '0.00',
 			'unit_capacity_m2' => $unit_capacity_m2 > 0 ? number_format( $unit_capacity_m2, 2, '.', '' ) : '0.00',

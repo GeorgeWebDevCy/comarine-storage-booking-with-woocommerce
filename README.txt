@@ -5,7 +5,7 @@ Tags: storage, booking, woocommerce
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.28
+Stable tag: 1.0.29
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Requires Plugins: woocommerce, jcc-payment-gateway-for-wc
@@ -61,6 +61,7 @@ Current implemented milestone includes:
 - Added a one-click admin action to create 5 demo Storage Units with random capacities/prices from Overview/Settings for test data setup
 - Added a defensive Storage Units admin menu URL normalization fix to prevent `Invalid post type` on some setups
 - Capacity-managed units (using unit size in m2) now support partial bookings with prorated pricing and only become unavailable when fully booked
+- Booking forms now require customers to choose a booking start date (stored in booking records and shown in cart/order metadata)
 
 == Installation ==
 
@@ -89,6 +90,12 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 3. Admin booking management screen.
 
 == Changelog ==
+
+= 1.0.29 =
+* Booking forms now require customers to select a start date before adding a storage booking to cart.
+* Booking lock rows now store `start_ts`/`end_ts` based on the selected start date (instead of using booking creation time as the start).
+* Cart/checkout and order item metadata now display the selected booking start date.
+* Added frontend card date-input UI styling for the required start date field.
 
 = 1.0.28 =
 * Updated `[comarine_storage_units_latest]` homepage shortcode layout to render as a 3-column grid on desktop (responsive 2-column tablet / 1-column mobile).
@@ -239,6 +246,9 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 * Added activation/runtime dependency checks for WooCommerce and JCC Payment Gateway for WooCommerce.
 
 == Upgrade Notice ==
+
+= 1.0.29 =
+Adds a required booking start date field to the storage booking form and stores the selected date in booking/cart/order records.
 
 = 1.0.28 =
 Improves the homepage latest-units shortcode layout so it displays in 3 columns on desktop while staying responsive on smaller screens.

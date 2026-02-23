@@ -115,6 +115,7 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 
 		$unit_post_id = isset( $_POST['comarine_unit_post_id'] ) ? absint( $_POST['comarine_unit_post_id'] ) : 0;
 		$duration_key = isset( $_POST['comarine_duration_key'] ) ? sanitize_key( wp_unslash( $_POST['comarine_duration_key'] ) ) : '';
+		$requested_start_date = isset( $_POST['comarine_start_date'] ) ? $this->sanitize_booking_start_date( wp_unslash( $_POST['comarine_start_date'] ) ) : '';
 		$requested_area_m2 = isset( $_POST['comarine_requested_area_m2'] ) ? $this->sanitize_requested_area_m2( wp_unslash( $_POST['comarine_requested_area_m2'] ) ) : 0.0;
 
 		$unit = get_post( $unit_post_id );
@@ -137,6 +138,13 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 		$price_map = $this->get_unit_duration_prices( $unit_post_id );
 		if ( ! isset( $price_map[ $duration_key ] ) ) {
 			$this->add_wc_notice( __( 'Selected rental duration is not available for this unit.', 'comarine-storage-booking-with-woocommerce' ), 'error' );
+			wp_safe_redirect( $redirect_url );
+			exit;
+		}
+
+		$start_date_validation = $this->validate_booking_start_date( $requested_start_date );
+		if ( is_wp_error( $start_date_validation ) ) {
+			$this->add_wc_notice( $start_date_validation->get_error_message(), 'error' );
 			wp_safe_redirect( $redirect_url );
 			exit;
 		}
@@ -193,6 +201,7 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 				'unit_post_id'       => $unit_post_id,
 				'unit_code'          => (string) get_post_meta( $unit_post_id, '_csu_unit_code', true ) ?: $unit->post_title,
 				'duration_key'       => $duration_key,
+				'start_date'         => $requested_start_date,
 				'price_total'        => $total_price,
 				'currency'           => isset( $settings['currency'] ) ? (string) $settings['currency'] : 'EUR',
 				'user_id'            => get_current_user_id(),
@@ -214,6 +223,9 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 				'unit_code'       => (string) get_post_meta( $unit_post_id, '_csu_unit_code', true ) ?: $unit->post_title,
 				'unit_title'      => $unit->post_title,
 				'duration_key'    => $duration_key,
+				'start_date'      => isset( $lock_result['start_date'] ) ? (string) $lock_result['start_date'] : $requested_start_date,
+				'start_ts'        => isset( $lock_result['start_ts'] ) ? (string) $lock_result['start_ts'] : '',
+				'end_ts'          => isset( $lock_result['end_ts'] ) ? (string) $lock_result['end_ts'] : '',
 				'requested_area_m2' => (float) $requested_area_m2,
 				'unit_capacity_m2'  => (float) $unit_capacity_m2,
 				'booking_id'      => (int) $lock_result['booking_id'],
@@ -294,6 +306,13 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 			'key'   => __( 'Duration', 'comarine-storage-booking-with-woocommerce' ),
 			'value' => $this->format_duration_label( (string) $booking['duration_key'] ),
 		);
+
+		if ( ! empty( $booking['start_date'] ) ) {
+			$item_data[] = array(
+				'key'   => __( 'Start date', 'comarine-storage-booking-with-woocommerce' ),
+				'value' => $this->format_booking_start_date_for_display( (string) $booking['start_date'] ),
+			);
+		}
 
 		if ( isset( $booking['requested_area_m2'] ) && is_numeric( $booking['requested_area_m2'] ) && (float) $booking['requested_area_m2'] > 0 ) {
 			$area_label = $this->format_area_m2( (float) $booking['requested_area_m2'] ) . ' m2';
@@ -544,6 +563,20 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 		$item->add_meta_data( '_comarine_unit_post_id', (int) $booking['unit_post_id'], true );
 		$item->add_meta_data( '_comarine_unit_code', (string) $booking['unit_code'], true );
 		$item->add_meta_data( '_comarine_duration_key', (string) $booking['duration_key'], true );
+		if ( ! empty( $booking['start_date'] ) ) {
+			$item->add_meta_data( '_comarine_start_date', (string) $booking['start_date'], true );
+			$item->add_meta_data(
+				__( 'Start date', 'comarine-storage-booking-with-woocommerce' ),
+				$this->format_booking_start_date_for_display( (string) $booking['start_date'] ),
+				true
+			);
+		}
+		if ( ! empty( $booking['start_ts'] ) ) {
+			$item->add_meta_data( '_comarine_start_ts', (string) $booking['start_ts'], true );
+		}
+		if ( ! empty( $booking['end_ts'] ) ) {
+			$item->add_meta_data( '_comarine_end_ts', (string) $booking['end_ts'], true );
+		}
 		if ( isset( $booking['requested_area_m2'] ) && is_numeric( $booking['requested_area_m2'] ) && (float) $booking['requested_area_m2'] > 0 ) {
 			$item->add_meta_data( '_comarine_requested_area_m2', (float) $booking['requested_area_m2'], true );
 			$item->add_meta_data( '_comarine_unit_capacity_m2', isset( $booking['unit_capacity_m2'] ) && is_numeric( $booking['unit_capacity_m2'] ) ? (float) $booking['unit_capacity_m2'] : 0.0, true );
@@ -861,6 +894,7 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 			$capacity_remaining_m2 = $is_capacity_managed && isset( $capacity_snapshot['remaining_m2'] ) ? (float) $capacity_snapshot['remaining_m2'] : 0.0;
 			$capacity_reserved_m2 = $is_capacity_managed && isset( $capacity_snapshot['reserved_m2'] ) ? (float) $capacity_snapshot['reserved_m2'] : 0.0;
 			$default_requested_area_m2 = $is_capacity_managed ? max( 0.01, round( $capacity_remaining_m2, 2 ) ) : 0.0;
+			$default_start_date = $this->get_default_booking_start_date_input_value();
 
 			echo '<article class="comarine-storage-unit-card comarine-status-' . esc_attr( (string) $card['status'] ) . '">';
 			echo '<div class="comarine-storage-unit-card__header">';
@@ -917,6 +951,12 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 				echo '<input type="hidden" name="comarine_storage_booking_action" value="start_booking" />';
 				echo '<input type="hidden" name="comarine_unit_post_id" value="' . esc_attr( (string) $unit_id ) . '" />';
 				echo '<input type="hidden" name="comarine_redirect_to_checkout" value="' . esc_attr( (string) ( '1' === (string) $atts['checkout'] ? '1' : '0' ) ) . '" />';
+
+				echo '<label class="comarine-storage-unit-card__start-date-field">';
+				echo '<span>' . esc_html__( 'Start date', 'comarine-storage-booking-with-woocommerce' ) . '</span>';
+				echo '<input type="date" name="comarine_start_date" min="' . esc_attr( $default_start_date ) . '" value="' . esc_attr( $default_start_date ) . '" ' . disabled( $can_book, false, false ) . ' required />';
+				echo '<small>' . esc_html__( 'Select when your storage booking should begin.', 'comarine-storage-booking-with-woocommerce' ) . '</small>';
+				echo '</label>';
 
 				echo '<fieldset class="comarine-storage-unit-card__duration-fieldset">';
 				echo '<legend>' . esc_html__( 'Select duration', 'comarine-storage-booking-with-woocommerce' ) . '</legend>';
@@ -1541,6 +1581,59 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 	}
 
 	/**
+	 * Normalize a booking start date from request input (Y-m-d).
+	 *
+	 * @since 1.0.29
+	 *
+	 * @param mixed $raw_value Raw request value.
+	 * @return string
+	 */
+	private function sanitize_booking_start_date( $raw_value ) {
+		if ( is_array( $raw_value ) ) {
+			return '';
+		}
+
+		$value = trim( (string) $raw_value );
+		if ( '' === $value ) {
+			return '';
+		}
+
+		if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $value ) ) {
+			return '';
+		}
+
+		return $value;
+	}
+
+	/**
+	 * Validate the selected booking start date.
+	 *
+	 * @since 1.0.29
+	 *
+	 * @param string $start_date Selected date in Y-m-d format.
+	 * @return true|WP_Error
+	 */
+	private function validate_booking_start_date( $start_date ) {
+		$start_date = $this->sanitize_booking_start_date( $start_date );
+		if ( '' === $start_date ) {
+			return new WP_Error( 'comarine_missing_start_date', __( 'Please select a booking start date.', 'comarine-storage-booking-with-woocommerce' ) );
+		}
+
+		$site_timezone = function_exists( 'wp_timezone' ) ? wp_timezone() : new DateTimeZone( 'UTC' );
+		$start_dt      = DateTimeImmutable::createFromFormat( '!Y-m-d', $start_date, $site_timezone );
+		if ( ! $start_dt || $start_dt->format( 'Y-m-d' ) !== $start_date ) {
+			return new WP_Error( 'comarine_invalid_start_date', __( 'Invalid booking start date selected.', 'comarine-storage-booking-with-woocommerce' ) );
+		}
+
+		$today = wp_date( 'Y-m-d', null, $site_timezone );
+		if ( $start_date < $today ) {
+			return new WP_Error( 'comarine_start_date_in_past', __( 'Booking start date cannot be in the past.', 'comarine-storage-booking-with-woocommerce' ) );
+		}
+
+		return true;
+	}
+
+	/**
 	 * Calculate prorated booking price based on requested m2 vs unit capacity.
 	 *
 	 * Assumes the configured duration price is for the full unit.
@@ -1852,6 +1945,44 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 		}
 
 		return number_format_i18n( $amount, 2 ) . ' ' . $currency;
+	}
+
+	/**
+	 * Get the default booking start date for the booking form date input.
+	 *
+	 * @since 1.0.29
+	 *
+	 * @return string
+	 */
+	private function get_default_booking_start_date_input_value() {
+		$site_timezone = function_exists( 'wp_timezone' ) ? wp_timezone() : new DateTimeZone( 'UTC' );
+
+		return wp_date( 'Y-m-d', null, $site_timezone );
+	}
+
+	/**
+	 * Format a booking start date (Y-m-d) for customer-facing display.
+	 *
+	 * @since 1.0.29
+	 *
+	 * @param string $start_date Date in Y-m-d format.
+	 * @return string
+	 */
+	private function format_booking_start_date_for_display( $start_date ) {
+		$start_date = $this->sanitize_booking_start_date( $start_date );
+		if ( '' === $start_date ) {
+			return '';
+		}
+
+		$site_timezone = function_exists( 'wp_timezone' ) ? wp_timezone() : new DateTimeZone( 'UTC' );
+		$start_dt      = DateTimeImmutable::createFromFormat( '!Y-m-d', $start_date, $site_timezone );
+		if ( ! $start_dt ) {
+			return $start_date;
+		}
+
+		$date_format = (string) get_option( 'date_format', 'Y-m-d' );
+
+		return wp_date( $date_format, $start_dt->getTimestamp(), $site_timezone );
 	}
 
 	/**

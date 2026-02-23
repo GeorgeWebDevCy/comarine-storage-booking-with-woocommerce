@@ -308,6 +308,47 @@
 	padding-top: 4px;
 }
 
+.comarine-storage-unit-card__start-date-field {
+	display: grid;
+	gap: 6px;
+	margin: 0 0 10px;
+}
+
+.comarine-storage-unit-card__start-date-field > span {
+	font-weight: 700;
+	font-size: 0.9rem;
+	color: var(--comarine-text-strong);
+}
+
+.comarine-storage-unit-card__start-date-field input {
+	width: 100%;
+	border: 1px solid var(--comarine-border);
+	border-radius: 10px;
+	padding: 10px 12px;
+	font: inherit;
+	background: rgba(255, 255, 255, 0.95);
+	color: var(--comarine-text);
+	transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.comarine-storage-unit-card__start-date-field input:focus {
+	border-color: var(--comarine-accent);
+	box-shadow: 0 0 0 3px rgba(46, 163, 242, 0.14);
+	outline: none;
+}
+
+.comarine-storage-unit-card__start-date-field input:disabled {
+	background: #eef3f8;
+	color: #6b7f90;
+	cursor: not-allowed;
+}
+
+.comarine-storage-unit-card__start-date-field small {
+	color: var(--comarine-muted);
+	font-size: 0.8rem;
+	line-height: 1.35;
+}
+
 .comarine-storage-unit-card__area-field {
 	display: grid;
 	gap: 6px;

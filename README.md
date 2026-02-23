@@ -51,6 +51,7 @@ Implemented in the codebase so far:
 - Booking summary panel on WooCommerce order admin pages
 - Audit log entries for manual booking/unit status actions
 - Capacity-managed units (size in m2) now support partial-area bookings with checkout price proration and full-capacity-only locking
+- Booking forms now require a customer-selected start date (stored in booking records and shown in cart/order metadata)
 
 Not implemented yet (next milestones):
 
