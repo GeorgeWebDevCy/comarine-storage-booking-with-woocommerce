@@ -2,7 +2,7 @@
 
 WordPress plugin for CoMarine storage unit bookings with WooCommerce checkout integration.
 
-## Current Status (Milestone 18)
+## Current Status (Milestone 19)
 
 Implemented in the codebase so far:
 
@@ -38,6 +38,7 @@ Implemented in the codebase so far:
 - Plugin menu now explicitly ensures `Storage Units` and `Add New` submenus appear under `CoMarine Storage` (fallback for WP submenu edge cases)
 - Storage Units CPT now has an early bootstrap registration fallback so direct admin URLs do not fail with `Invalid post type`
 - New `Overview` admin screen provides a setup checklist for required/recommended plugin configuration
+- One-click admin action to auto-create/reuse the WooCommerce booking container product and save it in plugin settings
 - Settings page for booking container product, lock TTL, paid unit status, and currency
 - Shortcode `[comarine_storage_units]` for initial frontend booking entry
 - Booking lock creation + cart item metadata + price snapshot handling
@@ -90,8 +91,8 @@ If you deploy from source, include `vendor/` (or run `composer install` as part 
 
 ## Quick Test Flow (Current Milestone)
 
-1. Create a virtual WooCommerce product to use as the booking container.
-2. Open `CoMarine Storage > Settings` and select that product.
+1. Open `CoMarine Storage > Overview` (or `Settings`) and use the auto-create action for the booking container product, or create/select a virtual WooCommerce product manually.
+2. Open `CoMarine Storage > Settings` and confirm the booking container product is selected.
 3. Open `CoMarine Storage > Storage Units` and create one or more storage units with prices/status.
 4. Add the shortcode `[comarine_storage_units]` to a page.
 5. Book a unit and complete checkout (JCC sets order status to `completed` on success).
@@ -107,3 +108,4 @@ If you deploy from source, include `vendor/` (or run `composer install` as part 
 15. Confirm `CoMarine Storage` shows `Bookings`, `Storage Units`, `Add New`, and `Settings` in the admin menu.
 16. Open `/wp-admin/edit.php?post_type=comarine_storage_unit` directly and confirm the Storage Units list loads (no `Invalid post type` error).
 17. Open `CoMarine Storage > Overview` and confirm the setup checklist reports container product, dependencies, storage units/pricing, and key configuration status.
+18. If the container product is missing, use the `Create Container Product` action and confirm the setting is populated automatically.

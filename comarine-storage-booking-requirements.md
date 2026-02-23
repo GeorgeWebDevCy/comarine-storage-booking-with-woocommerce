@@ -645,6 +645,11 @@ Create settings page:
 - Added a setup checklist for required and recommended configuration (dependencies, container product, unit setup, WooCommerce pages, and settings snapshot)
 - Added actionable links from checklist items to plugin settings, storage units, bookings, and WooCommerce settings
 
+### Milestone 19 (Implemented - Container Product Auto-Create Helper)
+- Added a one-click admin setup action to auto-create a hidden virtual WooCommerce booking container product
+- Added duplicate-safe reuse logic that re-links an existing auto-created container product instead of creating a new one
+- Added setup action buttons/notices on the `Overview` and `Settings` screens so admins can provision the container product quickly
+
 ### Next Milestone (Planned)
 - Frontend UX improvements (images/gallery support, better empty/loading states)
 - Stronger concurrency controls / atomic locking for unit reservation conflicts

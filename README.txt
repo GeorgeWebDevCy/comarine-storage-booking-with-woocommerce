@@ -5,7 +5,7 @@ Tags: storage, booking, woocommerce
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.19
+Stable tag: 1.0.20
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Requires Plugins: woocommerce, jcc-payment-gateway-for-wc
@@ -56,6 +56,7 @@ Current implemented milestone includes:
 - Plugin menu explicitly ensures Storage Units / Add New submenus are present under the CoMarine Storage menu
 - Storage Units CPT is registered via an early fallback so direct `edit.php?post_type=comarine_storage_unit` links remain valid
 - Added an Overview admin screen with a setup checklist for required and recommended plugin configuration
+- Added a one-click admin action to auto-create/reuse the WooCommerce booking container product from Overview/Settings
 
 == Installation ==
 
@@ -84,6 +85,11 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 3. Admin booking management screen.
 
 == Changelog ==
+
+= 1.0.20 =
+* Added a one-click admin setup action that auto-creates a hidden virtual WooCommerce booking container product when missing.
+* If a previously auto-created container product exists, the action reuses it and re-saves the plugin setting instead of creating duplicates.
+* Added setup action notices and action buttons to the Overview and Settings screens.
 
 = 1.0.19 =
 * Added a new Overview admin screen with setup readiness checks (dependencies, container product, units/pricing, WooCommerce pages, and key settings snapshot).
@@ -193,6 +199,9 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 * Added activation/runtime dependency checks for WooCommerce and JCC Payment Gateway for WooCommerce.
 
 == Upgrade Notice ==
+
+= 1.0.20 =
+Adds a one-click admin action to create (or reuse) the hidden WooCommerce booking container product and save it in plugin settings.
 
 = 1.0.19 =
 Adds a setup Overview screen in wp-admin so you can quickly verify required plugin configuration before going live.
