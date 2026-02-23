@@ -3510,6 +3510,25 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	 * @return bool
 	 */
 	private function is_plugin_admin_screen() {
+		$post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' )
+			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE
+			: 'comarine_storageunit';
+		$legacy_post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_LEGACY_UNIT_POST_TYPE' )
+			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_LEGACY_UNIT_POST_TYPE
+			: 'comarine_storage_unit';
+
+		// Fallback to request inspection because some environments report
+		// unexpected submenu screen IDs for plugin pages.
+		$request_page = isset( $_GET['page'] ) ? trim( (string) wp_unslash( $_GET['page'] ) ) : '';
+		if ( '' !== $request_page && 0 === strpos( $request_page, 'comarine-storage-' ) ) {
+			return true;
+		}
+
+		$request_post_type = isset( $_GET['post_type'] ) ? sanitize_key( wp_unslash( $_GET['post_type'] ) ) : '';
+		if ( in_array( $request_post_type, array( $post_type, $legacy_post_type ), true ) ) {
+			return true;
+		}
+
 		if ( ! function_exists( 'get_current_screen' ) ) {
 			return false;
 		}
@@ -3519,10 +3538,6 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			return false;
 		}
 
-		$post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' )
-			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE
-			: 'comarine_storageunit';
-
 		$targets = array(
 			'edit-' . $post_type,
 			$post_type,
@@ -3531,7 +3546,17 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			'comarine-storage-bookings_page_' . $this->get_settings_page_slug(),
 		);
 
-		return in_array( $screen->id, $targets, true );
+		if ( in_array( $screen->id, $targets, true ) ) {
+			return true;
+		}
+
+		$screen_id = (string) $screen->id;
+		$screen_base = isset( $screen->base ) ? (string) $screen->base : '';
+		if ( false !== strpos( $screen_id, '_page_comarine-storage-' ) || false !== strpos( $screen_base, '_page_comarine-storage-' ) ) {
+			return true;
+		}
+
+		return false;
 	}
 
 }
