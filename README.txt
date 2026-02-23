@@ -5,7 +5,7 @@ Tags: storage, booking, woocommerce
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.11
+Stable tag: 1.0.12
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Requires Plugins: woocommerce, jcc-payment-gateway-for-wc
@@ -44,6 +44,8 @@ Current implemented milestone includes:
 - Bulk actions now support optional audit notes and require explicit confirmation for destructive actions
 - Frontend shortcode now supports filtering (search/status/floor/size/price/bookable-now)
 - Frontend storage unit cards now show richer details and clearer availability messages
+- Configurable booking add-ons (JSON settings) with frontend checkbox selection
+- Add-ons are included in booking price snapshots, cart display, and order line item meta
 - Booking summary block in WooCommerce order admin screen
 
 == Installation ==
@@ -73,6 +75,12 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 3. Admin booking management screen.
 
 == Changelog ==
+
+= 1.0.12 =
+* Added configurable booking add-ons setting (JSON definitions) in plugin settings.
+* Added add-ons selection UI on frontend booking forms.
+* Included add-ons in booking price snapshots/cart pricing and cart display metadata.
+* Added add-ons metadata to WooCommerce order line items.
 
 = 1.0.11 =
 * Added frontend shortcode filter UI (search/status/floor/size/price/bookable-now).
@@ -144,6 +152,9 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 * Added activation/runtime dependency checks for WooCommerce and JCC Payment Gateway for WooCommerce.
 
 == Upgrade Notice ==
+
+= 1.0.12 =
+Adds MVP booking add-ons: configurable add-ons in settings with frontend selection and checkout/order meta support.
 
 = 1.0.11 =
 Adds the first major frontend UX improvement pass for `[comarine_storage_units]` (filters + richer unit cards).

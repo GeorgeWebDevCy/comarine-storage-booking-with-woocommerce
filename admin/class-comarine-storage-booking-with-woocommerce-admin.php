@@ -181,6 +181,14 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			$this->get_settings_page_slug(),
 			'comarine_storage_booking_general_settings'
 		);
+
+		add_settings_field(
+			'addons_definitions',
+			__( 'Booking add-ons (JSON)', 'comarine-storage-booking-with-woocommerce' ),
+			array( $this, 'render_addons_definitions_field' ),
+			$this->get_settings_page_slug(),
+			'comarine_storage_booking_general_settings'
+		);
 	}
 
 	/**
@@ -837,6 +845,10 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		$currency = preg_replace( '/[^A-Z]/', '', $currency );
 		$settings['currency'] = ! empty( $currency ) ? substr( $currency, 0, 8 ) : 'EUR';
 
+		$settings['addons_definitions'] = $this->sanitize_addons_definitions_setting(
+			isset( $input['addons_definitions'] ) ? wp_unslash( $input['addons_definitions'] ) : ''
+		);
+
 		return $settings;
 	}
 
@@ -931,6 +943,94 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 
 		echo '<input type="text" maxlength="8" class="regular-text" name="' . esc_attr( COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_SETTINGS_OPTION ) . '[currency]" value="' . esc_attr( $current_value ) . '" />';
 		echo '<p class="description">' . esc_html__( 'Currency code stored on booking snapshots (for example EUR).', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
+	}
+
+	/**
+	 * Render add-ons JSON settings field.
+	 *
+	 * @since    1.0.12
+	 *
+	 * @return void
+	 */
+	public function render_addons_definitions_field() {
+		$current_value = comarine_storage_booking_with_woocommerce_get_setting( 'addons_definitions', array() );
+		$json_value    = '[]';
+
+		if ( is_array( $current_value ) ) {
+			$encoded = wp_json_encode( array_values( $current_value ), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE );
+			if ( false !== $encoded ) {
+				$json_value = $encoded;
+			}
+		}
+
+		echo '<textarea class="large-text code" rows="10" name="' . esc_attr( COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_SETTINGS_OPTION ) . '[addons_definitions]">' . esc_textarea( $json_value ) . '</textarea>';
+		echo '<p class="description">' . esc_html__( 'Define optional booking add-ons as a JSON array. Supported fields: key, label, price, enabled, taxable.', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
+		echo '<p class="description"><code>' . esc_html( '[{"key":"insurance","label":"Insurance","price":15,"enabled":true,"taxable":false}]' ) . '</code></p>';
+	}
+
+	/**
+	 * Sanitize add-ons JSON into a stable array format.
+	 *
+	 * @since    1.0.12
+	 *
+	 * @param mixed $raw_value Raw field value.
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function sanitize_addons_definitions_setting( $raw_value ) {
+		if ( is_array( $raw_value ) ) {
+			$decoded = $raw_value;
+		} else {
+			$raw_value = trim( (string) $raw_value );
+			if ( '' === $raw_value ) {
+				return array();
+			}
+
+			$decoded = json_decode( (string) $raw_value, true );
+			if ( ! is_array( $decoded ) ) {
+				add_settings_error(
+					COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_SETTINGS_OPTION,
+					'comarine_addons_json_invalid',
+					__( 'Booking add-ons JSON is invalid. The previous valid add-ons configuration was replaced with an empty list.', 'comarine-storage-booking-with-woocommerce' ),
+					'error'
+				);
+				return array();
+			}
+		}
+
+		$sanitized = array();
+		$seen_keys = array();
+
+		foreach ( $decoded as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+
+			$key = isset( $row['key'] ) ? sanitize_key( (string) $row['key'] ) : '';
+			if ( '' === $key || isset( $seen_keys[ $key ] ) ) {
+				continue;
+			}
+
+			$label = isset( $row['label'] ) ? sanitize_text_field( (string) $row['label'] ) : '';
+			if ( '' === $label ) {
+				continue;
+			}
+
+			$price = isset( $row['price'] ) && is_numeric( $row['price'] ) ? round( (float) $row['price'], 2 ) : 0.0;
+			if ( $price < 0 ) {
+				$price = 0.0;
+			}
+
+			$sanitized[] = array(
+				'key'     => $key,
+				'label'   => $label,
+				'price'   => $price,
+				'enabled' => ! isset( $row['enabled'] ) || (bool) $row['enabled'],
+				'taxable' => ! empty( $row['taxable'] ),
+			);
+			$seen_keys[ $key ] = true;
+		}
+
+		return $sanitized;
 	}
 
 	/**

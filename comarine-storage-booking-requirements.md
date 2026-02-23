@@ -603,8 +603,14 @@ Create settings page:
 - Improved availability messaging on cards (locked/reserved/configuration/pricing reasons)
 - Added public CSS styling for the frontend filter form and unit cards (mobile-responsive)
 
+### Milestone 11 (Implemented - MVP Add-ons)
+- Added configurable booking add-ons in plugin settings (`addons_definitions` JSON)
+- Frontend booking forms now render optional add-on checkboxes from configured add-ons
+- Selected add-ons are included in booking/cart price snapshots and cart display metadata
+- Selected add-ons are stored on WooCommerce order line item meta
+
 ### Next Milestone (Planned)
-- Frontend UX improvements (add-ons UI, images/gallery support, better empty/loading states)
+- Frontend UX improvements (images/gallery support, better empty/loading states)
 - Stronger concurrency controls / atomic locking for unit reservation conflicts
 - Reporting enhancements (exports beyond admin table filters, richer analytics summaries)
 - Admin workflow refinements (reason-required policies, safer destructive action confirmations)

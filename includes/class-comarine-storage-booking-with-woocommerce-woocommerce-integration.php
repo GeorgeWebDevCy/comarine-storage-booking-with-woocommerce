@@ -139,6 +139,12 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 			exit;
 		}
 
+		$configured_addons = $this->get_configured_booking_addons();
+		$selected_addons   = $this->get_selected_booking_addons_from_request( $configured_addons );
+		$base_price        = (float) $price_map[ $duration_key ];
+		$addons_total      = $this->get_selected_booking_addons_total( $selected_addons );
+		$total_price       = $base_price + $addons_total;
+
 		$this->remove_existing_cart_booking_for_unit( $unit_post_id );
 
 		$lock_result = Comarine_Storage_Booking_With_Woocommerce_Bookings::create_locked_booking(
@@ -146,7 +152,7 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 				'unit_post_id'       => $unit_post_id,
 				'unit_code'          => (string) get_post_meta( $unit_post_id, '_csu_unit_code', true ) ?: $unit->post_title,
 				'duration_key'       => $duration_key,
-				'price_total'        => (float) $price_map[ $duration_key ],
+				'price_total'        => $total_price,
 				'currency'           => isset( $settings['currency'] ) ? (string) $settings['currency'] : 'EUR',
 				'user_id'            => get_current_user_id(),
 				'lock_ttl_minutes'   => isset( $settings['lock_ttl_minutes'] ) ? (int) $settings['lock_ttl_minutes'] : 15,
@@ -168,6 +174,9 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 				'booking_id'      => (int) $lock_result['booking_id'],
 				'lock_token'      => (string) $lock_result['lock_token'],
 				'lock_expires_ts' => (string) $lock_result['lock_expires_ts'],
+				'base_price_snapshot' => $base_price,
+				'addons'          => $selected_addons,
+				'addons_total'    => $addons_total,
 				'price_snapshot'  => (float) $lock_result['price_total'],
 				'currency'        => (string) $lock_result['currency'],
 			),
@@ -239,6 +248,37 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 			'key'   => __( 'Duration', 'comarine-storage-booking-with-woocommerce' ),
 			'value' => $this->format_duration_label( (string) $booking['duration_key'] ),
 		);
+
+		if ( ! empty( $booking['addons'] ) && is_array( $booking['addons'] ) ) {
+			$addon_labels = array();
+			foreach ( $booking['addons'] as $addon ) {
+				if ( ! is_array( $addon ) ) {
+					continue;
+				}
+
+				$label = isset( $addon['label'] ) ? (string) $addon['label'] : '';
+				$price = isset( $addon['price'] ) ? (float) $addon['price'] : 0.0;
+				if ( '' === $label ) {
+					continue;
+				}
+
+				$addon_labels[] = $label . ' (' . $this->format_money( $price ) . ')';
+			}
+
+			if ( ! empty( $addon_labels ) ) {
+				$item_data[] = array(
+					'key'   => __( 'Add-ons', 'comarine-storage-booking-with-woocommerce' ),
+					'value' => implode( ', ', $addon_labels ),
+				);
+			}
+		}
+
+		if ( isset( $booking['addons_total'] ) && (float) $booking['addons_total'] > 0 ) {
+			$item_data[] = array(
+				'key'   => __( 'Add-ons total', 'comarine-storage-booking-with-woocommerce' ),
+				'value' => $this->format_money( (float) $booking['addons_total'] ),
+			);
+		}
 
 		return $item_data;
 	}
@@ -446,6 +486,23 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 		$item->add_meta_data( '_comarine_unit_post_id', (int) $booking['unit_post_id'], true );
 		$item->add_meta_data( '_comarine_unit_code', (string) $booking['unit_code'], true );
 		$item->add_meta_data( '_comarine_duration_key', (string) $booking['duration_key'], true );
+
+		if ( isset( $booking['addons'] ) && is_array( $booking['addons'] ) ) {
+			$item->add_meta_data( '_comarine_addons', wp_json_encode( $booking['addons'] ), true );
+
+			$addon_labels = array();
+			foreach ( $booking['addons'] as $addon ) {
+				if ( ! is_array( $addon ) || empty( $addon['label'] ) ) {
+					continue;
+				}
+
+				$addon_labels[] = (string) $addon['label'];
+			}
+
+			if ( ! empty( $addon_labels ) ) {
+				$item->add_meta_data( __( 'Storage add-ons', 'comarine-storage-booking-with-woocommerce' ), implode( ', ', $addon_labels ), true );
+			}
+		}
 	}
 
 	/**
@@ -611,6 +668,7 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 
 		echo '<div class="comarine-storage-units">';
 		$container_product_id = (int) comarine_storage_booking_with_woocommerce_get_setting( 'booking_container_product_id', 0 );
+		$configured_addons    = $this->get_configured_booking_addons();
 		if ( $container_product_id <= 0 ) {
 			echo '<div class="notice notice-warning"><p>' . esc_html__( 'Booking is not configured yet: no WooCommerce booking container product has been selected.', 'comarine-storage-booking-with-woocommerce' ) . '</p></div>';
 		}
@@ -744,6 +802,30 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 					echo '</label>';
 				}
 				echo '</fieldset>';
+
+				if ( ! empty( $configured_addons ) ) {
+					echo '<fieldset class="comarine-storage-unit-card__addons-fieldset">';
+					echo '<legend>' . esc_html__( 'Optional add-ons', 'comarine-storage-booking-with-woocommerce' ) . '</legend>';
+					foreach ( $configured_addons as $addon ) {
+						if ( ! is_array( $addon ) ) {
+							continue;
+						}
+
+						$addon_key   = isset( $addon['key'] ) ? sanitize_key( (string) $addon['key'] ) : '';
+						$addon_label = isset( $addon['label'] ) ? (string) $addon['label'] : '';
+						$addon_price = isset( $addon['price'] ) ? (float) $addon['price'] : 0.0;
+						if ( '' === $addon_key || '' === $addon_label ) {
+							continue;
+						}
+
+						echo '<label class="comarine-storage-unit-card__addon-option">';
+						echo '<input type="checkbox" name="comarine_addons[]" value="' . esc_attr( $addon_key ) . '" ' . disabled( $can_book, false, false ) . ' /> ';
+						echo '<span class="comarine-storage-unit-card__addon-label">' . esc_html( $addon_label ) . '</span>';
+						echo '<span class="comarine-storage-unit-card__addon-price">' . esc_html( $this->format_money( $addon_price ) ) . '</span>';
+						echo '</label>';
+					}
+					echo '</fieldset>';
+				}
 
 				if ( ! $can_book && '' !== (string) $card['unavailable_reason'] ) {
 					echo '<p class="comarine-storage-unit-card__availability-note is-unavailable">' . esc_html( (string) $card['unavailable_reason'] ) . '</p>';
@@ -1290,6 +1372,126 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 		if ( function_exists( 'wc_add_notice' ) ) {
 			wc_add_notice( $message, $type );
 		}
+	}
+
+	/**
+	 * Get configured booking add-ons from plugin settings.
+	 *
+	 * @since 1.0.12
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function get_configured_booking_addons() {
+		$raw = comarine_storage_booking_with_woocommerce_get_setting( 'addons_definitions', array() );
+		if ( ! is_array( $raw ) ) {
+			return array();
+		}
+
+		$addons = array();
+		$seen   = array();
+
+		foreach ( $raw as $addon ) {
+			if ( ! is_array( $addon ) ) {
+				continue;
+			}
+
+			$key   = isset( $addon['key'] ) ? sanitize_key( (string) $addon['key'] ) : '';
+			$label = isset( $addon['label'] ) ? sanitize_text_field( (string) $addon['label'] ) : '';
+			$price = isset( $addon['price'] ) && is_numeric( $addon['price'] ) ? round( (float) $addon['price'], 2 ) : 0.0;
+
+			if ( '' === $key || '' === $label || isset( $seen[ $key ] ) ) {
+				continue;
+			}
+
+			if ( isset( $addon['enabled'] ) && ! (bool) $addon['enabled'] ) {
+				continue;
+			}
+
+			if ( $price < 0 ) {
+				$price = 0.0;
+			}
+
+			$addons[] = array(
+				'key'     => $key,
+				'label'   => $label,
+				'price'   => $price,
+				'enabled' => true,
+				'taxable' => ! empty( $addon['taxable'] ),
+			);
+			$seen[ $key ] = true;
+		}
+
+		return $addons;
+	}
+
+	/**
+	 * Parse selected add-ons from POST and return validated snapshots.
+	 *
+	 * @since 1.0.12
+	 *
+	 * @param array<int, array<string, mixed>> $configured_addons Configured add-ons.
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function get_selected_booking_addons_from_request( $configured_addons ) {
+		if ( empty( $configured_addons ) || empty( $_POST['comarine_addons'] ) || ! is_array( $_POST['comarine_addons'] ) ) {
+			return array();
+		}
+
+		$configured_map = array();
+		foreach ( $configured_addons as $addon ) {
+			if ( is_array( $addon ) && ! empty( $addon['key'] ) ) {
+				$configured_map[ (string) $addon['key'] ] = $addon;
+			}
+		}
+
+		$selected_keys = array_map( 'sanitize_key', wp_unslash( $_POST['comarine_addons'] ) );
+		$selected_keys = array_values( array_unique( array_filter( $selected_keys ) ) );
+
+		$selected = array();
+		foreach ( $selected_keys as $selected_key ) {
+			if ( ! isset( $configured_map[ $selected_key ] ) ) {
+				continue;
+			}
+
+			$addon = $configured_map[ $selected_key ];
+			$selected[] = array(
+				'key'     => (string) $addon['key'],
+				'label'   => (string) $addon['label'],
+				'price'   => round( (float) $addon['price'], 2 ),
+				'taxable' => ! empty( $addon['taxable'] ),
+			);
+		}
+
+		return $selected;
+	}
+
+	/**
+	 * Calculate the total for selected booking add-ons.
+	 *
+	 * @since 1.0.12
+	 *
+	 * @param array<int, array<string, mixed>> $selected_addons Selected add-ons.
+	 * @return float
+	 */
+	private function get_selected_booking_addons_total( $selected_addons ) {
+		$total = 0.0;
+
+		if ( ! is_array( $selected_addons ) ) {
+			return 0.0;
+		}
+
+		foreach ( $selected_addons as $addon ) {
+			if ( ! is_array( $addon ) || ! isset( $addon['price'] ) ) {
+				continue;
+			}
+
+			$price = is_numeric( $addon['price'] ) ? (float) $addon['price'] : 0.0;
+			if ( $price > 0 ) {
+				$total += $price;
+			}
+		}
+
+		return round( $total, 2 );
 	}
 
 	/**
