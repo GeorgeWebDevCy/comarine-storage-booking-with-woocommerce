@@ -1279,7 +1279,7 @@ body.post-type-comarine_storageunit #comarine_storage_unit_details input[type="n
 
 .comarine-calendar-grid__weekday {
 	position: sticky;
-	top: 32px;
+	top: 0;
 	z-index: 2;
 	padding: 10px 12px;
 	border-radius: 12px;
