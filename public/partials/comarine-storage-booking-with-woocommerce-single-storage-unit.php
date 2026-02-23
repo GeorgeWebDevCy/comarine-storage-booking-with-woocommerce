@@ -80,6 +80,27 @@ $comarine_parse_features = static function ( $raw ) {
 	return array_values( array_unique( $features ) );
 };
 
+$comarine_parse_gallery_image_ids = static function ( $raw ) {
+	if ( ! is_string( $raw ) || '' === trim( $raw ) ) {
+		return array();
+	}
+
+	$parts = preg_split( '/[\s,]+/', trim( $raw ) );
+	if ( ! is_array( $parts ) ) {
+		return array();
+	}
+
+	$ids = array();
+	foreach ( $parts as $part ) {
+		$attachment_id = absint( $part );
+		if ( $attachment_id > 0 ) {
+			$ids[ $attachment_id ] = $attachment_id;
+		}
+	}
+
+	return array_values( $ids );
+};
+
 $comarine_duration_labels = array(
 	'daily'   => __( 'Daily', 'comarine-storage-booking-with-woocommerce' ),
 	'monthly' => __( 'Monthly', 'comarine-storage-booking-with-woocommerce' ),
@@ -111,6 +132,65 @@ get_header();
 			$archive_link    = get_post_type_archive_link( COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE );
 			$status_label    = isset( $comarine_unit_status_labels[ $unit_status ] ) ? $comarine_unit_status_labels[ $unit_status ] : ucfirst( $unit_status );
 			$summary_text    = has_excerpt() ? get_the_excerpt() : wp_trim_words( wp_strip_all_tags( (string) get_the_content() ), 30 );
+			$featured_image_id = get_post_thumbnail_id( $unit_id );
+			$gallery_image_ids = $comarine_parse_gallery_image_ids( (string) get_post_meta( $unit_id, '_csu_gallery_image_ids', true ) );
+			$media_image_ids   = array();
+			$media_items       = array();
+
+			if ( $featured_image_id > 0 ) {
+				$media_image_ids[] = (int) $featured_image_id;
+			}
+			foreach ( $gallery_image_ids as $gallery_image_id ) {
+				if ( (int) $gallery_image_id > 0 && (int) $gallery_image_id !== (int) $featured_image_id ) {
+					$media_image_ids[] = (int) $gallery_image_id;
+				}
+			}
+
+			foreach ( $media_image_ids as $index => $image_id ) {
+				if ( ! wp_attachment_is_image( $image_id ) ) {
+					continue;
+				}
+
+				$full_url   = wp_get_attachment_image_url( $image_id, 'full' );
+				$image_html = wp_get_attachment_image(
+					$image_id,
+					'large',
+					false,
+					array(
+						'class'   => 'comarine-storage-unit-single__image',
+						'loading' => 0 === $index ? 'eager' : 'lazy',
+					)
+				);
+				$thumb_html = wp_get_attachment_image(
+					$image_id,
+					'thumbnail',
+					false,
+					array(
+						'class'   => 'comarine-storage-unit-single__thumb-image',
+						'loading' => 'lazy',
+					)
+				);
+
+				if ( '' === (string) $full_url || '' === (string) $image_html || '' === (string) $thumb_html ) {
+					continue;
+				}
+
+				$alt_text = trim( (string) get_post_meta( $image_id, '_wp_attachment_image_alt', true ) );
+				if ( '' === $alt_text ) {
+					$alt_text = trim( (string) get_the_title( $image_id ) );
+				}
+				if ( '' === $alt_text ) {
+					$alt_text = get_the_title();
+				}
+
+				$media_items[] = array(
+					'id'         => (int) $image_id,
+					'full_url'   => (string) $full_url,
+					'image_html' => (string) $image_html,
+					'thumb_html' => (string) $thumb_html,
+					'alt'        => (string) $alt_text,
+				);
+			}
 
 			$duration_prices = array();
 			$duration_keys   = array(
@@ -182,15 +262,51 @@ get_header();
 				<?php endif; ?>
 
 				<section class="comarine-storage-unit-single__hero">
-					<div class="comarine-storage-unit-single__media">
+					<div class="comarine-storage-unit-single__media" data-comarine-lightbox-gallery>
 						<div class="comarine-storage-unit-single__media-inner">
-							<?php if ( has_post_thumbnail() ) : ?>
-								<?php the_post_thumbnail( 'large', array( 'class' => 'comarine-storage-unit-single__image', 'loading' => 'eager' ) ); ?>
+							<?php if ( ! empty( $media_items ) ) : ?>
+								<a
+									class="comarine-storage-unit-single__media-main-link"
+									href="<?php echo esc_url( (string) $media_items[0]['full_url'] ); ?>"
+									data-comarine-lightbox-image
+									data-comarine-lightbox-caption="<?php echo esc_attr( (string) $media_items[0]['alt'] ); ?>"
+								>
+									<?php echo $media_items[0]['image_html']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+									<span class="comarine-storage-unit-single__zoom-hint"><?php esc_html_e( 'View larger', 'comarine-storage-booking-with-woocommerce' ); ?></span>
+								</a>
 							<?php else : ?>
 								<div class="comarine-storage-unit-single__placeholder" aria-hidden="true"></div>
 							<?php endif; ?>
 							<span class="comarine-storage-unit-single__status-badge"><?php echo esc_html( $status_label ); ?></span>
 						</div>
+
+						<?php if ( count( $media_items ) > 1 ) : ?>
+							<div class="comarine-storage-unit-single__thumbs" aria-label="<?php esc_attr_e( 'Storage unit image gallery', 'comarine-storage-booking-with-woocommerce' ); ?>">
+								<?php foreach ( $media_items as $gallery_index => $media_item ) : ?>
+									<?php if ( 0 === $gallery_index ) { continue; } ?>
+									<a
+										class="comarine-storage-unit-single__thumb"
+										href="<?php echo esc_url( (string) $media_item['full_url'] ); ?>"
+										data-comarine-lightbox-image
+										data-comarine-lightbox-caption="<?php echo esc_attr( (string) $media_item['alt'] ); ?>"
+									>
+										<?php echo $media_item['thumb_html']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+									</a>
+								<?php endforeach; ?>
+							</div>
+						<?php endif; ?>
+
+						<?php if ( ! empty( $media_items ) ) : ?>
+							<div class="comarine-storage-unit-lightbox" data-comarine-lightbox hidden aria-hidden="true">
+								<button type="button" class="comarine-storage-unit-lightbox__close" data-comarine-lightbox-close aria-label="<?php esc_attr_e( 'Close image viewer', 'comarine-storage-booking-with-woocommerce' ); ?>">X</button>
+								<button type="button" class="comarine-storage-unit-lightbox__nav is-prev" data-comarine-lightbox-prev aria-label="<?php esc_attr_e( 'Previous image', 'comarine-storage-booking-with-woocommerce' ); ?>"><span aria-hidden="true">&lt;</span></button>
+								<figure class="comarine-storage-unit-lightbox__figure">
+									<img class="comarine-storage-unit-lightbox__image" data-comarine-lightbox-current-image alt="" />
+									<figcaption class="comarine-storage-unit-lightbox__caption" data-comarine-lightbox-caption></figcaption>
+								</figure>
+								<button type="button" class="comarine-storage-unit-lightbox__nav is-next" data-comarine-lightbox-next aria-label="<?php esc_attr_e( 'Next image', 'comarine-storage-booking-with-woocommerce' ); ?>"><span aria-hidden="true">&gt;</span></button>
+							</div>
+						<?php endif; ?>
 					</div>
 
 					<div class="comarine-storage-unit-single__summary">

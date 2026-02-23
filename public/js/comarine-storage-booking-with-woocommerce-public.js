@@ -794,22 +794,159 @@
 		$form.data( 'comarineDatepickerReady', true );
 	}
 
-	$( function() {
-		var $forms = $( '[data-comarine-price-preview]' );
-		if ( !$forms.length ) {
-			return;
-		}
+	function initStorageUnitLightboxes() {
+		$( '[data-comarine-lightbox-gallery]' ).each( function( galleryIdx ) {
+			var $gallery = $( this );
+			var $overlay = $gallery.find( '[data-comarine-lightbox]' ).first();
+			var $triggers = $gallery.find( '[data-comarine-lightbox-image]' );
+			var $lightboxImage = $overlay.find( '[data-comarine-lightbox-current-image]' );
+			var $lightboxCaption = $overlay.find( '[data-comarine-lightbox-caption]' );
+			var $prevButton = $overlay.find( '[data-comarine-lightbox-prev]' );
+			var $nextButton = $overlay.find( '[data-comarine-lightbox-next]' );
+			var currentIndex = 0;
+			var items = [];
+			var keydownNamespace = '.comarineLightbox' + galleryIdx;
 
-		$forms.each( function() {
-			var $form = $( this );
+			if ( !$overlay.length || !$triggers.length || !$lightboxImage.length ) {
+				return;
+			}
 
-			updatePricePreviewForForm( $form );
-			ensureDailyDatepickersForForm( $form );
+			$triggers.each( function( idx ) {
+				var $trigger = $( this );
+				var href = ( $trigger.attr( 'href' ) || '' ).toString();
+				var caption = ( $trigger.attr( 'data-comarine-lightbox-caption' ) || '' ).toString();
+				var imgAlt = $trigger.find( 'img' ).first().attr( 'alt' );
 
-			$form.on( 'input change', 'input[name="comarine_requested_area_m2"], input[name="comarine_start_date"], input[name="comarine_end_date"], input[name="comarine_duration_key"]', function() {
-				updatePricePreviewForForm( $form );
+				if ( !href ) {
+					return;
+				}
+
+				$trigger.attr( 'data-comarine-lightbox-index', items.length );
+				items.push( {
+					src: href,
+					alt: caption || ( imgAlt ? imgAlt.toString() : '' )
+				} );
+			} );
+
+			if ( !items.length ) {
+				return;
+			}
+
+			function renderCurrentItem() {
+				var item = items[ currentIndex ] || items[ 0 ];
+				if ( !item ) {
+					return;
+				}
+
+				$lightboxImage.attr( 'src', item.src );
+				$lightboxImage.attr( 'alt', item.alt || '' );
+
+				if ( $lightboxCaption.length ) {
+					$lightboxCaption.text( item.alt || '' );
+					$lightboxCaption.toggle( !!item.alt );
+				}
+
+				if ( items.length <= 1 ) {
+					$prevButton.prop( 'disabled', true );
+					$nextButton.prop( 'disabled', true );
+				} else {
+					$prevButton.prop( 'disabled', false );
+					$nextButton.prop( 'disabled', false );
+				}
+			}
+
+			function openLightboxAt( index ) {
+				if ( !items.length ) {
+					return;
+				}
+
+				currentIndex = Number.isFinite( index ) ? Math.max( 0, Math.min( index, items.length - 1 ) ) : 0;
+				renderCurrentItem();
+				$overlay.prop( 'hidden', false ).attr( 'aria-hidden', 'false' );
+				$( 'body' ).addClass( 'comarine-storage-unit-lightbox-open' );
+			}
+
+			function closeLightbox() {
+				$overlay.prop( 'hidden', true ).attr( 'aria-hidden', 'true' );
+				$( 'body' ).removeClass( 'comarine-storage-unit-lightbox-open' );
+			}
+
+			function stepLightbox( delta ) {
+				if ( items.length <= 1 ) {
+					return;
+				}
+
+				currentIndex = ( currentIndex + delta + items.length ) % items.length;
+				renderCurrentItem();
+			}
+
+			$gallery.on( 'click', '[data-comarine-lightbox-image]', function( event ) {
+				var idx = parseInt( $( this ).attr( 'data-comarine-lightbox-index' ) || '0', 10 );
+				event.preventDefault();
+				openLightboxAt( Number.isFinite( idx ) ? idx : 0 );
+			} );
+
+			$overlay.on( 'click', '[data-comarine-lightbox-close]', function( event ) {
+				event.preventDefault();
+				closeLightbox();
+			} );
+
+			$overlay.on( 'click', '[data-comarine-lightbox-prev]', function( event ) {
+				event.preventDefault();
+				stepLightbox( -1 );
+			} );
+
+			$overlay.on( 'click', '[data-comarine-lightbox-next]', function( event ) {
+				event.preventDefault();
+				stepLightbox( 1 );
+			} );
+
+			$overlay.on( 'click', function( event ) {
+				if ( event.target === $overlay.get( 0 ) ) {
+					closeLightbox();
+				}
+			} );
+
+			$( document ).off( 'keydown' + keydownNamespace ).on( 'keydown' + keydownNamespace, function( event ) {
+				if ( $overlay.prop( 'hidden' ) ) {
+					return;
+				}
+
+				if ( 'Escape' === event.key ) {
+					closeLightbox();
+					return;
+				}
+
+				if ( 'ArrowLeft' === event.key ) {
+					event.preventDefault();
+					stepLightbox( -1 );
+					return;
+				}
+
+				if ( 'ArrowRight' === event.key ) {
+					event.preventDefault();
+					stepLightbox( 1 );
+				}
 			} );
 		} );
+	}
+
+	$( function() {
+		var $forms = $( '[data-comarine-price-preview]' );
+		initStorageUnitLightboxes();
+
+		if ( $forms.length ) {
+			$forms.each( function() {
+				var $form = $( this );
+
+				updatePricePreviewForForm( $form );
+				ensureDailyDatepickersForForm( $form );
+
+				$form.on( 'input change', 'input[name="comarine_requested_area_m2"], input[name="comarine_start_date"], input[name="comarine_end_date"], input[name="comarine_duration_key"]', function() {
+					updatePricePreviewForForm( $form );
+				} );
+			} );
+		}
 	} );
 
 })( jQuery );

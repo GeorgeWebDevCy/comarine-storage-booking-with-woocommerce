@@ -104,6 +104,8 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		 * class.
 		 */
 
+		wp_enqueue_media();
+
 		wp_enqueue_script( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'js/comarine-storage-booking-with-woocommerce-admin.js', array( 'jquery' ), $this->version, false );
 
 		wp_enqueue_script( 'jquery-ui-datepicker' );
@@ -117,6 +119,8 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			array(
 				'bookingsPageSlug' => 'comarine-storage-bookings',
 				'dateInputFormat'  => 'dd/mm/yyyy',
+				'mediaFrameTitle'  => __( 'Select unit gallery images', 'comarine-storage-booking-with-woocommerce' ),
+				'mediaFrameButton' => __( 'Use selected images', 'comarine-storage-booking-with-woocommerce' ),
 				'datepicker'       => array(
 					'dateFormat'      => 'dd/mm/yy',
 					'firstDay'        => (int) get_option( 'start_of_week', 1 ),

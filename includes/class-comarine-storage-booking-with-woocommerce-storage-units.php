@@ -173,6 +173,57 @@ class Comarine_Storage_Booking_With_Woocommerce_Storage_Units {
 					echo '<option value="' . esc_attr( $option_value ) . '" ' . selected( $value, $option_value, false ) . '>' . esc_html( $option_label ) . '</option>';
 				}
 				echo '</select>';
+			} elseif ( 'gallery' === $field['type'] ) {
+				$gallery_ids = $this->parse_gallery_image_ids( $value );
+
+				echo '<div class="comarine-storage-unit-gallery-field" data-comarine-storage-unit-gallery-field>';
+				echo '<input type="hidden" id="' . esc_attr( $meta_key ) . '" name="' . esc_attr( $meta_key ) . '" class="comarine-storage-unit-gallery-field__input" value="' . esc_attr( implode( ',', $gallery_ids ) ) . '" />';
+				echo '<div class="comarine-storage-unit-gallery-field__actions">';
+				echo '<button type="button" class="button button-secondary comarine-storage-unit-gallery-field__select">';
+				echo esc_html( ! empty( $gallery_ids ) ? __( 'Edit Gallery Images', 'comarine-storage-booking-with-woocommerce' ) : __( 'Select Gallery Images', 'comarine-storage-booking-with-woocommerce' ) );
+				echo '</button>';
+				echo '<button type="button" class="button-link-delete comarine-storage-unit-gallery-field__clear" ' . ( empty( $gallery_ids ) ? 'style="display:none;"' : '' ) . '>';
+				echo esc_html__( 'Clear gallery', 'comarine-storage-booking-with-woocommerce' );
+				echo '</button>';
+				echo '</div>';
+
+				echo '<ul class="comarine-storage-unit-gallery-field__preview" aria-live="polite">';
+				foreach ( $gallery_ids as $attachment_id ) {
+					if ( ! wp_attachment_is_image( $attachment_id ) ) {
+						continue;
+					}
+
+					$thumb_html = wp_get_attachment_image(
+						$attachment_id,
+						'thumbnail',
+						false,
+						array(
+							'class' => 'comarine-storage-unit-gallery-field__preview-image',
+						)
+					);
+					if ( '' === (string) $thumb_html ) {
+						continue;
+					}
+
+					$image_label = get_the_title( $attachment_id );
+					if ( '' === (string) $image_label ) {
+						$image_label = sprintf(
+							/* translators: %d: attachment ID */
+							__( 'Image #%d', 'comarine-storage-booking-with-woocommerce' ),
+							(int) $attachment_id
+						);
+					}
+
+					echo '<li class="comarine-storage-unit-gallery-field__preview-item" data-image-id="' . esc_attr( (string) $attachment_id ) . '">';
+					echo '<span class="comarine-storage-unit-gallery-field__preview-thumb">' . $thumb_html . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+					echo '<span class="comarine-storage-unit-gallery-field__preview-label">' . esc_html( $image_label ) . '</span>';
+					echo '<button type="button" class="button-link-delete comarine-storage-unit-gallery-field__remove" aria-label="' . esc_attr__( 'Remove image from gallery', 'comarine-storage-booking-with-woocommerce' ) . '">';
+					echo esc_html__( 'Remove', 'comarine-storage-booking-with-woocommerce' );
+					echo '</button>';
+					echo '</li>';
+				}
+				echo '</ul>';
+				echo '</div>';
 			} else {
 				$step = isset( $field['step'] ) ? ' step="' . esc_attr( $field['step'] ) . '"' : '';
 				echo '<input class="regular-text" type="' . esc_attr( $field['type'] ) . '" id="' . esc_attr( $meta_key ) . '" name="' . esc_attr( $meta_key ) . '" value="' . esc_attr( $value ) . '"' . $step . ' />';
@@ -339,6 +390,12 @@ class Comarine_Storage_Booking_With_Woocommerce_Storage_Units {
 				'description'         => __( 'Example: 2.5 x 2', 'comarine-storage-booking-with-woocommerce' ),
 				'allow_empty_delete'  => true,
 			),
+			'_csu_gallery_image_ids' => array(
+				'label'               => __( 'Unit image gallery', 'comarine-storage-booking-with-woocommerce' ),
+				'type'                => 'gallery',
+				'description'         => __( 'Optional gallery images for the unit single page. The featured image is used as the main cover image, and gallery images appear as thumbnails/lightbox images.', 'comarine-storage-booking-with-woocommerce' ),
+				'allow_empty_delete'  => true,
+			),
 			'_csu_floor'          => array(
 				'label'               => __( 'Floor / Level', 'comarine-storage-booking-with-woocommerce' ),
 				'type'                => 'text',
@@ -411,6 +468,19 @@ class Comarine_Storage_Booking_With_Woocommerce_Storage_Units {
 			return isset( $options[ $raw_value ] ) ? $raw_value : 'available';
 		}
 
+		if ( 'gallery' === $field['type'] ) {
+			$ids           = $this->parse_gallery_image_ids( $raw_value );
+			$sanitized_ids = array();
+
+			foreach ( $ids as $attachment_id ) {
+				if ( $attachment_id > 0 && wp_attachment_is_image( $attachment_id ) ) {
+					$sanitized_ids[] = (int) $attachment_id;
+				}
+			}
+
+			return implode( ',', array_values( array_unique( $sanitized_ids ) ) );
+		}
+
 		if ( 'number' === $field['type'] ) {
 			if ( '' === $raw_value ) {
 				return '';
@@ -424,5 +494,40 @@ class Comarine_Storage_Booking_With_Woocommerce_Storage_Units {
 		}
 
 		return sanitize_text_field( $raw_value );
+	}
+
+	/**
+	 * Parse a CSV list of gallery image IDs.
+	 *
+	 * @since 1.0.40
+	 *
+	 * @param mixed $raw_value Raw stored/submitted gallery value.
+	 * @return int[]
+	 */
+	private function parse_gallery_image_ids( $raw_value ) {
+		if ( is_array( $raw_value ) ) {
+			$parts = $raw_value;
+		} else {
+			$raw_value = is_string( $raw_value ) ? trim( $raw_value ) : '';
+			if ( '' === $raw_value ) {
+				return array();
+			}
+
+			$parts = preg_split( '/[\s,]+/', $raw_value );
+		}
+
+		if ( ! is_array( $parts ) ) {
+			return array();
+		}
+
+		$ids = array();
+		foreach ( $parts as $part ) {
+			$attachment_id = absint( $part );
+			if ( $attachment_id > 0 ) {
+				$ids[ $attachment_id ] = $attachment_id;
+			}
+		}
+
+		return array_values( $ids );
 	}
 }
