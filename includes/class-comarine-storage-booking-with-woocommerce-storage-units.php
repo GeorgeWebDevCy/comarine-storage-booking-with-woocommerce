@@ -60,6 +60,10 @@ class Comarine_Storage_Booking_With_Woocommerce_Storage_Units {
 	 * @return void
 	 */
 	public function register_post_type() {
+		if ( post_type_exists( $this->get_post_type() ) ) {
+			return;
+		}
+
 		$labels = array(
 			'name'               => __( 'Storage Units', 'comarine-storage-booking-with-woocommerce' ),
 			'singular_name'      => __( 'Storage Unit', 'comarine-storage-booking-with-woocommerce' ),

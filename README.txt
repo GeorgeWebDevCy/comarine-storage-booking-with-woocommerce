@@ -5,7 +5,7 @@ Tags: storage, booking, woocommerce
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.17
+Stable tag: 1.0.18
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Requires Plugins: woocommerce, jcc-payment-gateway-for-wc
@@ -54,6 +54,7 @@ Current implemented milestone includes:
 - Refreshed plugin UI styling (frontend shortcode + plugin admin screens) using a blue primary theme
 - Admin CSS/JS assets are now only loaded on plugin-related admin screens (scoped to avoid affecting other admin pages)
 - Plugin menu explicitly ensures Storage Units / Add New submenus are present under the CoMarine Storage menu
+- Storage Units CPT is registered via an early fallback so direct `edit.php?post_type=comarine_storage_unit` links remain valid
 
 == Installation ==
 
@@ -82,6 +83,10 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 3. Admin booking management screen.
 
 == Changelog ==
+
+= 1.0.18 =
+* Added an early Storage Units CPT registration fallback so direct admin URLs do not fail with "Invalid post type".
+* Guarded Storage Units CPT registration against duplicate registration when the full plugin bootstraps later.
 
 = 1.0.17 =
 * Added a late admin-menu fallback to ensure `Storage Units` and `Add New` appear under the CoMarine Storage menu.
@@ -183,6 +188,9 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 * Added activation/runtime dependency checks for WooCommerce and JCC Payment Gateway for WooCommerce.
 
 == Upgrade Notice ==
+
+= 1.0.18 =
+Fixes direct Storage Units admin URLs (`edit.php?post_type=comarine_storage_unit`) by ensuring the CPT is registered early.
 
 = 1.0.17 =
 Ensures the Storage Units admin submenu is always shown under CoMarine Storage (with consistent submenu ordering).

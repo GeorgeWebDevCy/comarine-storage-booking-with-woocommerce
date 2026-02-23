@@ -635,6 +635,11 @@ Create settings page:
 - Added a late `admin_menu` fallback that explicitly ensures `Storage Units` and `Add New` appear under the `CoMarine Storage` menu
 - Preserved submenu ordering so the plugin menu consistently shows `Bookings`, `Storage Units`, `Add New`, and `Settings`
 
+### Milestone 17 (Implemented - Storage Units CPT Direct URL Fallback)
+- Added an early bootstrap `init` fallback that registers the `comarine_storage_unit` CPT before dependency short-circuiting
+- Prevented duplicate CPT registration when the full plugin bootstrap also runs
+- Fixes direct admin URL access such as `/wp-admin/edit.php?post_type=comarine_storage_unit` returning `Invalid post type`
+
 ### Next Milestone (Planned)
 - Frontend UX improvements (images/gallery support, better empty/loading states)
 - Stronger concurrency controls / atomic locking for unit reservation conflicts

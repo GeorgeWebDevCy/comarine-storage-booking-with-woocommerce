@@ -16,7 +16,7 @@
  * Plugin Name:       Comarine Storage booking with WooCommerce
  * Plugin URI:        https://www.georgenicolaou.me/plugins/comarine-storage-booking-with-woocommerce/
  * Description:       Booking plugin for CoMarine Storage Units
- * Version:           1.0.17
+ * Version:           1.0.18
  * Author:            George Nicolaou
  * Author URI:        https://www.georgenicolaou.me//
  * License:           GPL-2.0+
@@ -42,7 +42,7 @@ if ( file_exists( $comarine_storage_booking_with_woocommerce_autoload ) ) {
  * Start at version 1.0.0 and use SemVer - https://semver.org
  * Rename this for your plugin and update it as you release new versions.
  */
-define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_VERSION', '1.0.17' );
+define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_VERSION', '1.0.18' );
 define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_DB_VERSION', '1.0.1' );
 define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
 define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE', 'comarine_storage_unit' );
@@ -301,6 +301,39 @@ function comarine_storage_booking_with_woocommerce_missing_dependencies_admin_no
 	}
 	echo '</ul></div>';
 }
+
+/**
+ * Always register the Storage Units CPT early so direct admin URLs remain valid.
+ *
+ * This runs even when the plugin later enters dependency-not-ready mode. It keeps
+ * `edit.php?post_type=comarine_storage_unit` from failing with "Invalid post type"
+ * and avoids duplicate registration when the full plugin also loads.
+ *
+ * @since 1.0.18
+ *
+ * @return void
+ */
+function comarine_storage_booking_with_woocommerce_register_storage_units_cpt_fallback() {
+	if ( post_type_exists( COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE ) ) {
+		return;
+	}
+
+	$class_file = plugin_dir_path( __FILE__ ) . 'includes/class-comarine-storage-booking-with-woocommerce-storage-units.php';
+	if ( ! class_exists( 'Comarine_Storage_Booking_With_Woocommerce_Storage_Units' ) && file_exists( $class_file ) ) {
+		require_once $class_file;
+	}
+
+	if ( ! class_exists( 'Comarine_Storage_Booking_With_Woocommerce_Storage_Units' ) ) {
+		return;
+	}
+
+	$storage_units = new Comarine_Storage_Booking_With_Woocommerce_Storage_Units(
+		'comarine-storage-booking-with-woocommerce',
+		defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_VERSION' ) ? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_VERSION : '1.0.0'
+	);
+	$storage_units->register_post_type();
+}
+add_action( 'init', 'comarine_storage_booking_with_woocommerce_register_storage_units_cpt_fallback', 1 );
 
 /**
  * Configure GitHub-based updates via plugin-update-checker.
