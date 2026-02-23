@@ -556,6 +556,12 @@ Create settings page:
 - Order status hooks to mark bookings paid/cancelled/refunded
 - JCC successful payment path handled via WooCommerce `completed` status hook
 
+### Milestone 3 (Implemented - Lock/Checkout Hardening)
+- Checkout and cart validation now verify booking locks before order creation
+- Invalid/expired booking cart items are automatically removed with user-facing notices
+- Stale lock cleanup no longer expires rows already linked to an order (prevents late-payment race issues)
+- Admin configuration warnings added for missing/invalid booking container product setup
+
 ### Next Milestone (Planned)
 - Booking container product setting + WooCommerce cart item metadata
 - Reservation lock creation + lock TTL handling

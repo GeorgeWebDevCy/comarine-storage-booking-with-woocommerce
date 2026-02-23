@@ -172,6 +172,7 @@ class Comarine_Storage_Booking_With_Woocommerce {
 		$this->loader->add_filter( 'woocommerce_cart_item_name', $wc_integration, 'filter_cart_item_name', 10, 3 );
 		$this->loader->add_action( 'woocommerce_before_calculate_totals', $wc_integration, 'apply_booking_prices_to_cart' );
 		$this->loader->add_action( 'woocommerce_check_cart_items', $wc_integration, 'validate_booking_cart_items' );
+		$this->loader->add_action( 'woocommerce_after_checkout_validation', $wc_integration, 'validate_checkout_booking_locks', 10, 2 );
 		$this->loader->add_action( 'woocommerce_cart_item_removed', $wc_integration, 'handle_cart_item_removed', 10, 2 );
 		$this->loader->add_action( 'woocommerce_checkout_create_order_line_item', $wc_integration, 'add_booking_meta_to_order_line_item', 10, 4 );
 		$this->loader->add_action( 'woocommerce_checkout_order_processed', $wc_integration, 'link_bookings_to_order', 10, 3 );
@@ -201,6 +202,7 @@ class Comarine_Storage_Booking_With_Woocommerce {
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts' );
 		$this->loader->add_action( 'admin_menu', $plugin_admin, 'register_admin_menu' );
 		$this->loader->add_action( 'admin_init', $plugin_admin, 'register_settings' );
+		$this->loader->add_action( 'admin_notices', $plugin_admin, 'maybe_show_configuration_notices' );
 
 		$this->loader->add_action( 'add_meta_boxes', $storage_units, 'add_meta_boxes' );
 		$this->loader->add_action( 'save_post_' . $storage_unit_post_type, $storage_units, 'save_unit_meta', 10, 3 );

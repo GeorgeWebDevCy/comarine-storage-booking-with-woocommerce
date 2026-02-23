@@ -17,6 +17,8 @@ Implemented in the codebase so far:
 - Shortcode `[comarine_storage_units]` for initial frontend booking entry
 - Booking lock creation + cart item metadata + price snapshot handling
 - WooCommerce order synchronization hooks (JCC `completed` treated as paid)
+- Checkout/cart lock validation and automatic cleanup of invalid booking items
+- Admin configuration warnings for missing/invalid booking container product setup
 
 Not implemented yet (next milestones):
 
@@ -66,3 +68,4 @@ If you deploy from source, include `vendor/` (or run `composer install` as part 
 3. Create one or more `Storage Units` and set prices/status.
 4. Add the shortcode `[comarine_storage_units]` to a page.
 5. Book a unit and complete checkout (JCC sets order status to `completed` on success).
+6. Test lock expiry behavior by leaving a booking in the cart beyond the configured TTL, then reopening cart/checkout (invalid locks should be removed with a notice).

@@ -175,6 +175,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 			"UPDATE {$table_name}
 			SET status = %s, updated_ts = %s
 			WHERE status IN ('locked','pending')
+				AND order_id = 0
 				AND lock_expires_ts IS NOT NULL
 				AND lock_expires_ts < %s",
 			'expired',
@@ -347,6 +348,103 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 	}
 
 	/**
+	 * Validate a booking lock row and token.
+	 *
+	 * @since 1.0.4
+	 *
+	 * @param int    $booking_id         Booking ID.
+	 * @param string $lock_token         Lock token.
+	 * @param bool   $allow_order_linked Whether rows already linked to an order are allowed.
+	 * @return object|WP_Error
+	 */
+	public static function validate_booking_lock( $booking_id, $lock_token, $allow_order_linked = false ) {
+		$booking_id = absint( $booking_id );
+		$lock_token = sanitize_text_field( (string) $lock_token );
+
+		if ( $booking_id <= 0 || '' === $lock_token ) {
+			return new WP_Error( 'comarine_invalid_booking_lock', __( 'Invalid booking lock data.', 'comarine-storage-booking-with-woocommerce' ) );
+		}
+
+		$row = self::get_booking( $booking_id );
+		if ( ! $row ) {
+			return new WP_Error( 'comarine_booking_not_found', __( 'The booking lock could not be found.', 'comarine-storage-booking-with-woocommerce' ) );
+		}
+
+		if ( (string) $row->lock_token !== $lock_token ) {
+			return new WP_Error( 'comarine_booking_lock_mismatch', __( 'The booking lock is no longer valid.', 'comarine-storage-booking-with-woocommerce' ) );
+		}
+
+		if ( ! $allow_order_linked && (int) $row->order_id > 0 ) {
+			return new WP_Error( 'comarine_booking_already_linked', __( 'This booking lock is already linked to an order.', 'comarine-storage-booking-with-woocommerce' ) );
+		}
+
+		if ( in_array( (string) $row->status, array( 'cancelled', 'expired', 'refunded' ), true ) ) {
+			return new WP_Error( 'comarine_booking_inactive', __( 'This booking lock is no longer active.', 'comarine-storage-booking-with-woocommerce' ) );
+		}
+
+		if ( (int) $row->order_id <= 0 && ! empty( $row->lock_expires_ts ) ) {
+			$expires_ts = strtotime( (string) $row->lock_expires_ts );
+			if ( false !== $expires_ts && $expires_ts < current_time( 'timestamp' ) ) {
+				self::mark_booking_expired( $booking_id );
+				return new WP_Error( 'comarine_booking_expired', __( 'This booking lock has expired.', 'comarine-storage-booking-with-woocommerce' ) );
+			}
+		}
+
+		return $row;
+	}
+
+	/**
+	 * Refresh a pre-order booking lock expiry.
+	 *
+	 * @since 1.0.4
+	 *
+	 * @param int    $booking_id        Booking ID.
+	 * @param string $lock_token        Lock token.
+	 * @param int    $lock_ttl_minutes  TTL in minutes.
+	 * @return bool
+	 */
+	public static function refresh_booking_lock( $booking_id, $lock_token, $lock_ttl_minutes ) {
+		global $wpdb;
+
+		if ( ! self::table_exists() ) {
+			return false;
+		}
+
+		$validation = self::validate_booking_lock( $booking_id, $lock_token, true );
+		if ( is_wp_error( $validation ) ) {
+			return false;
+		}
+
+		$row = $validation;
+		if ( (int) $row->order_id > 0 ) {
+			return true;
+		}
+
+		$lock_ttl_minutes = max( 1, min( 120, (int) $lock_ttl_minutes ) );
+		$now_dt           = new DateTimeImmutable( current_time( 'mysql' ) );
+		$now              = $now_dt->format( 'Y-m-d H:i:s' );
+		$expires          = $now_dt->modify( '+' . $lock_ttl_minutes . ' minutes' )->format( 'Y-m-d H:i:s' );
+
+		$table_name = self::get_table_name();
+		$result     = $wpdb->update(
+			$table_name,
+			array(
+				'lock_expires_ts' => $expires,
+				'updated_ts'      => $now,
+			),
+			array(
+				'id'        => (int) $row->id,
+				'lock_token' => (string) $row->lock_token,
+				'order_id'   => 0,
+			),
+			array( '%s', '%s' ),
+			array( '%d', '%s', '%d' )
+		);
+
+		return false !== $result;
+	}
+
+	/**
 	 * Attach an order ID to a booking lock.
 	 *
 	 * @since 1.0.3
@@ -372,6 +470,16 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 			return false;
 		}
 
+		$validation = self::validate_booking_lock( $booking_id, $lock_token, false );
+		if ( is_wp_error( $validation ) ) {
+			return false;
+		}
+
+		$row = $validation;
+		if ( (int) $row->order_id > 0 && (int) $row->order_id === $order_id ) {
+			return true;
+		}
+
 		$table_name = self::get_table_name();
 		$result     = $wpdb->update(
 			$table_name,
@@ -381,11 +489,12 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 				'updated_ts'  => $now,
 			),
 			array(
-				'id'        => $booking_id,
+				'id'         => $booking_id,
 				'lock_token' => $lock_token,
+				'order_id'   => 0,
 			),
 			array( '%d', '%s', '%s' ),
-			array( '%d', '%s' )
+			array( '%d', '%s', '%d' )
 		);
 
 		return false !== $result;

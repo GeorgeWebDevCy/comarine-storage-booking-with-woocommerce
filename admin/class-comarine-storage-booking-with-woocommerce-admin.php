@@ -386,6 +386,49 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	}
 
 	/**
+	 * Show configuration notices for incomplete/invalid booking setup.
+	 *
+	 * @since    1.0.4
+	 *
+	 * @return void
+	 */
+	public function maybe_show_configuration_notices() {
+		if ( ! current_user_can( $this->get_admin_capability() ) ) {
+			return;
+		}
+
+		if ( ! $this->is_plugin_admin_screen() ) {
+			return;
+		}
+
+		$container_product_id = (int) comarine_storage_booking_with_woocommerce_get_setting( 'booking_container_product_id', 0 );
+		if ( $container_product_id <= 0 ) {
+			echo '<div class="notice notice-warning"><p>';
+			echo esc_html__( 'CoMarine Storage Booking: Select a WooCommerce booking container product in Storage Units > Settings before accepting bookings.', 'comarine-storage-booking-with-woocommerce' );
+			echo '</p></div>';
+			return;
+		}
+
+		if ( ! function_exists( 'wc_get_product' ) ) {
+			return;
+		}
+
+		$product = wc_get_product( $container_product_id );
+		if ( ! $product ) {
+			echo '<div class="notice notice-error"><p>';
+			echo esc_html__( 'CoMarine Storage Booking: The configured booking container product no longer exists. Update the setting before accepting bookings.', 'comarine-storage-booking-with-woocommerce' );
+			echo '</p></div>';
+			return;
+		}
+
+		if ( method_exists( $product, 'is_virtual' ) && ! $product->is_virtual() ) {
+			echo '<div class="notice notice-warning"><p>';
+			echo esc_html__( 'CoMarine Storage Booking: The booking container product should be virtual to avoid shipping/fulfillment side effects during checkout.', 'comarine-storage-booking-with-woocommerce' );
+			echo '</p></div>';
+		}
+	}
+
+	/**
 	 * Get capability required for plugin management pages.
 	 *
 	 * @since    1.0.2
@@ -405,6 +448,37 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	 */
 	private function get_settings_page_slug() {
 		return 'comarine-storage-booking-settings';
+	}
+
+	/**
+	 * Determine whether the current admin screen is related to this plugin.
+	 *
+	 * @since    1.0.4
+	 *
+	 * @return bool
+	 */
+	private function is_plugin_admin_screen() {
+		if ( ! function_exists( 'get_current_screen' ) ) {
+			return false;
+		}
+
+		$screen = get_current_screen();
+		if ( ! $screen || empty( $screen->id ) ) {
+			return false;
+		}
+
+		$post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' )
+			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE
+			: 'comarine_storage_unit';
+
+		$targets = array(
+			'edit-' . $post_type,
+			$post_type,
+			$post_type . '_page_comarine-storage-bookings',
+			$post_type . '_page_' . $this->get_settings_page_slug(),
+		);
+
+		return in_array( $screen->id, $targets, true );
 	}
 
 }

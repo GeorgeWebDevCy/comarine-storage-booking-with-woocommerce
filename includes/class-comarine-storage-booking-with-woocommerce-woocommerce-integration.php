@@ -311,22 +311,88 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 			return;
 		}
 
-		foreach ( WC()->cart->get_cart() as $cart_item ) {
+		$ttl_minutes       = (int) comarine_storage_booking_with_woocommerce_get_setting( 'lock_ttl_minutes', 15 );
+		$invalid_item_keys = array();
+
+		foreach ( WC()->cart->get_cart() as $cart_item_key => $cart_item ) {
 			$booking = $this->get_booking_payload_from_cart_item( $cart_item );
 			if ( empty( $booking ) ) {
 				continue;
 			}
 
-			$row = Comarine_Storage_Booking_With_Woocommerce_Bookings::get_booking( (int) $booking['booking_id'] );
-			if ( ! $row ) {
+			$validation = Comarine_Storage_Booking_With_Woocommerce_Bookings::validate_booking_lock(
+				(int) $booking['booking_id'],
+				(string) $booking['lock_token'],
+				false
+			);
+
+			if ( is_wp_error( $validation ) ) {
 				$this->add_wc_notice( __( 'A storage booking in your cart is no longer available. Please reselect the unit.', 'comarine-storage-booking-with-woocommerce' ), 'error' );
+				$invalid_item_keys[] = $cart_item_key;
 				continue;
 			}
 
-			if ( in_array( (string) $row->status, array( 'expired', 'cancelled' ), true ) ) {
-				$this->add_wc_notice( __( 'A storage booking lock in your cart has expired. Please start the booking again.', 'comarine-storage-booking-with-woocommerce' ), 'error' );
+			Comarine_Storage_Booking_With_Woocommerce_Bookings::refresh_booking_lock(
+				(int) $booking['booking_id'],
+				(string) $booking['lock_token'],
+				$ttl_minutes
+			);
+		}
+
+		if ( empty( $invalid_item_keys ) ) {
+			return;
+		}
+
+		foreach ( array_unique( $invalid_item_keys ) as $invalid_item_key ) {
+			WC()->cart->remove_cart_item( $invalid_item_key );
+		}
+	}
+
+	/**
+	 * Validate booking locks during checkout before order creation.
+	 *
+	 * @since 1.0.4
+	 *
+	 * @param array    $posted_data Checkout posted data.
+	 * @param WP_Error $errors      Checkout validation errors.
+	 * @return void
+	 */
+	public function validate_checkout_booking_locks( $posted_data, $errors ) {
+		unset( $posted_data );
+
+		if ( ! $this->wc_cart_is_ready() || ! is_wp_error( $errors ) ) {
+			return;
+		}
+
+		$ttl_minutes = (int) comarine_storage_booking_with_woocommerce_get_setting( 'lock_ttl_minutes', 15 );
+
+		foreach ( WC()->cart->get_cart() as $cart_item_key => $cart_item ) {
+			$booking = $this->get_booking_payload_from_cart_item( $cart_item );
+			if ( empty( $booking ) ) {
 				continue;
 			}
+
+			$validation = Comarine_Storage_Booking_With_Woocommerce_Bookings::validate_booking_lock(
+				(int) $booking['booking_id'],
+				(string) $booking['lock_token'],
+				false
+			);
+
+			if ( is_wp_error( $validation ) ) {
+				$errors->add(
+					'comarine_booking_lock_invalid',
+					__( 'One of your storage booking locks expired or became invalid. Please review your cart and try again.', 'comarine-storage-booking-with-woocommerce' )
+				);
+
+				WC()->cart->remove_cart_item( $cart_item_key );
+				continue;
+			}
+
+			Comarine_Storage_Booking_With_Woocommerce_Bookings::refresh_booking_lock(
+				(int) $booking['booking_id'],
+				(string) $booking['lock_token'],
+				$ttl_minutes
+			);
 		}
 	}
 
@@ -412,7 +478,18 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 				continue;
 			}
 
-			Comarine_Storage_Booking_With_Woocommerce_Bookings::assign_order_to_booking( $booking_id, $lock_token, (int) $order_id );
+			$assigned = Comarine_Storage_Booking_With_Woocommerce_Bookings::assign_order_to_booking( $booking_id, $lock_token, (int) $order_id );
+			if ( ! $assigned ) {
+				$order->add_order_note(
+					sprintf(
+						/* translators: %d: booking ID */
+						__( 'CoMarine booking %d could not be linked to the order (invalid or expired lock).', 'comarine-storage-booking-with-woocommerce' ),
+						$booking_id
+					)
+				);
+				continue;
+			}
+
 			$booking_ids[] = $booking_id;
 		}
 
