@@ -259,6 +259,23 @@ If WC order is refunded:
   - Access instructions (static template or per-unit field)
   - Google Maps link to facility
 
+---
+
+## Implementation Notes (Repo / Dependency Reference)
+
+- JCC dependency reference (keep this exact slug for checks and docs):
+  - WordPress.org plugin: `jcc-payment-gateway-for-wc`
+  - URL: https://wordpress.org/plugins/jcc-payment-gateway-for-wc/
+- The plugin should block activation if either required dependency is missing or inactive:
+  - `woocommerce`
+  - `jcc-payment-gateway-for-wc`
+- GitHub updates are implemented using Composer + `yahnis-elsts/plugin-update-checker`.
+- Repository update source:
+  - `https://github.com/GeorgeWebDevCy/comarine-storage-booking-with-woocommerce`
+  - Branch: `main`
+- Release/build note:
+  - Ship `vendor/` with the plugin ZIP, or run `composer install` during the build step.
+
 ### 9.2 SMS (Optional Feature Flag)
 - Admin setting: enable/disable SMS notifications
 - Provider abstraction:

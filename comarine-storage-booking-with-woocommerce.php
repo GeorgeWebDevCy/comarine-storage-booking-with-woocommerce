@@ -21,6 +21,7 @@
  * Author URI:        https://www.georgenicolaou.me//
  * License:           GPL-2.0+
  * License URI:       http://www.gnu.org/licenses/gpl-2.0.txt
+ * Requires Plugins:  woocommerce, jcc-payment-gateway-for-wc
  * Text Domain:       comarine-storage-booking-with-woocommerce
  * Domain Path:       /languages
  */
@@ -42,6 +43,200 @@ if ( file_exists( $comarine_storage_booking_with_woocommerce_autoload ) ) {
  * Rename this for your plugin and update it as you release new versions.
  */
 define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_VERSION', '1.0.0' );
+define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_WC_PLUGIN_FILE', 'woocommerce/woocommerce.php' );
+// JCC dependency note (WordPress.org plugin slug): jcc-payment-gateway-for-wc.
+define( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_JCC_PLUGIN_FILE', 'jcc-payment-gateway-for-wc/jcc-payment-gateway-for-wc.php' );
+
+/**
+ * Load WordPress plugin admin helper functions when needed.
+ *
+ * @since 1.0.0
+ */
+function comarine_storage_booking_with_woocommerce_load_plugin_admin_helpers() {
+	if ( ! function_exists( 'get_plugins' ) || ! function_exists( 'is_plugin_active' ) ) {
+		require_once ABSPATH . 'wp-admin/includes/plugin.php';
+	}
+}
+
+/**
+ * Find an installed plugin file by directory slug.
+ *
+ * @since 1.0.0
+ *
+ * @param string $directory_slug   Plugin directory slug.
+ * @param string $preferred_file   Preferred plugin file path.
+ * @return string Empty string if not installed.
+ */
+function comarine_storage_booking_with_woocommerce_find_installed_plugin_file( $directory_slug, $preferred_file ) {
+	comarine_storage_booking_with_woocommerce_load_plugin_admin_helpers();
+
+	$installed_plugins = get_plugins();
+	if ( isset( $installed_plugins[ $preferred_file ] ) ) {
+		return $preferred_file;
+	}
+
+	$prefix = trailingslashit( $directory_slug );
+	foreach ( array_keys( $installed_plugins ) as $plugin_file ) {
+		if ( 0 === strpos( $plugin_file, $prefix ) ) {
+			return $plugin_file;
+		}
+	}
+
+	return '';
+}
+
+/**
+ * Check if a plugin file is active (including network activation).
+ *
+ * @since 1.0.0
+ *
+ * @param string $plugin_file Plugin file path.
+ * @return bool
+ */
+function comarine_storage_booking_with_woocommerce_is_plugin_file_active( $plugin_file ) {
+	if ( empty( $plugin_file ) ) {
+		return false;
+	}
+
+	comarine_storage_booking_with_woocommerce_load_plugin_admin_helpers();
+
+	return is_plugin_active( $plugin_file ) || ( function_exists( 'is_plugin_active_for_network' ) && is_plugin_active_for_network( $plugin_file ) );
+}
+
+/**
+ * Get required dependency status details.
+ *
+ * @since 1.0.0
+ *
+ * @return array[]
+ */
+function comarine_storage_booking_with_woocommerce_get_dependency_statuses() {
+	$dependencies = array(
+		array(
+			'label'          => 'WooCommerce',
+			'directory_slug' => 'woocommerce',
+			'preferred_file' => COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_WC_PLUGIN_FILE,
+			'install_url'    => 'https://wordpress.org/plugins/woocommerce/',
+		),
+		array(
+			'label'          => 'JCC Payment Gateway for WooCommerce',
+			'directory_slug' => 'jcc-payment-gateway-for-wc',
+			'preferred_file' => COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_JCC_PLUGIN_FILE,
+			'install_url'    => 'https://wordpress.org/plugins/jcc-payment-gateway-for-wc/',
+		),
+	);
+
+	$statuses = array();
+	foreach ( $dependencies as $dependency ) {
+		$installed_file = comarine_storage_booking_with_woocommerce_find_installed_plugin_file(
+			$dependency['directory_slug'],
+			$dependency['preferred_file']
+		);
+
+		$dependency['installed_file'] = $installed_file;
+		$dependency['is_installed']   = '' !== $installed_file;
+		$dependency['is_active']      = $dependency['is_installed'] && comarine_storage_booking_with_woocommerce_is_plugin_file_active( $installed_file );
+		$statuses[]                   = $dependency;
+	}
+
+	return $statuses;
+}
+
+/**
+ * Get missing dependency messages for activation/runtime checks.
+ *
+ * @since 1.0.0
+ *
+ * @return string[]
+ */
+function comarine_storage_booking_with_woocommerce_get_missing_dependency_messages() {
+	$messages = array();
+
+	foreach ( comarine_storage_booking_with_woocommerce_get_dependency_statuses() as $dependency ) {
+		if ( ! $dependency['is_installed'] ) {
+			$messages[] = sprintf(
+				'%1$s is not installed. Install it first: %2$s',
+				$dependency['label'],
+				$dependency['install_url']
+			);
+			continue;
+		}
+
+		if ( ! $dependency['is_active'] ) {
+			$messages[] = sprintf(
+				'%1$s is installed but not active. Activate it before using this plugin.',
+				$dependency['label']
+			);
+		}
+	}
+
+	return $messages;
+}
+
+/**
+ * Stop activation when required plugins are missing.
+ *
+ * @since 1.0.0
+ */
+function comarine_storage_booking_with_woocommerce_maybe_abort_activation_for_missing_dependencies() {
+	$messages = comarine_storage_booking_with_woocommerce_get_missing_dependency_messages();
+	if ( empty( $messages ) ) {
+		return;
+	}
+
+	comarine_storage_booking_with_woocommerce_load_plugin_admin_helpers();
+	deactivate_plugins( plugin_basename( __FILE__ ) );
+
+	if ( isset( $_GET['activate'] ) ) {
+		unset( $_GET['activate'] );
+	}
+
+	$list_items = '';
+	foreach ( $messages as $message ) {
+		$list_items .= '<li>' . esc_html( $message ) . '</li>';
+	}
+
+	wp_die(
+		wp_kses_post(
+			'<p>CoMarine Storage Booking with WooCommerce requires the following plugins before activation:</p><ul>' . $list_items . '</ul>'
+		),
+		'Plugin dependency check failed',
+		array( 'back_link' => true )
+	);
+}
+
+/**
+ * Whether all required dependencies are active at runtime.
+ *
+ * @since 1.0.0
+ *
+ * @return bool
+ */
+function comarine_storage_booking_with_woocommerce_dependencies_are_ready() {
+	return empty( comarine_storage_booking_with_woocommerce_get_missing_dependency_messages() );
+}
+
+/**
+ * Show an admin notice when dependencies are missing after activation.
+ *
+ * @since 1.0.0
+ */
+function comarine_storage_booking_with_woocommerce_missing_dependencies_admin_notice() {
+	if ( ! current_user_can( 'activate_plugins' ) ) {
+		return;
+	}
+
+	$messages = comarine_storage_booking_with_woocommerce_get_missing_dependency_messages();
+	if ( empty( $messages ) ) {
+		return;
+	}
+
+	echo '<div class="notice notice-error"><p><strong>CoMarine Storage Booking with WooCommerce</strong> is inactive because required plugins are missing.</p><ul>';
+	foreach ( $messages as $message ) {
+		echo '<li>' . esc_html( $message ) . '</li>';
+	}
+	echo '</ul></div>';
+}
 
 /**
  * Configure GitHub-based updates via plugin-update-checker.
@@ -68,6 +263,8 @@ comarine_storage_booking_with_woocommerce_setup_update_checker();
  * This action is documented in includes/class-comarine-storage-booking-with-woocommerce-activator.php
  */
 function activate_comarine_storage_booking_with_woocommerce() {
+	comarine_storage_booking_with_woocommerce_maybe_abort_activation_for_missing_dependencies();
+
 	require_once plugin_dir_path( __FILE__ ) . 'includes/class-comarine-storage-booking-with-woocommerce-activator.php';
 	Comarine_Storage_Booking_With_Woocommerce_Activator::activate();
 }
@@ -83,6 +280,12 @@ function deactivate_comarine_storage_booking_with_woocommerce() {
 
 register_activation_hook( __FILE__, 'activate_comarine_storage_booking_with_woocommerce' );
 register_deactivation_hook( __FILE__, 'deactivate_comarine_storage_booking_with_woocommerce' );
+
+if ( ! comarine_storage_booking_with_woocommerce_dependencies_are_ready() ) {
+	add_action( 'admin_notices', 'comarine_storage_booking_with_woocommerce_missing_dependencies_admin_notice' );
+	add_action( 'network_admin_notices', 'comarine_storage_booking_with_woocommerce_missing_dependencies_admin_notice' );
+	return;
+}
 
 /**
  * The core plugin class that is used to define internationalization,
