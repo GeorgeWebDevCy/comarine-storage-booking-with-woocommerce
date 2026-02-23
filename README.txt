@@ -5,7 +5,7 @@ Tags: storage, booking, woocommerce
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.24
+Stable tag: 1.0.25
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Requires Plugins: woocommerce, jcc-payment-gateway-for-wc
@@ -86,6 +86,9 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 3. Admin booking management screen.
 
 == Changelog ==
+
+= 1.0.25 =
+* Fixed plugin admin screen detection so the Overview page reliably loads the plugin admin CSS/JS (restoring the intended card-based UI on affected WordPress setups).
 
 = 1.0.24 =
 * Fixed the Storage Units CPT slug length issue (legacy `comarine_storage_unit` exceeded WordPress's 20-character post type key limit and could fail registration).
@@ -217,6 +220,9 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 * Added activation/runtime dependency checks for WooCommerce and JCC Payment Gateway for WooCommerce.
 
 == Upgrade Notice ==
+
+= 1.0.25 =
+Fixes Overview admin asset loading on some WordPress setups so the styled card UI renders consistently.
 
 = 1.0.24 =
 Fixes Storage Units CPT registration by using a valid post type key length and migrates legacy rows/URLs to the new slug.
