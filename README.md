@@ -43,7 +43,7 @@ Implemented in the codebase so far:
 - Storage Units admin submenu clicks now normalize to the correct CPT URLs to avoid `Invalid post type` errors on some WP admin menu setups
 - Settings page for booking container product, lock TTL, paid unit status, and currency
 - Shortcode `[comarine_storage_units]` for initial frontend booking entry
-- Shortcode `[comarine_storage_units_latest]` for a homepage-friendly latest 3 units view (no filter/search UI, 3-column desktop grid)
+- Shortcode `[comarine_storage_units_latest]` for a homepage-friendly latest 3 units preview (no filter/search UI, 3-column desktop grid, CTA links to each unit single page)
 - Booking lock creation + cart item metadata + price snapshot handling
 - WooCommerce order synchronization hooks (JCC `completed` treated as paid)
 - Checkout/cart lock validation and automatic cleanup of invalid booking items
@@ -52,6 +52,7 @@ Implemented in the codebase so far:
 - Audit log entries for manual booking/unit status actions
 - Capacity-managed units (size in m2) now support partial-area bookings with checkout price proration and full-capacity-only locking
 - Booking forms now require a customer-selected start date (stored in booking records and shown in cart/order metadata)
+- Units can now define a daily price for calendar date-range bookings (start/end dates) with live frontend estimate updates based on selected m2 and days
 
 Not implemented yet (next milestones):
 

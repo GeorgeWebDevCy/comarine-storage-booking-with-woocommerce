@@ -5,7 +5,7 @@ Tags: storage, booking, woocommerce
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.29
+Stable tag: 1.0.30
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Requires Plugins: woocommerce, jcc-payment-gateway-for-wc
@@ -27,7 +27,7 @@ Current implemented milestone includes:
 - Basic Bookings admin overview page
 - Booking settings page (container product / lock TTL / paid unit status)
 - Shortcode `[comarine_storage_units]` and initial booking form flow
-- Added shortcode `[comarine_storage_units_latest]` for a homepage-friendly latest 3 units list (no search/filter UI)
+- Added shortcode `[comarine_storage_units_latest]` for a homepage-friendly latest 3 units preview (no search/filter UI) with CTA buttons linking to each unit single post page
 - Booking locks + WooCommerce cart/order metadata synchronization
 - JCC-compatible paid trigger via WooCommerce `completed` status
 - Cart/checkout lock validation with invalid booking cleanup
@@ -62,6 +62,7 @@ Current implemented milestone includes:
 - Added a defensive Storage Units admin menu URL normalization fix to prevent `Invalid post type` on some setups
 - Capacity-managed units (using unit size in m2) now support partial bookings with prorated pricing and only become unavailable when fully booked
 - Booking forms now require customers to choose a booking start date (stored in booking records and shown in cart/order metadata)
+- Units can now use a daily price for calendar date-range bookings (start/end dates) with frontend price estimates that react to selected m2 and booked days
 
 == Installation ==
 
@@ -90,6 +91,13 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 3. Admin booking management screen.
 
 == Changelog ==
+
+= 1.0.30 =
+* Added a per-unit `Daily price` field and daily booking mode support using start/end date range selection.
+* Booking totals now support per-day pricing and m2-based price recalculation (including live frontend estimate updates as users change area/dates).
+* Capacity-managed booking forms now emphasize the required area (m2) input and show it before other booking inputs.
+* Homepage shortcode preview cards now link to each unit single post page (`View Unit Details`) instead of showing the booking form.
+* Demo unit generator and setup checks now treat daily pricing as valid configured pricing and generated demo units include a daily rate.
 
 = 1.0.29 =
 * Booking forms now require customers to select a start date before adding a storage booking to cart.
@@ -246,6 +254,9 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 * Added activation/runtime dependency checks for WooCommerce and JCC Payment Gateway for WooCommerce.
 
 == Upgrade Notice ==
+
+= 1.0.30 =
+Adds daily pricing with start/end date range booking, m2-aware live price estimates on the frontend, and homepage preview cards that link to unit single pages.
 
 = 1.0.29 =
 Adds a required booking start date field to the storage booking form and stores the selected date in booking/cart/order records.

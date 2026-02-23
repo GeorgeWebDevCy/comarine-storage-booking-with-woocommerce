@@ -708,6 +708,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			update_post_meta( $post_id, '_csu_size_m2', $blueprint['capacity_m2'] );
 			update_post_meta( $post_id, '_csu_dimensions', $blueprint['dimensions'] );
 			update_post_meta( $post_id, '_csu_floor', $blueprint['floor'] );
+			update_post_meta( $post_id, '_csu_price_daily', $blueprint['price_daily'] );
 			update_post_meta( $post_id, '_csu_price_monthly', $blueprint['price_monthly'] );
 			update_post_meta( $post_id, '_csu_price_6m', $blueprint['price_6m'] );
 			update_post_meta( $post_id, '_csu_price_12m', $blueprint['price_12m'] );
@@ -739,6 +740,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		$height_m      = (float) wp_rand( 3, 6 );
 		$dimensions    = number_format_i18n( $width_m, 0 ) . ' x ' . number_format_i18n( $length_m, 1 ) . ' x ' . number_format_i18n( $height_m, 0 ) . ' m';
 		$price_per_m2  = (float) wp_rand( 3, 11 );
+		$daily_price   = round( ( $capacity_m2 * $price_per_m2 ) / 30, 2 );
 		$monthly_price = round( $capacity_m2 * $price_per_m2, 2 );
 		$price_6m      = round( $monthly_price * ( wp_rand( 520, 580 ) / 100 ), 2 );
 		$price_12m     = round( $monthly_price * ( wp_rand( 980, 1080 ) / 100 ), 2 );
@@ -750,6 +752,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			'capacity_m2'   => number_format( $capacity_m2, 2, '.', '' ),
 			'dimensions'    => $dimensions,
 			'floor'         => $floor,
+			'price_daily'   => number_format( max( 1, $daily_price ), 2, '.', '' ),
 			'price_monthly' => number_format( $monthly_price, 2, '.', '' ),
 			'price_6m'      => number_format( $price_6m, 2, '.', '' ),
 			'price_12m'     => number_format( $price_12m, 2, '.', '' ),
@@ -2517,7 +2520,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 				'label'        => __( 'At least one unit has pricing', 'comarine-storage-booking-with-woocommerce' ),
 				'details'      => $unit_stats['with_pricing'] > 0
 					? sprintf( __( '%d units have at least one configured duration price.', 'comarine-storage-booking-with-woocommerce' ), $unit_stats['with_pricing'] )
-					: __( 'Booking cannot start until at least one unit has pricing (monthly, 6m, or 12m).', 'comarine-storage-booking-with-woocommerce' ),
+					: __( 'Booking cannot start until at least one unit has pricing (daily, monthly, 6m, or 12m).', 'comarine-storage-booking-with-woocommerce' ),
 				'action_url'   => $this->get_storage_units_list_url(),
 				'action_label' => __( 'Review Units', 'comarine-storage-booking-with-woocommerce' ),
 			),
@@ -2783,7 +2786,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 				$stats['available']++;
 			}
 
-			foreach ( array( '_csu_price_monthly', '_csu_price_6m', '_csu_price_12m' ) as $price_key ) {
+			foreach ( array( '_csu_price_daily', '_csu_price_monthly', '_csu_price_6m', '_csu_price_12m' ) as $price_key ) {
 				$price_value = (string) get_post_meta( (int) $unit_id, $price_key, true );
 				if ( '' !== $price_value && is_numeric( $price_value ) && (float) $price_value > 0 ) {
 					$stats['with_pricing']++;

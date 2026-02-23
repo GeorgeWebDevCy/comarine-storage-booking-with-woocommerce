@@ -264,13 +264,15 @@ class Comarine_Storage_Booking_With_Woocommerce_Storage_Units {
 				break;
 
 			case 'csu_pricing':
+				$daily   = (string) get_post_meta( $post_id, '_csu_price_daily', true );
 				$monthly = (string) get_post_meta( $post_id, '_csu_price_monthly', true );
 				$price_6 = (string) get_post_meta( $post_id, '_csu_price_6m', true );
 				$price_12 = (string) get_post_meta( $post_id, '_csu_price_12m', true );
 
 				echo esc_html(
 					sprintf(
-						'M: %1$s | 6M: %2$s | 12M: %3$s',
+						'D: %1$s | M: %2$s | 6M: %3$s | 12M: %4$s',
+						$daily ?: '-',
 						$monthly ?: '-',
 						$price_6 ?: '-',
 						$price_12 ?: '-'
@@ -310,6 +312,13 @@ class Comarine_Storage_Booking_With_Woocommerce_Storage_Units {
 			'_csu_floor'          => array(
 				'label'               => __( 'Floor / Level', 'comarine-storage-booking-with-woocommerce' ),
 				'type'                => 'text',
+				'allow_empty_delete'  => true,
+			),
+			'_csu_price_daily'    => array(
+				'label'               => __( 'Daily price', 'comarine-storage-booking-with-woocommerce' ),
+				'type'                => 'number',
+				'step'                => '0.01',
+				'description'         => __( 'Full-unit price per day. Enables date-range booking (start/end dates) on the frontend.', 'comarine-storage-booking-with-woocommerce' ),
 				'allow_empty_delete'  => true,
 			),
 			'_csu_price_monthly'  => array(

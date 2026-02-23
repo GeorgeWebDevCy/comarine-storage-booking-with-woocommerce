@@ -116,6 +116,7 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 		$unit_post_id = isset( $_POST['comarine_unit_post_id'] ) ? absint( $_POST['comarine_unit_post_id'] ) : 0;
 		$duration_key = isset( $_POST['comarine_duration_key'] ) ? sanitize_key( wp_unslash( $_POST['comarine_duration_key'] ) ) : '';
 		$requested_start_date = isset( $_POST['comarine_start_date'] ) ? $this->sanitize_booking_start_date( wp_unslash( $_POST['comarine_start_date'] ) ) : '';
+		$requested_end_date   = isset( $_POST['comarine_end_date'] ) ? $this->sanitize_booking_end_date( wp_unslash( $_POST['comarine_end_date'] ) ) : '';
 		$requested_area_m2 = isset( $_POST['comarine_requested_area_m2'] ) ? $this->sanitize_requested_area_m2( wp_unslash( $_POST['comarine_requested_area_m2'] ) ) : 0.0;
 
 		$unit = get_post( $unit_post_id );
@@ -147,6 +148,20 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 			$this->add_wc_notice( $start_date_validation->get_error_message(), 'error' );
 			wp_safe_redirect( $redirect_url );
 			exit;
+		}
+
+		$booking_day_count = 0;
+		if ( 'daily' === $duration_key ) {
+			$date_range_validation = $this->validate_booking_date_range( $requested_start_date, $requested_end_date );
+			if ( is_wp_error( $date_range_validation ) ) {
+				$this->add_wc_notice( $date_range_validation->get_error_message(), 'error' );
+				wp_safe_redirect( $redirect_url );
+				exit;
+			}
+
+			$requested_start_date = (string) $date_range_validation['start_date'];
+			$requested_end_date   = (string) $date_range_validation['end_date'];
+			$booking_day_count    = (int) $date_range_validation['day_count'];
 		}
 
 		$capacity_snapshot = $this->get_unit_capacity_booking_snapshot( $unit_post_id );
@@ -188,9 +203,14 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 
 		$configured_addons = $this->get_configured_booking_addons();
 		$selected_addons   = $this->get_selected_booking_addons_from_request( $configured_addons );
+		$selected_full_unit_price = (float) $price_map[ $duration_key ];
+		if ( 'daily' === $duration_key ) {
+			$selected_full_unit_price = $this->calculate_daily_booking_total( $selected_full_unit_price, $booking_day_count );
+		}
+
 		$base_price        = ! empty( $capacity_snapshot['is_capacity_managed'] )
-			? $this->calculate_capacity_prorated_price( (float) $price_map[ $duration_key ], $requested_area_m2, $unit_capacity_m2 )
-			: (float) $price_map[ $duration_key ];
+			? $this->calculate_capacity_prorated_price( $selected_full_unit_price, $requested_area_m2, $unit_capacity_m2 )
+			: $selected_full_unit_price;
 		$addons_total      = $this->get_selected_booking_addons_total( $selected_addons );
 		$total_price       = $base_price + $addons_total;
 
@@ -202,6 +222,7 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 				'unit_code'          => (string) get_post_meta( $unit_post_id, '_csu_unit_code', true ) ?: $unit->post_title,
 				'duration_key'       => $duration_key,
 				'start_date'         => $requested_start_date,
+				'end_date'           => 'daily' === $duration_key ? $requested_end_date : '',
 				'price_total'        => $total_price,
 				'currency'           => isset( $settings['currency'] ) ? (string) $settings['currency'] : 'EUR',
 				'user_id'            => get_current_user_id(),
@@ -224,15 +245,18 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 				'unit_title'      => $unit->post_title,
 				'duration_key'    => $duration_key,
 				'start_date'      => isset( $lock_result['start_date'] ) ? (string) $lock_result['start_date'] : $requested_start_date,
+				'end_date'        => isset( $lock_result['end_date'] ) ? (string) $lock_result['end_date'] : ( 'daily' === $duration_key ? $requested_end_date : '' ),
 				'start_ts'        => isset( $lock_result['start_ts'] ) ? (string) $lock_result['start_ts'] : '',
 				'end_ts'          => isset( $lock_result['end_ts'] ) ? (string) $lock_result['end_ts'] : '',
+				'booking_day_count' => (int) $booking_day_count,
 				'requested_area_m2' => (float) $requested_area_m2,
 				'unit_capacity_m2'  => (float) $unit_capacity_m2,
 				'booking_id'      => (int) $lock_result['booking_id'],
 				'lock_token'      => (string) $lock_result['lock_token'],
 				'lock_expires_ts' => (string) $lock_result['lock_expires_ts'],
 				'base_price_snapshot' => $base_price,
-				'full_unit_base_price_snapshot' => (float) $price_map[ $duration_key ],
+				'full_unit_base_price_snapshot' => $selected_full_unit_price,
+				'full_unit_daily_price_snapshot' => 'daily' === $duration_key ? (float) $price_map[ $duration_key ] : 0.0,
 				'addons'          => $selected_addons,
 				'addons_total'    => $addons_total,
 				'price_snapshot'  => (float) $lock_result['price_total'],
@@ -313,6 +337,18 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 				'value' => $this->format_booking_start_date_for_display( (string) $booking['start_date'] ),
 			);
 		}
+		if ( ! empty( $booking['end_date'] ) ) {
+			$item_data[] = array(
+				'key'   => __( 'End date', 'comarine-storage-booking-with-woocommerce' ),
+				'value' => $this->format_booking_start_date_for_display( (string) $booking['end_date'] ),
+			);
+		}
+		if ( isset( $booking['booking_day_count'] ) && (int) $booking['booking_day_count'] > 0 ) {
+			$item_data[] = array(
+				'key'   => __( 'Booked days', 'comarine-storage-booking-with-woocommerce' ),
+				'value' => (string) (int) $booking['booking_day_count'],
+			);
+		}
 
 		if ( isset( $booking['requested_area_m2'] ) && is_numeric( $booking['requested_area_m2'] ) && (float) $booking['requested_area_m2'] > 0 ) {
 			$area_label = $this->format_area_m2( (float) $booking['requested_area_m2'] ) . ' m2';
@@ -379,6 +415,12 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 		}
 
 		$suffix = (string) $booking['unit_code'] . ' - ' . $this->format_duration_label( (string) $booking['duration_key'] );
+		if ( ! empty( $booking['start_date'] ) ) {
+			$suffix .= ' - ' . $this->format_booking_start_date_for_display( (string) $booking['start_date'] );
+			if ( ! empty( $booking['end_date'] ) ) {
+				$suffix .= ' to ' . $this->format_booking_start_date_for_display( (string) $booking['end_date'] );
+			}
+		}
 		if ( isset( $booking['requested_area_m2'] ) && is_numeric( $booking['requested_area_m2'] ) && (float) $booking['requested_area_m2'] > 0 ) {
 			$suffix .= ' - ' . $this->format_area_m2( (float) $booking['requested_area_m2'] ) . ' m2';
 		}
@@ -571,6 +613,18 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 				true
 			);
 		}
+		if ( ! empty( $booking['end_date'] ) ) {
+			$item->add_meta_data( '_comarine_end_date', (string) $booking['end_date'], true );
+			$item->add_meta_data(
+				__( 'End date', 'comarine-storage-booking-with-woocommerce' ),
+				$this->format_booking_start_date_for_display( (string) $booking['end_date'] ),
+				true
+			);
+		}
+		if ( isset( $booking['booking_day_count'] ) && (int) $booking['booking_day_count'] > 0 ) {
+			$item->add_meta_data( '_comarine_booking_day_count', (int) $booking['booking_day_count'], true );
+			$item->add_meta_data( __( 'Booked days', 'comarine-storage-booking-with-woocommerce' ), (int) $booking['booking_day_count'], true );
+		}
 		if ( ! empty( $booking['start_ts'] ) ) {
 			$item->add_meta_data( '_comarine_start_ts', (string) $booking['start_ts'], true );
 		}
@@ -738,6 +792,7 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 				'show_filters'  => '1',
 				'sort'          => 'default',
 				'wrapper_class' => '',
+				'card_action'   => 'book',
 			),
 			$atts,
 			'comarine_storage_units'
@@ -749,6 +804,11 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 		$default_status = sanitize_key( (string) $atts['status'] );
 		$sort_mode      = sanitize_key( (string) $atts['sort'] );
 		$wrapper_class  = sanitize_html_class( (string) $atts['wrapper_class'] );
+		$card_action    = sanitize_key( (string) $atts['card_action'] );
+
+		if ( ! in_array( $card_action, array( 'book', 'single' ), true ) ) {
+			$card_action = 'book';
+		}
 
 		if ( ! in_array( $sort_mode, array( 'default', 'latest' ), true ) ) {
 			$sort_mode = 'default';
@@ -804,7 +864,7 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 		echo '<div class="' . esc_attr( $container_classes ) . '">';
 		$container_product_id = (int) comarine_storage_booking_with_woocommerce_get_setting( 'booking_container_product_id', 0 );
 		$configured_addons    = $this->get_configured_booking_addons();
-		if ( $container_product_id <= 0 ) {
+		if ( 'book' === $card_action && $container_product_id <= 0 ) {
 			echo '<div class="notice notice-warning"><p>' . esc_html__( 'Booking is not configured yet: no WooCommerce booking container product has been selected.', 'comarine-storage-booking-with-woocommerce' ) . '</p></div>';
 		}
 
@@ -895,6 +955,18 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 			$capacity_reserved_m2 = $is_capacity_managed && isset( $capacity_snapshot['reserved_m2'] ) ? (float) $capacity_snapshot['reserved_m2'] : 0.0;
 			$default_requested_area_m2 = $is_capacity_managed ? max( 0.01, round( $capacity_remaining_m2, 2 ) ) : 0.0;
 			$default_start_date = $this->get_default_booking_start_date_input_value();
+			$default_end_date   = $this->get_default_booking_end_date_input_value( $default_start_date );
+			$unit_permalink     = get_permalink( $unit_id );
+			$uses_daily_date_range = isset( $durations['daily'] ) && is_numeric( $durations['daily'] ) && (float) $durations['daily'] > 0;
+			if ( $uses_daily_date_range ) {
+				$default_key = 'daily';
+			}
+			$price_preview_payload = array(
+				'prices'           => array_map( 'floatval', is_array( $durations ) ? $durations : array() ),
+				'currency'         => (string) comarine_storage_booking_with_woocommerce_get_setting( 'currency', 'EUR' ),
+				'unit_capacity_m2' => $capacity_total_m2,
+				'uses_daily'       => $uses_daily_date_range,
+			);
 
 			echo '<article class="comarine-storage-unit-card comarine-status-' . esc_attr( (string) $card['status'] ) . '">';
 			echo '<div class="comarine-storage-unit-card__header">';
@@ -936,85 +1008,116 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 			if ( ! empty( $durations ) ) {
 				echo '<div class="comarine-storage-unit-card__pricing">';
 				echo '<p class="comarine-storage-unit-card__from-price"><strong>' . esc_html__( 'From', 'comarine-storage-booking-with-woocommerce' ) . ':</strong> ' . esc_html( $this->format_money( (float) $card['from_price'] ) ) . '</p>';
-				if ( $is_capacity_managed && $capacity_total_m2 > 0 ) {
+				if ( $uses_daily_date_range ) {
+					echo '<p class="comarine-storage-unit-card__pricing-note">' . esc_html__( 'Daily price is available for this unit. Select area (m2) and start/end dates to calculate your booking total.', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
+				} elseif ( $is_capacity_managed && $capacity_total_m2 > 0 ) {
 					echo '<p class="comarine-storage-unit-card__pricing-note">' . esc_html__( 'Prices shown are for the full unit. Checkout price is prorated by the m2 you book.', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
 				}
 				echo '<ul class="comarine-storage-unit-card__duration-list">';
 				foreach ( $durations as $duration_key => $price ) {
-					echo '<li><span>' . esc_html( $this->format_duration_label( $duration_key ) ) . '</span><strong>' . esc_html( $this->format_money( (float) $price ) ) . '</strong></li>';
+					echo '<li><span>' . esc_html( $this->format_duration_label( $duration_key ) ) . '</span><strong data-comarine-price-key="' . esc_attr( $duration_key ) . '" data-comarine-price-full="' . esc_attr( (string) (float) $price ) . '">' . esc_html( $this->format_money( (float) $price ) ) . '</strong></li>';
 				}
 				echo '</ul>';
 				echo '</div>';
 
-				echo '<form class="comarine-storage-unit-card__booking-form" method="post" action="">';
-				wp_nonce_field( 'comarine_storage_start_booking', 'comarine_storage_booking_nonce' );
-				echo '<input type="hidden" name="comarine_storage_booking_action" value="start_booking" />';
-				echo '<input type="hidden" name="comarine_unit_post_id" value="' . esc_attr( (string) $unit_id ) . '" />';
-				echo '<input type="hidden" name="comarine_redirect_to_checkout" value="' . esc_attr( (string) ( '1' === (string) $atts['checkout'] ? '1' : '0' ) ) . '" />';
+				if ( 'single' === $card_action ) {
+					if ( $unit_permalink ) {
+						echo '<p class="comarine-storage-unit-card__availability-note is-available">' . esc_html__( 'View the unit page for full details, gallery photos, and booking options.', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
+						echo '<a class="comarine-storage-unit-card__book-button" href="' . esc_url( $unit_permalink ) . '">' . esc_html__( 'View Unit Details', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
+					} else {
+						echo '<p class="comarine-storage-unit-card__availability-note is-unavailable">' . esc_html__( 'Unit page link is not available right now.', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
+					}
+				} else {
+					echo '<form class="comarine-storage-unit-card__booking-form" method="post" action="" data-comarine-price-preview="' . esc_attr( wp_json_encode( $price_preview_payload ) ) . '">';
+					wp_nonce_field( 'comarine_storage_start_booking', 'comarine_storage_booking_nonce' );
+					echo '<input type="hidden" name="comarine_storage_booking_action" value="start_booking" />';
+					echo '<input type="hidden" name="comarine_unit_post_id" value="' . esc_attr( (string) $unit_id ) . '" />';
+					echo '<input type="hidden" name="comarine_redirect_to_checkout" value="' . esc_attr( (string) ( '1' === (string) $atts['checkout'] ? '1' : '0' ) ) . '" />';
 
-				echo '<label class="comarine-storage-unit-card__start-date-field">';
-				echo '<span>' . esc_html__( 'Start date', 'comarine-storage-booking-with-woocommerce' ) . '</span>';
-				echo '<input type="date" name="comarine_start_date" min="' . esc_attr( $default_start_date ) . '" value="' . esc_attr( $default_start_date ) . '" ' . disabled( $can_book, false, false ) . ' required />';
-				echo '<small>' . esc_html__( 'Select when your storage booking should begin.', 'comarine-storage-booking-with-woocommerce' ) . '</small>';
-				echo '</label>';
-
-				echo '<fieldset class="comarine-storage-unit-card__duration-fieldset">';
-				echo '<legend>' . esc_html__( 'Select duration', 'comarine-storage-booking-with-woocommerce' ) . '</legend>';
-				foreach ( $durations as $duration_key => $price ) {
-					echo '<label class="comarine-storage-unit-card__duration-option">';
-					echo '<input type="radio" name="comarine_duration_key" value="' . esc_attr( $duration_key ) . '" ' . checked( $duration_key, $default_key, false ) . ' ' . disabled( $can_book, false, false ) . ' /> ';
-					echo '<span class="comarine-storage-unit-card__duration-label">' . esc_html( $this->format_duration_label( $duration_key ) ) . '</span>';
-					echo '<span class="comarine-storage-unit-card__duration-price">' . esc_html( $this->format_money( (float) $price ) ) . '</span>';
-					echo '</label>';
-				}
-				echo '</fieldset>';
-
-				if ( $is_capacity_managed && $capacity_total_m2 > 0 ) {
-					echo '<label class="comarine-storage-unit-card__area-field">';
-					echo '<span>' . esc_html__( 'Area to book (m2)', 'comarine-storage-booking-with-woocommerce' ) . '</span>';
-					echo '<input type="number" step="0.01" min="0.01" max="' . esc_attr( (string) max( 0.01, round( $capacity_remaining_m2, 2 ) ) ) . '" name="comarine_requested_area_m2" value="' . esc_attr( $this->format_decimal_input( $default_requested_area_m2 ) ) . '" ' . disabled( $can_book, false, false ) . ' />';
-					echo '<small>' . esc_html( sprintf( __( 'Up to %s m2 available in this unit.', 'comarine-storage-booking-with-woocommerce' ), $this->format_area_m2( max( 0, $capacity_remaining_m2 ) ) ) ) . '</small>';
-					echo '</label>';
-				}
-
-				if ( ! empty( $configured_addons ) ) {
-					echo '<fieldset class="comarine-storage-unit-card__addons-fieldset">';
-					echo '<legend>' . esc_html__( 'Optional add-ons', 'comarine-storage-booking-with-woocommerce' ) . '</legend>';
-					foreach ( $configured_addons as $addon ) {
-						if ( ! is_array( $addon ) ) {
-							continue;
-						}
-
-						$addon_key   = isset( $addon['key'] ) ? sanitize_key( (string) $addon['key'] ) : '';
-						$addon_label = isset( $addon['label'] ) ? (string) $addon['label'] : '';
-						$addon_price = isset( $addon['price'] ) ? (float) $addon['price'] : 0.0;
-						if ( '' === $addon_key || '' === $addon_label ) {
-							continue;
-						}
-
-						echo '<label class="comarine-storage-unit-card__addon-option">';
-						echo '<input type="checkbox" name="comarine_addons[]" value="' . esc_attr( $addon_key ) . '" ' . disabled( $can_book, false, false ) . ' /> ';
-						echo '<span class="comarine-storage-unit-card__addon-label">' . esc_html( $addon_label ) . '</span>';
-						echo '<span class="comarine-storage-unit-card__addon-price">' . esc_html( $this->format_money( $addon_price ) ) . '</span>';
+					if ( $is_capacity_managed && $capacity_total_m2 > 0 ) {
+						echo '<label class="comarine-storage-unit-card__area-field is-primary">';
+						echo '<span>' . esc_html__( 'Area required for storage (m2)', 'comarine-storage-booking-with-woocommerce' ) . '</span>';
+						echo '<input type="number" step="0.01" min="0.01" max="' . esc_attr( (string) max( 0.01, round( $capacity_remaining_m2, 2 ) ) ) . '" name="comarine_requested_area_m2" value="' . esc_attr( $this->format_decimal_input( $default_requested_area_m2 ) ) . '" ' . disabled( $can_book, false, false ) . ' required />';
+						echo '<small>' . esc_html( sprintf( __( 'Required: select the area you need for storage first. Up to %s m2 is currently available.', 'comarine-storage-booking-with-woocommerce' ), $this->format_area_m2( max( 0, $capacity_remaining_m2 ) ) ) ) . '</small>';
 						echo '</label>';
 					}
-					echo '</fieldset>';
-				}
 
-				if ( ! $can_book && '' !== (string) $card['unavailable_reason'] ) {
-					echo '<p class="comarine-storage-unit-card__availability-note is-unavailable">' . esc_html( (string) $card['unavailable_reason'] ) . '</p>';
-				} elseif ( $can_book ) {
-					if ( $is_capacity_managed ) {
-						echo '<p class="comarine-storage-unit-card__availability-note is-available">' . esc_html( sprintf( __( 'Available now. %s m2 can still be booked and your selected area will be locked for checkout.', 'comarine-storage-booking-with-woocommerce' ), $this->format_area_m2( max( 0, $capacity_remaining_m2 ) ) ) ) . '</p>';
+					echo '<label class="comarine-storage-unit-card__start-date-field">';
+					echo '<span>' . esc_html__( 'Start date', 'comarine-storage-booking-with-woocommerce' ) . '</span>';
+					echo '<input type="date" name="comarine_start_date" min="' . esc_attr( $default_start_date ) . '" value="' . esc_attr( $default_start_date ) . '" ' . disabled( $can_book, false, false ) . ' required />';
+					echo '<small>' . esc_html__( 'Select when your storage booking should begin.', 'comarine-storage-booking-with-woocommerce' ) . '</small>';
+					echo '</label>';
+
+					if ( $uses_daily_date_range ) {
+						echo '<input type="hidden" name="comarine_duration_key" value="daily" />';
+						echo '<label class="comarine-storage-unit-card__start-date-field comarine-storage-unit-card__end-date-field">';
+						echo '<span>' . esc_html__( 'End date', 'comarine-storage-booking-with-woocommerce' ) . '</span>';
+						echo '<input type="date" name="comarine_end_date" min="' . esc_attr( $default_end_date ) . '" value="' . esc_attr( $default_end_date ) . '" ' . disabled( $can_book, false, false ) . ' required />';
+						echo '<small>' . esc_html__( 'Select the date your booking ends (must be after the start date).', 'comarine-storage-booking-with-woocommerce' ) . '</small>';
+						echo '</label>';
 					} else {
-						echo '<p class="comarine-storage-unit-card__availability-note is-available">' . esc_html__( 'Available now. Your selection will be locked for checkout.', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
+						echo '<fieldset class="comarine-storage-unit-card__duration-fieldset">';
+						echo '<legend>' . esc_html__( 'Select duration', 'comarine-storage-booking-with-woocommerce' ) . '</legend>';
+						foreach ( $durations as $duration_key => $price ) {
+							echo '<label class="comarine-storage-unit-card__duration-option">';
+							echo '<input type="radio" name="comarine_duration_key" value="' . esc_attr( $duration_key ) . '" ' . checked( $duration_key, $default_key, false ) . ' ' . disabled( $can_book, false, false ) . ' /> ';
+							echo '<span class="comarine-storage-unit-card__duration-label">' . esc_html( $this->format_duration_label( $duration_key ) ) . '</span>';
+							echo '<span class="comarine-storage-unit-card__duration-price" data-comarine-price-key="' . esc_attr( $duration_key ) . '" data-comarine-price-full="' . esc_attr( (string) (float) $price ) . '">' . esc_html( $this->format_money( (float) $price ) ) . '</span>';
+							echo '</label>';
+						}
+						echo '</fieldset>';
 					}
-				}
 
-				echo '<button class="comarine-storage-unit-card__book-button" type="submit" ' . disabled( $can_book, false, false ) . '>' . esc_html__( 'Book Now', 'comarine-storage-booking-with-woocommerce' ) . '</button>';
-				echo '</form>';
+					echo '<div class="comarine-storage-unit-card__price-estimate" data-comarine-price-estimate>';
+					echo '<strong>' . esc_html__( 'Estimated total', 'comarine-storage-booking-with-woocommerce' ) . ':</strong> ';
+					echo '<span class="comarine-storage-unit-card__price-estimate-value" data-comarine-price-estimate-value>' . esc_html__( 'Select booking details', 'comarine-storage-booking-with-woocommerce' ) . '</span>';
+					echo '<small class="comarine-storage-unit-card__price-estimate-note" data-comarine-price-estimate-note>' . esc_html__( 'Estimate updates when you change area and dates/duration. Add-ons are added separately.', 'comarine-storage-booking-with-woocommerce' ) . '</small>';
+					echo '</div>';
+
+					if ( ! empty( $configured_addons ) ) {
+						echo '<fieldset class="comarine-storage-unit-card__addons-fieldset">';
+						echo '<legend>' . esc_html__( 'Optional add-ons', 'comarine-storage-booking-with-woocommerce' ) . '</legend>';
+						foreach ( $configured_addons as $addon ) {
+							if ( ! is_array( $addon ) ) {
+								continue;
+							}
+
+							$addon_key   = isset( $addon['key'] ) ? sanitize_key( (string) $addon['key'] ) : '';
+							$addon_label = isset( $addon['label'] ) ? (string) $addon['label'] : '';
+							$addon_price = isset( $addon['price'] ) ? (float) $addon['price'] : 0.0;
+							if ( '' === $addon_key || '' === $addon_label ) {
+								continue;
+							}
+
+							echo '<label class="comarine-storage-unit-card__addon-option">';
+							echo '<input type="checkbox" name="comarine_addons[]" value="' . esc_attr( $addon_key ) . '" ' . disabled( $can_book, false, false ) . ' /> ';
+							echo '<span class="comarine-storage-unit-card__addon-label">' . esc_html( $addon_label ) . '</span>';
+							echo '<span class="comarine-storage-unit-card__addon-price">' . esc_html( $this->format_money( $addon_price ) ) . '</span>';
+							echo '</label>';
+						}
+						echo '</fieldset>';
+					}
+
+					if ( ! $can_book && '' !== (string) $card['unavailable_reason'] ) {
+						echo '<p class="comarine-storage-unit-card__availability-note is-unavailable">' . esc_html( (string) $card['unavailable_reason'] ) . '</p>';
+					} elseif ( $can_book ) {
+						if ( $is_capacity_managed ) {
+							echo '<p class="comarine-storage-unit-card__availability-note is-available">' . esc_html( sprintf( __( 'Available now. %s m2 can still be booked and your selected area will be locked for checkout.', 'comarine-storage-booking-with-woocommerce' ), $this->format_area_m2( max( 0, $capacity_remaining_m2 ) ) ) ) . '</p>';
+						} else {
+							echo '<p class="comarine-storage-unit-card__availability-note is-available">' . esc_html__( 'Available now. Your selection will be locked for checkout.', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
+						}
+					}
+
+					echo '<button class="comarine-storage-unit-card__book-button" type="submit" ' . disabled( $can_book, false, false ) . '>' . esc_html__( 'Book Now', 'comarine-storage-booking-with-woocommerce' ) . '</button>';
+					echo '</form>';
+				}
 			} else {
-				echo '<p class="comarine-storage-unit-card__availability-note is-unavailable">' . esc_html__( 'Pricing is not configured for this unit yet.', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
+				if ( 'single' === $card_action && $unit_permalink ) {
+					echo '<p class="comarine-storage-unit-card__availability-note is-available">' . esc_html__( 'View the unit page for full details, photos, and availability information.', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
+					echo '<a class="comarine-storage-unit-card__book-button" href="' . esc_url( $unit_permalink ) . '">' . esc_html__( 'View Unit Details', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
+				} else {
+					echo '<p class="comarine-storage-unit-card__availability-note is-unavailable">' . esc_html__( 'Pricing is not configured for this unit yet.', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
+				}
 			}
 
 			echo '</article>';
@@ -1054,6 +1157,7 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 		$atts['show_filters'] = '0';
 		$atts['sort']         = 'latest';
 		$atts['wrapper_class'] = 'comarine-storage-units--latest-home';
+		$atts['card_action']   = 'single';
 
 		return $this->render_storage_units_shortcode( $atts );
 	}
@@ -1487,6 +1591,7 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 		$map          = array();
 
 		$candidates = array(
+			'daily'   => '_csu_price_daily',
 			'monthly' => '_csu_price_monthly',
 			'6m'      => '_csu_price_6m',
 			'12m'     => '_csu_price_12m',
@@ -1606,6 +1711,18 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 	}
 
 	/**
+	 * Normalize a booking end date from request input (Y-m-d).
+	 *
+	 * @since 1.0.30
+	 *
+	 * @param mixed $raw_value Raw request value.
+	 * @return string
+	 */
+	private function sanitize_booking_end_date( $raw_value ) {
+		return $this->sanitize_booking_start_date( $raw_value );
+	}
+
+	/**
 	 * Validate the selected booking start date.
 	 *
 	 * @since 1.0.29
@@ -1634,6 +1751,49 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 	}
 
 	/**
+	 * Validate a booking date range and return day-count metadata.
+	 *
+	 * End date is treated as exclusive (the booking runs from start date up to,
+	 * but not including, the end date), so minimum valid range is 1 day.
+	 *
+	 * @since 1.0.30
+	 *
+	 * @param string $start_date Start date (Y-m-d).
+	 * @param string $end_date   End date (Y-m-d).
+	 * @return array<string, mixed>|WP_Error
+	 */
+	private function validate_booking_date_range( $start_date, $end_date ) {
+		$start_check = $this->validate_booking_start_date( $start_date );
+		if ( is_wp_error( $start_check ) ) {
+			return $start_check;
+		}
+
+		$end_date = $this->sanitize_booking_end_date( $end_date );
+		if ( '' === $end_date ) {
+			return new WP_Error( 'comarine_missing_end_date', __( 'Please select a booking end date.', 'comarine-storage-booking-with-woocommerce' ) );
+		}
+
+		$site_timezone = function_exists( 'wp_timezone' ) ? wp_timezone() : new DateTimeZone( 'UTC' );
+		$start_dt      = DateTimeImmutable::createFromFormat( '!Y-m-d', $start_date, $site_timezone );
+		$end_dt        = DateTimeImmutable::createFromFormat( '!Y-m-d', $end_date, $site_timezone );
+
+		if ( ! $start_dt || ! $end_dt || $start_dt->format( 'Y-m-d' ) !== $start_date || $end_dt->format( 'Y-m-d' ) !== $end_date ) {
+			return new WP_Error( 'comarine_invalid_booking_dates', __( 'Invalid booking date range selected.', 'comarine-storage-booking-with-woocommerce' ) );
+		}
+
+		$day_count = (int) $start_dt->diff( $end_dt )->days;
+		if ( $end_dt <= $start_dt || $day_count <= 0 ) {
+			return new WP_Error( 'comarine_invalid_booking_dates', __( 'End date must be after the start date.', 'comarine-storage-booking-with-woocommerce' ) );
+		}
+
+		return array(
+			'start_date' => $start_date,
+			'end_date'   => $end_date,
+			'day_count'  => $day_count,
+		);
+	}
+
+	/**
 	 * Calculate prorated booking price based on requested m2 vs unit capacity.
 	 *
 	 * Assumes the configured duration price is for the full unit.
@@ -1655,6 +1815,26 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 		}
 
 		return round( $full_unit_price * ( $requested_area_m2 / $unit_capacity_m2 ), 2 );
+	}
+
+	/**
+	 * Calculate a daily booking total from a full-unit daily rate and day count.
+	 *
+	 * @since 1.0.30
+	 *
+	 * @param float $full_unit_daily_price Full-unit daily price.
+	 * @param int   $day_count             Number of booked days.
+	 * @return float
+	 */
+	private function calculate_daily_booking_total( $full_unit_daily_price, $day_count ) {
+		$full_unit_daily_price = (float) $full_unit_daily_price;
+		$day_count             = max( 0, (int) $day_count );
+
+		if ( $full_unit_daily_price <= 0 || $day_count <= 0 ) {
+			return 0.0;
+		}
+
+		return round( $full_unit_daily_price * $day_count, 2 );
 	}
 
 	/**
@@ -1921,6 +2101,7 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 	 */
 	private function format_duration_label( $duration_key ) {
 		$labels = array(
+			'daily'   => __( 'Per day', 'comarine-storage-booking-with-woocommerce' ),
 			'monthly' => __( 'Monthly', 'comarine-storage-booking-with-woocommerce' ),
 			'6m'      => __( '6 months', 'comarine-storage-booking-with-woocommerce' ),
 			'12m'     => __( 'Annual', 'comarine-storage-booking-with-woocommerce' ),
@@ -1958,6 +2139,31 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 		$site_timezone = function_exists( 'wp_timezone' ) ? wp_timezone() : new DateTimeZone( 'UTC' );
 
 		return wp_date( 'Y-m-d', null, $site_timezone );
+	}
+
+	/**
+	 * Get the default booking end date for date-range bookings (start + 1 day).
+	 *
+	 * @since 1.0.30
+	 *
+	 * @param string $start_date Start date in Y-m-d format.
+	 * @return string
+	 */
+	private function get_default_booking_end_date_input_value( $start_date ) {
+		$start_date = $this->sanitize_booking_start_date( $start_date );
+		$site_timezone = function_exists( 'wp_timezone' ) ? wp_timezone() : new DateTimeZone( 'UTC' );
+		$now_dt = new DateTimeImmutable( 'now', $site_timezone );
+
+		if ( '' === $start_date ) {
+			return $now_dt->modify( '+1 day' )->format( 'Y-m-d' );
+		}
+
+		$start_dt = DateTimeImmutable::createFromFormat( '!Y-m-d', $start_date, $site_timezone );
+		if ( ! $start_dt ) {
+			return $now_dt->modify( '+1 day' )->format( 'Y-m-d' );
+		}
+
+		return $start_dt->modify( '+1 day' )->format( 'Y-m-d' );
 	}
 
 	/**
