@@ -615,6 +615,10 @@ Create settings page:
 - Nested the Storage Units CPT (`comarine_storage_unit`) under the same plugin menu for consistent navigation
 - Updated Bookings admin page URL routing/helpers to use the top-level menu page (`admin.php?page=comarine-storage-bookings`)
 
+### Milestone 13 (Implemented - Plugins Screen Admin Link)
+- Added a WordPress `Plugins` screen action link (`Open Admin`) for quick access to the CoMarine Storage admin screen
+- Wired plugin action links using the plugin basename-specific `plugin_action_links_*` filter
+
 ### Next Milestone (Planned)
 - Frontend UX improvements (images/gallery support, better empty/loading states)
 - Stronger concurrency controls / atomic locking for unit reservation conflicts

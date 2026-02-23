@@ -134,6 +134,22 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	}
 
 	/**
+	 * Add a quick link to the plugin admin screen on the Plugins page.
+	 *
+	 * @since    1.0.14
+	 *
+	 * @param array<int, string> $links Existing plugin action links.
+	 * @return array<int, string>
+	 */
+	public function add_plugin_action_links( $links ) {
+		$admin_link = '<a href="' . esc_url( $this->get_bookings_page_url() ) . '">' . esc_html__( 'Open Admin', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
+
+		array_unshift( $links, $admin_link );
+
+		return $links;
+	}
+
+	/**
 	 * Register plugin settings and fields.
 	 *
 	 * @since    1.0.3

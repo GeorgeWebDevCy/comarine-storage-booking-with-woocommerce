@@ -199,6 +199,9 @@ class Comarine_Storage_Booking_With_Woocommerce {
 		$plugin_admin = new Comarine_Storage_Booking_With_Woocommerce_Admin( $this->get_plugin_name(), $this->get_version() );
 		$storage_units = new Comarine_Storage_Booking_With_Woocommerce_Storage_Units( $this->get_plugin_name(), $this->get_version() );
 		$storage_unit_post_type = $storage_units->get_post_type();
+		$plugin_basename = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_PLUGIN_BASENAME' )
+			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_PLUGIN_BASENAME
+			: plugin_basename( dirname( dirname( __FILE__ ) ) . '/comarine-storage-booking-with-woocommerce.php' );
 
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_styles' );
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts' );
@@ -207,6 +210,7 @@ class Comarine_Storage_Booking_With_Woocommerce {
 		$this->loader->add_action( 'admin_init', $plugin_admin, 'handle_bookings_admin_actions' );
 		$this->loader->add_action( 'admin_notices', $plugin_admin, 'maybe_show_configuration_notices' );
 		$this->loader->add_action( 'woocommerce_admin_order_data_after_order_details', $plugin_admin, 'render_order_booking_summary' );
+		$this->loader->add_filter( 'plugin_action_links_' . $plugin_basename, $plugin_admin, 'add_plugin_action_links' );
 
 		$this->loader->add_action( 'add_meta_boxes', $storage_units, 'add_meta_boxes' );
 		$this->loader->add_action( 'save_post_' . $storage_unit_post_type, $storage_units, 'save_unit_meta', 10, 3 );

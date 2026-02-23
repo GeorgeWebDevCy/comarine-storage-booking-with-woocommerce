@@ -2,7 +2,7 @@
 
 WordPress plugin for CoMarine storage unit bookings with WooCommerce checkout integration.
 
-## Current Status (Milestone 12)
+## Current Status (Milestone 13)
 
 Implemented in the codebase so far:
 
@@ -30,6 +30,7 @@ Implemented in the codebase so far:
 - Frontend booking forms now support optional add-on selection
 - Add-ons are included in cart display, price snapshots, and order line item meta
 - Dedicated `CoMarine Storage` admin menu with grouped submenus for Bookings, Storage Units (CPT), and Settings
+- `Plugins` screen now includes an `Open Admin` action link that opens the CoMarine Storage admin screen
 - Settings page for booking container product, lock TTL, paid unit status, and currency
 - Shortcode `[comarine_storage_units]` for initial frontend booking entry
 - Booking lock creation + cart item metadata + price snapshot handling
