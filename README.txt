@@ -5,7 +5,7 @@ Tags: storage, booking, woocommerce
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.7
+Stable tag: 1.0.8
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Requires Plugins: woocommerce, jcc-payment-gateway-for-wc
@@ -36,6 +36,8 @@ Current implemented milestone includes:
 - Booking audit log table + recent audit event panel for manual admin actions
 - Bookings admin filters now include Unit ID and Created date range
 - Bookings admin and CSV export now include customer details when available
+- Bookings admin now includes a "View" action with a booking detail panel
+- Bookings admin now shows a units status overview summary (available/reserved/occupied/etc.)
 - Booking summary block in WooCommerce order admin screen
 
 == Installation ==
@@ -65,6 +67,11 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 3. Admin booking management screen.
 
 == Changelog ==
+
+= 1.0.8 =
+* Added "View" row action and booking detail panel in Bookings admin.
+* Added units status overview panel on the Bookings admin screen.
+* Booking detail panel includes linked unit/order/customer snapshot and manual actions.
 
 = 1.0.7 =
 * Added Bookings admin filters for Unit ID and Created date range.
@@ -113,6 +120,9 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 * Added activation/runtime dependency checks for WooCommerce and JCC Payment Gateway for WooCommerce.
 
 == Upgrade Notice ==
+
+= 1.0.8 =
+Adds a booking detail view in admin plus a units status overview panel for staff visibility.
 
 = 1.0.7 =
 Adds better reporting filters (unit/date range) plus customer details in Bookings admin and CSV exports.

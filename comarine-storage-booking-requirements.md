@@ -580,6 +580,11 @@ Create settings page:
 - Bookings admin list includes a Customer column (user/order-derived when available)
 - CSV export includes customer label/email columns when available
 
+### Milestone 7 (Implemented - Admin Booking Detail + Unit Overview)
+- Added "View" action on Bookings admin rows to focus a single booking
+- Added Booking Detail panel in admin with booking/unit/order/customer snapshot and quick actions
+- Added Units Status Overview panel (available/reserved/occupied/maintenance/archived/unknown counts)
+
 ### Next Milestone (Planned)
 - Frontend UX improvements (availability messaging, clearer unit details, add-ons UI)
 - Stronger concurrency controls / atomic locking for unit reservation conflicts

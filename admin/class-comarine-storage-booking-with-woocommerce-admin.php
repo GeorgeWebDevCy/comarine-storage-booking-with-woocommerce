@@ -375,6 +375,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		echo '<p>' . esc_html__( 'Manage booking records, inspect linked WooCommerce orders, and perform manual status overrides when needed.', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
 		echo '<p><strong>' . esc_html__( 'Bookings table:', 'comarine-storage-booking-with-woocommerce' ) . '</strong> <code>' . esc_html( $table_name ) . '</code></p>';
 		echo '<p><strong>' . esc_html__( 'Total bookings:', 'comarine-storage-booking-with-woocommerce' ) . '</strong> ' . esc_html( (string) $count ) . '</p>';
+		$this->render_units_status_overview_panel();
 		echo '<form method="get" style="margin:12px 0 16px;">';
 		echo '<input type="hidden" name="post_type" value="' . esc_attr( COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE ) . '" />';
 		echo '<input type="hidden" name="page" value="comarine-storage-bookings" />';
@@ -394,6 +395,10 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		echo ' <a class="button" href="' . esc_url( $this->get_bookings_page_url() ) . '">' . esc_html__( 'Reset', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
 		echo ' <a class="button" href="' . esc_url( $this->build_bookings_export_link( $filters ) ) . '">' . esc_html__( 'Export CSV', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
 		echo '</form>';
+
+		if ( $booking_filter > 0 ) {
+			$this->render_booking_detail_panel( $booking_filter );
+		}
 
 		echo '<h2>' . esc_html__( 'Recent bookings', 'comarine-storage-booking-with-woocommerce' ) . '</h2>';
 
@@ -605,6 +610,177 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 
 		echo '<input type="text" maxlength="8" class="regular-text" name="' . esc_attr( COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_SETTINGS_OPTION ) . '[currency]" value="' . esc_attr( $current_value ) . '" />';
 		echo '<p class="description">' . esc_html__( 'Currency code stored on booking snapshots (for example EUR).', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
+	}
+
+	/**
+	 * Render a summary of storage units by status.
+	 *
+	 * @since    1.0.8
+	 *
+	 * @return void
+	 */
+	private function render_units_status_overview_panel() {
+		$counts = $this->get_unit_status_overview_counts();
+
+		echo '<div style="margin:12px 0 16px;padding:12px 16px;border:1px solid #dcdcde;background:#fff;">';
+		echo '<h2 style="margin-top:0;">' . esc_html__( 'Units Status Overview', 'comarine-storage-booking-with-woocommerce' ) . '</h2>';
+		echo '<p style="margin:6px 0 0;">';
+		echo '<strong>' . esc_html__( 'Available', 'comarine-storage-booking-with-woocommerce' ) . ':</strong> ' . esc_html( (string) $counts['available'] );
+		echo ' &nbsp;|&nbsp; <strong>' . esc_html__( 'Reserved', 'comarine-storage-booking-with-woocommerce' ) . ':</strong> ' . esc_html( (string) $counts['reserved'] );
+		echo ' &nbsp;|&nbsp; <strong>' . esc_html__( 'Occupied', 'comarine-storage-booking-with-woocommerce' ) . ':</strong> ' . esc_html( (string) $counts['occupied'] );
+		echo ' &nbsp;|&nbsp; <strong>' . esc_html__( 'Maintenance', 'comarine-storage-booking-with-woocommerce' ) . ':</strong> ' . esc_html( (string) $counts['maintenance'] );
+		echo ' &nbsp;|&nbsp; <strong>' . esc_html__( 'Archived', 'comarine-storage-booking-with-woocommerce' ) . ':</strong> ' . esc_html( (string) $counts['archived'] );
+		echo ' &nbsp;|&nbsp; <strong>' . esc_html__( 'Unknown', 'comarine-storage-booking-with-woocommerce' ) . ':</strong> ' . esc_html( (string) $counts['unknown'] );
+		echo '</p></div>';
+	}
+
+	/**
+	 * Count units grouped by `_csu_status`.
+	 *
+	 * @since    1.0.8
+	 *
+	 * @return array<string, int>
+	 */
+	private function get_unit_status_overview_counts() {
+		$post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' )
+			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE
+			: 'comarine_storage_unit';
+
+		$unit_ids = get_posts(
+			array(
+				'post_type'      => $post_type,
+				'post_status'    => array( 'publish', 'private', 'draft', 'pending', 'future' ),
+				'posts_per_page' => -1,
+				'fields'         => 'ids',
+				'orderby'        => 'ID',
+				'order'          => 'DESC',
+			)
+		);
+
+		$counts = array(
+			'available'   => 0,
+			'reserved'    => 0,
+			'occupied'    => 0,
+			'maintenance' => 0,
+			'archived'    => 0,
+			'unknown'     => 0,
+		);
+
+		foreach ( $unit_ids as $unit_id ) {
+			$status = sanitize_key( (string) get_post_meta( (int) $unit_id, '_csu_status', true ) );
+			if ( isset( $counts[ $status ] ) ) {
+				$counts[ $status ]++;
+			} else {
+				$counts['unknown']++;
+			}
+		}
+
+		return $counts;
+	}
+
+	/**
+	 * Render a booking detail panel for a selected booking.
+	 *
+	 * @since    1.0.8
+	 *
+	 * @param int $booking_id Booking ID.
+	 * @return void
+	 */
+	private function render_booking_detail_panel( $booking_id ) {
+		if ( ! class_exists( 'Comarine_Storage_Booking_With_Woocommerce_Bookings' ) ) {
+			return;
+		}
+
+		$booking_id = absint( $booking_id );
+		if ( $booking_id <= 0 ) {
+			return;
+		}
+
+		$booking = Comarine_Storage_Booking_With_Woocommerce_Bookings::get_booking( $booking_id );
+
+		echo '<div style="margin:0 0 16px;padding:12px 16px;border:1px solid #dcdcde;background:#fff;">';
+		echo '<h2 style="margin-top:0;">' . esc_html__( 'Booking Detail', 'comarine-storage-booking-with-woocommerce' ) . '</h2>';
+
+		if ( ! $booking ) {
+			echo '<p>' . esc_html__( 'The selected booking could not be found.', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
+			echo '</div>';
+			return;
+		}
+
+		$customer     = $this->get_booking_customer_summary( $booking );
+		$unit_post_id = isset( $booking->unit_post_id ) ? absint( $booking->unit_post_id ) : 0;
+		$order_id     = isset( $booking->order_id ) ? absint( $booking->order_id ) : 0;
+		$unit_link    = $unit_post_id > 0 ? get_edit_post_link( $unit_post_id ) : '';
+		$order_link   = $order_id > 0 ? admin_url( 'post.php?post=' . $order_id . '&action=edit' ) : '';
+		$unit_status  = $unit_post_id > 0 ? sanitize_key( (string) get_post_meta( $unit_post_id, '_csu_status', true ) ) : '';
+		$actions      = $this->get_booking_row_actions( $booking );
+
+		echo '<table class="widefat striped" style="max-width:980px;"><tbody>';
+		$this->render_booking_detail_row( __( 'Booking ID', 'comarine-storage-booking-with-woocommerce' ), '#' . (string) $booking_id );
+		$this->render_booking_detail_row(
+			__( 'Booking Status', 'comarine-storage-booking-with-woocommerce' ),
+			Comarine_Storage_Booking_With_Woocommerce_Bookings::get_status_label( isset( $booking->status ) ? (string) $booking->status : '' )
+		);
+		$this->render_booking_detail_row( __( 'Customer', 'comarine-storage-booking-with-woocommerce' ), $customer['label'] );
+		if ( '' !== $customer['email'] ) {
+			$this->render_booking_detail_row( __( 'Customer Email', 'comarine-storage-booking-with-woocommerce' ), $customer['email'] );
+		}
+
+		$unit_label = isset( $booking->unit_code ) && '' !== (string) $booking->unit_code ? (string) $booking->unit_code : ( $unit_post_id > 0 ? '#' . $unit_post_id : '-' );
+		$unit_html  = $unit_link ? '<a href="' . esc_url( $unit_link ) . '">' . esc_html( $unit_label ) . '</a>' : esc_html( $unit_label );
+		$this->render_booking_detail_row_html( __( 'Unit', 'comarine-storage-booking-with-woocommerce' ), $unit_html );
+		$this->render_booking_detail_row( __( 'Unit Status', 'comarine-storage-booking-with-woocommerce' ), $unit_status ? ucfirst( $unit_status ) : '-' );
+
+		$order_html = $order_link ? '<a href="' . esc_url( $order_link ) . '">#' . esc_html( (string) $order_id ) . '</a>' : esc_html( $order_id > 0 ? '#' . (string) $order_id : '-' );
+		$this->render_booking_detail_row_html( __( 'Order', 'comarine-storage-booking-with-woocommerce' ), $order_html );
+
+		$this->render_booking_detail_row( __( 'Duration', 'comarine-storage-booking-with-woocommerce' ), isset( $booking->duration_key ) && '' !== (string) $booking->duration_key ? (string) $booking->duration_key : '-' );
+		$this->render_booking_detail_row(
+			__( 'Price', 'comarine-storage-booking-with-woocommerce' ),
+			trim( (string) ( isset( $booking->price_total ) ? $booking->price_total : '' ) . ' ' . (string) ( isset( $booking->currency ) ? $booking->currency : '' ) )
+		);
+		$this->render_booking_detail_row( __( 'Start', 'comarine-storage-booking-with-woocommerce' ), isset( $booking->start_ts ) && $booking->start_ts ? (string) $booking->start_ts : '-' );
+		$this->render_booking_detail_row( __( 'End', 'comarine-storage-booking-with-woocommerce' ), isset( $booking->end_ts ) && $booking->end_ts ? (string) $booking->end_ts : '-' );
+		$this->render_booking_detail_row( __( 'Lock Expires', 'comarine-storage-booking-with-woocommerce' ), isset( $booking->lock_expires_ts ) && $booking->lock_expires_ts ? (string) $booking->lock_expires_ts : '-' );
+		$this->render_booking_detail_row( __( 'Created', 'comarine-storage-booking-with-woocommerce' ), isset( $booking->created_ts ) ? (string) $booking->created_ts : '-' );
+		$this->render_booking_detail_row( __( 'Updated', 'comarine-storage-booking-with-woocommerce' ), isset( $booking->updated_ts ) ? (string) $booking->updated_ts : '-' );
+		echo '</tbody></table>';
+
+		if ( ! empty( $actions ) ) {
+			echo '<p style="margin-top:12px;"><strong>' . esc_html__( 'Actions:', 'comarine-storage-booking-with-woocommerce' ) . '</strong> ';
+			foreach ( $actions as $action_html ) {
+				echo $action_html . ' ';
+			}
+			echo '</p>';
+		}
+
+		echo '</div>';
+	}
+
+	/**
+	 * Render a text-only booking detail table row.
+	 *
+	 * @since    1.0.8
+	 *
+	 * @param string $label Row label.
+	 * @param string $value Row value.
+	 * @return void
+	 */
+	private function render_booking_detail_row( $label, $value ) {
+		echo '<tr><th style="width:220px;">' . esc_html( $label ) . '</th><td>' . esc_html( (string) $value ) . '</td></tr>';
+	}
+
+	/**
+	 * Render an HTML row for booking detail output.
+	 *
+	 * @since    1.0.8
+	 *
+	 * @param string $label Row label.
+	 * @param string $html  Pre-escaped HTML.
+	 * @return void
+	 */
+	private function render_booking_detail_row_html( $label, $html ) {
+		echo '<tr><th style="width:220px;">' . esc_html( $label ) . '</th><td>' . $html . '</td></tr>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 	}
 
 	/**
@@ -1173,6 +1349,8 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		if ( $booking_id <= 0 ) {
 			return $actions;
 		}
+
+		$actions[] = '<a class="button button-small" href="' . esc_url( $this->get_bookings_page_url( array( 'booking_id' => $booking_id ) ) ) . '">' . esc_html__( 'View', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
 
 		$current_status = isset( $booking->status ) ? sanitize_key( (string) $booking->status ) : '';
 		$unit_post_id   = isset( $booking->unit_post_id ) ? absint( $booking->unit_post_id ) : 0;
