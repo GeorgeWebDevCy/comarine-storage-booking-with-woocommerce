@@ -75,6 +75,10 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 
 		wp_enqueue_style( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'css/comarine-storage-booking-with-woocommerce-admin.css', array(), $this->version, 'all' );
 
+		if ( $this->is_plugin_admin_screen() ) {
+			wp_enqueue_style( 'jquery-ui-datepicker' );
+		}
+
 	}
 
 	/**
@@ -97,6 +101,32 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		 */
 
 		wp_enqueue_script( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'js/comarine-storage-booking-with-woocommerce-admin.js', array( 'jquery' ), $this->version, false );
+
+		if ( ! $this->is_plugin_admin_screen() ) {
+			return;
+		}
+
+		wp_enqueue_script( 'jquery-ui-datepicker' );
+		if ( function_exists( 'wp_localize_jquery_ui_datepicker' ) ) {
+			wp_localize_jquery_ui_datepicker();
+		}
+
+		wp_localize_script(
+			$this->plugin_name,
+			'comarineStorageBookingAdmin',
+			array(
+				'bookingsPageSlug' => 'comarine-storage-bookings',
+				'dateInputFormat'  => 'dd/mm/yyyy',
+				'datepicker'       => array(
+					'dateFormat'      => 'dd/mm/yy',
+					'firstDay'        => (int) get_option( 'start_of_week', 1 ),
+					'changeMonth'     => true,
+					'changeYear'      => true,
+					'constrainInput'  => false,
+					'showButtonPanel' => true,
+				),
+			)
+		);
 
 	}
 
@@ -730,8 +760,8 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		echo '<label style="margin-right:12px;">' . esc_html__( 'Unit ID', 'comarine-storage-booking-with-woocommerce' ) . ' <input class="small-text" type="number" min="0" name="unit_post_id" value="' . esc_attr( (string) $unit_filter ) . '" /></label>';
 		echo '<label style="margin-right:12px;">' . esc_html__( 'Order ID', 'comarine-storage-booking-with-woocommerce' ) . ' <input class="small-text" type="number" min="0" name="order_id" value="' . esc_attr( (string) $order_filter ) . '" /></label>';
 		echo '<label style="margin-right:12px;">' . esc_html__( 'Booking ID', 'comarine-storage-booking-with-woocommerce' ) . ' <input class="small-text" type="number" min="0" name="booking_id" value="' . esc_attr( (string) $booking_filter ) . '" /></label>';
-		echo '<label style="margin-right:12px;">' . esc_html__( 'Created From', 'comarine-storage-booking-with-woocommerce' ) . ' <input type="date" name="created_from" value="' . esc_attr( $created_from ) . '" /></label>';
-		echo '<label style="margin-right:12px;">' . esc_html__( 'Created To', 'comarine-storage-booking-with-woocommerce' ) . ' <input type="date" name="created_to" value="' . esc_attr( $created_to ) . '" /></label>';
+		echo '<label style="margin-right:12px;">' . esc_html__( 'Created From', 'comarine-storage-booking-with-woocommerce' ) . ' <input class="comarine-admin-datepicker" type="text" inputmode="numeric" autocomplete="off" placeholder="dd/mm/yyyy" name="created_from" value="' . esc_attr( $this->format_admin_date_input_value( $created_from ) ) . '" /></label>';
+		echo '<label style="margin-right:12px;">' . esc_html__( 'Created To', 'comarine-storage-booking-with-woocommerce' ) . ' <input class="comarine-admin-datepicker" type="text" inputmode="numeric" autocomplete="off" placeholder="dd/mm/yyyy" name="created_to" value="' . esc_attr( $this->format_admin_date_input_value( $created_to ) ) . '" /></label>';
 		submit_button( __( 'Filter', 'comarine-storage-booking-with-woocommerce' ), 'secondary', '', false );
 		echo ' <a class="button" href="' . esc_url( $this->get_bookings_page_url() ) . '">' . esc_html__( 'Reset', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
 		echo ' <a class="button" href="' . esc_url( $this->build_bookings_export_link( $filters ) ) . '">' . esc_html__( 'Export CSV', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
@@ -798,8 +828,8 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			echo '<td>' . esc_html( (string) $row->duration_key ) . '</td>';
 			echo '<td>' . esc_html( Comarine_Storage_Booking_With_Woocommerce_Bookings::get_status_label( (string) $row->status ) ) . '</td>';
 			echo '<td>' . esc_html( $price_display ) . '</td>';
-			echo '<td>' . esc_html( (string) ( $row->lock_expires_ts ?: '-' ) ) . '</td>';
-			echo '<td>' . esc_html( (string) $row->created_ts ) . '</td>';
+			echo '<td>' . esc_html( $this->format_admin_datetime_display( isset( $row->lock_expires_ts ) ? (string) $row->lock_expires_ts : '', '-' ) ) . '</td>';
+			echo '<td>' . esc_html( $this->format_admin_datetime_display( isset( $row->created_ts ) ? (string) $row->created_ts : '', '-' ) ) . '</td>';
 			echo '<td>';
 			if ( empty( $actions ) ) {
 				echo esc_html__( 'No actions', 'comarine-storage-booking-with-woocommerce' );
@@ -1179,11 +1209,11 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			__( 'Price', 'comarine-storage-booking-with-woocommerce' ),
 			trim( (string) ( isset( $booking->price_total ) ? $booking->price_total : '' ) . ' ' . (string) ( isset( $booking->currency ) ? $booking->currency : '' ) )
 		);
-		$this->render_booking_detail_row( __( 'Start', 'comarine-storage-booking-with-woocommerce' ), isset( $booking->start_ts ) && $booking->start_ts ? (string) $booking->start_ts : '-' );
-		$this->render_booking_detail_row( __( 'End', 'comarine-storage-booking-with-woocommerce' ), isset( $booking->end_ts ) && $booking->end_ts ? (string) $booking->end_ts : '-' );
-		$this->render_booking_detail_row( __( 'Lock Expires', 'comarine-storage-booking-with-woocommerce' ), isset( $booking->lock_expires_ts ) && $booking->lock_expires_ts ? (string) $booking->lock_expires_ts : '-' );
-		$this->render_booking_detail_row( __( 'Created', 'comarine-storage-booking-with-woocommerce' ), isset( $booking->created_ts ) ? (string) $booking->created_ts : '-' );
-		$this->render_booking_detail_row( __( 'Updated', 'comarine-storage-booking-with-woocommerce' ), isset( $booking->updated_ts ) ? (string) $booking->updated_ts : '-' );
+		$this->render_booking_detail_row( __( 'Start', 'comarine-storage-booking-with-woocommerce' ), $this->format_admin_datetime_display( isset( $booking->start_ts ) ? (string) $booking->start_ts : '', '-' ) );
+		$this->render_booking_detail_row( __( 'End', 'comarine-storage-booking-with-woocommerce' ), $this->format_admin_datetime_display( isset( $booking->end_ts ) ? (string) $booking->end_ts : '', '-' ) );
+		$this->render_booking_detail_row( __( 'Lock Expires', 'comarine-storage-booking-with-woocommerce' ), $this->format_admin_datetime_display( isset( $booking->lock_expires_ts ) ? (string) $booking->lock_expires_ts : '', '-' ) );
+		$this->render_booking_detail_row( __( 'Created', 'comarine-storage-booking-with-woocommerce' ), $this->format_admin_datetime_display( isset( $booking->created_ts ) ? (string) $booking->created_ts : '', '-' ) );
+		$this->render_booking_detail_row( __( 'Updated', 'comarine-storage-booking-with-woocommerce' ), $this->format_admin_datetime_display( isset( $booking->updated_ts ) ? (string) $booking->updated_ts : '', '-' ) );
 		echo '</tbody></table>';
 
 		if ( ! empty( $actions ) ) {
@@ -1464,7 +1494,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	}
 
 	/**
-	 * Normalize an admin date input (`YYYY-MM-DD`) or return empty string.
+	 * Normalize an admin date input (`dd/mm/yyyy` or `YYYY-MM-DD`) or return empty string.
 	 *
 	 * @since    1.0.7
 	 *
@@ -1473,20 +1503,117 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	 */
 	private function normalize_admin_date_input( $value ) {
 		$value = sanitize_text_field( (string) $value );
-		if ( '' === $value || ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $value ) ) {
+		if ( '' === $value ) {
 			return '';
 		}
 
-		$parts = array_map( 'intval', explode( '-', $value ) );
-		if ( 3 !== count( $parts ) ) {
+		$year  = 0;
+		$month = 0;
+		$day   = 0;
+
+		if ( preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $value, $matches ) ) {
+			$year  = (int) $matches[1];
+			$month = (int) $matches[2];
+			$day   = (int) $matches[3];
+		} elseif ( preg_match( '/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/', $value, $matches ) ) {
+			$day   = (int) $matches[1];
+			$month = (int) $matches[2];
+			$year  = (int) $matches[3];
+		} else {
 			return '';
 		}
 
-		if ( ! checkdate( $parts[1], $parts[2], $parts[0] ) ) {
+		if ( ! checkdate( $month, $day, $year ) ) {
 			return '';
 		}
 
-		return $value;
+		return sprintf( '%04d-%02d-%02d', $year, $month, $day );
+	}
+
+	/**
+	 * Format an admin date filter value for the `dd/mm/yyyy` datepicker input.
+	 *
+	 * @since    1.0.15
+	 *
+	 * @param mixed $value Raw or normalized date value.
+	 * @return string
+	 */
+	private function format_admin_date_input_value( $value ) {
+		$normalized = $this->normalize_admin_date_input( $value );
+		if ( '' === $normalized ) {
+			return '';
+		}
+
+		$date = DateTimeImmutable::createFromFormat( '!Y-m-d', $normalized, wp_timezone() );
+		if ( false === $date ) {
+			return $normalized;
+		}
+
+		return $date->format( 'd/m/Y' );
+	}
+
+	/**
+	 * Format a plugin date/datetime using WordPress date/time settings for admin UI.
+	 *
+	 * @since    1.0.15
+	 *
+	 * @param mixed  $value    Raw date/datetime string.
+	 * @param string $fallback Fallback value for empty strings.
+	 * @return string
+	 */
+	private function format_admin_datetime_display( $value, $fallback = '-' ) {
+		$value = trim( sanitize_text_field( (string) $value ) );
+		if ( '' === $value ) {
+			return $fallback;
+		}
+
+		$is_date_only = (bool) preg_match( '/^\d{4}-\d{2}-\d{2}$/', $value );
+		$datetime     = $this->parse_wp_local_datetime_string( $value );
+
+		if ( ! $datetime ) {
+			return $value;
+		}
+
+		$format = $is_date_only ? get_option( 'date_format', 'Y-m-d' ) : trim( get_option( 'date_format', 'Y-m-d' ) . ' ' . get_option( 'time_format', 'H:i' ) );
+		if ( '' === $format ) {
+			$format = $is_date_only ? 'Y-m-d' : 'Y-m-d H:i';
+		}
+
+		return wp_date( $format, $datetime->getTimestamp(), wp_timezone() );
+	}
+
+	/**
+	 * Parse a local (site timezone) date/datetime string stored by the plugin.
+	 *
+	 * @since    1.0.15
+	 *
+	 * @param string $value Date/datetime string.
+	 * @return DateTimeImmutable|null
+	 */
+	private function parse_wp_local_datetime_string( $value ) {
+		$value   = trim( (string) $value );
+		$tz      = wp_timezone();
+		$formats = array(
+			'Y-m-d H:i:s',
+			'Y-m-d H:i',
+			'Y-m-d',
+		);
+
+		foreach ( $formats as $format ) {
+			$datetime = DateTimeImmutable::createFromFormat( '!' . $format, $value, $tz );
+			if ( false === $datetime ) {
+				continue;
+			}
+
+			$errors = DateTimeImmutable::getLastErrors();
+			if ( is_array( $errors ) && ( (int) $errors['warning_count'] > 0 || (int) $errors['error_count'] > 0 ) ) {
+				continue;
+			}
+
+			return $datetime;
+		}
+
+		return null;
 	}
 
 	/**
@@ -1709,7 +1836,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		$created_from   = $filters['created_from'];
 		$created_to     = $filters['created_to'];
 
-		$filename = 'comarine-bookings-export-' . gmdate( 'Ymd-His' ) . '.csv';
+		$filename = 'comarine-bookings-export-' . wp_date( 'Ymd-His' ) . '.csv';
 
 		nocache_headers();
 		header( 'Content-Type: text/csv; charset=utf-8' );
@@ -1867,7 +1994,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			$message     = isset( $event->message ) ? (string) $event->message : '';
 
 			echo '<tr>';
-			echo '<td>' . esc_html( isset( $event->created_ts ) ? (string) $event->created_ts : '' ) . '</td>';
+			echo '<td>' . esc_html( $this->format_admin_datetime_display( isset( $event->created_ts ) ? (string) $event->created_ts : '', '' ) ) . '</td>';
 			echo '<td><code>' . esc_html( isset( $event->event_type ) ? (string) $event->event_type : '' ) . '</code></td>';
 			echo '<td>';
 			if ( $booking_link ) {

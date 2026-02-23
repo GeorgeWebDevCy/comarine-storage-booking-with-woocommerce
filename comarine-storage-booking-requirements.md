@@ -619,6 +619,12 @@ Create settings page:
 - Added a WordPress `Plugins` screen action link (`Open Admin`) for quick access to the CoMarine Storage admin screen
 - Wired plugin action links using the plugin basename-specific `plugin_action_links_*` filter
 
+### Milestone 14 (Implemented - WP Date/Time Settings Alignment)
+- Bookings admin date filters now use a consistent `dd/mm/yyyy` datepicker text input
+- Admin booking and audit timestamps are rendered using WordPress date/time format settings
+- Booking lock expiry validation now compares timestamps using the site timezone (avoids `strtotime()` timezone mismatch edge cases)
+- CSV export filenames now use WordPress-local time via `wp_date()`
+
 ### Next Milestone (Planned)
 - Frontend UX improvements (images/gallery support, better empty/loading states)
 - Stronger concurrency controls / atomic locking for unit reservation conflicts

@@ -920,10 +920,16 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 		}
 
 		if ( (int) $row->order_id <= 0 && ! empty( $row->lock_expires_ts ) ) {
-			$expires_ts = strtotime( (string) $row->lock_expires_ts );
-			if ( false !== $expires_ts && $expires_ts < current_time( 'timestamp' ) ) {
-				self::mark_booking_expired( $booking_id );
-				return new WP_Error( 'comarine_booking_expired', __( 'This booking lock has expired.', 'comarine-storage-booking-with-woocommerce' ) );
+			$expires_dt = DateTimeImmutable::createFromFormat( '!Y-m-d H:i:s', (string) $row->lock_expires_ts, wp_timezone() );
+			if ( false !== $expires_dt ) {
+				$errors = DateTimeImmutable::getLastErrors();
+				if ( ! is_array( $errors ) || ( (int) $errors['warning_count'] <= 0 && (int) $errors['error_count'] <= 0 ) ) {
+					$now_dt = new DateTimeImmutable( 'now', wp_timezone() );
+					if ( $expires_dt < $now_dt ) {
+						self::mark_booking_expired( $booking_id );
+						return new WP_Error( 'comarine_booking_expired', __( 'This booking lock has expired.', 'comarine-storage-booking-with-woocommerce' ) );
+					}
+				}
 			}
 		}
 

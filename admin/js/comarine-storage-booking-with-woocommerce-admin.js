@@ -29,4 +29,26 @@
 	 * practising this, we should strive to set a better example in our own work.
 	 */
 
+	$( function() {
+		var config = window.comarineStorageBookingAdmin || {};
+		var page = new URLSearchParams( window.location.search ).get( 'page' );
+
+		if ( config.bookingsPageSlug && page !== config.bookingsPageSlug ) {
+			return;
+		}
+
+		if ( ! $.fn.datepicker ) {
+			return;
+		}
+
+		$( '.comarine-admin-datepicker' ).each( function() {
+			var $input = $( this );
+			if ( ! $input.attr( 'placeholder' ) && config.dateInputFormat ) {
+				$input.attr( 'placeholder', config.dateInputFormat );
+			}
+
+			$input.datepicker( config.datepicker || { dateFormat: 'dd/mm/yy' } );
+		} );
+	} );
+
 })( jQuery );

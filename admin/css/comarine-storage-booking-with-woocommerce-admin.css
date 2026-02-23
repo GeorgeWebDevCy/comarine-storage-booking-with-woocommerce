@@ -2,3 +2,11 @@
  * All of the CSS for your admin-specific functionality should be
  * included in this file.
  */
+
+.comarine-admin-datepicker {
+	min-width: 10rem;
+}
+
+.ui-datepicker {
+	z-index: 100000;
+}
