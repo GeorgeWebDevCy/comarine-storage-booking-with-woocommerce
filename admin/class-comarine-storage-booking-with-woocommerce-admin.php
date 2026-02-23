@@ -312,6 +312,38 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	}
 
 	/**
+	 * Ensure the Storage Units CPT is registered on plugin admin requests.
+	 *
+	 * This covers wp-admin plugin pages (like Overview/Settings) where some
+	 * environments may still reach rendering without the CPT registered.
+	 *
+	 * @since    1.0.23
+	 *
+	 * @return void
+	 */
+	public function maybe_ensure_storage_units_cpt_for_admin_requests() {
+		if ( ! is_admin() || wp_doing_ajax() ) {
+			return;
+		}
+
+		$post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' )
+			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE
+			: 'comarine_storage_unit';
+		$page = isset( $_GET['page'] ) ? trim( (string) wp_unslash( $_GET['page'] ) ) : '';
+		$request_post_type = isset( $_GET['post_type'] ) ? sanitize_key( wp_unslash( $_GET['post_type'] ) ) : '';
+		$is_plugin_admin_page = '' !== $page && 0 === strpos( $page, 'comarine-storage-' );
+		$is_storage_units_request = $post_type === $request_post_type;
+
+		if ( ! $is_plugin_admin_page && ! $is_storage_units_request ) {
+			return;
+		}
+
+		if ( ! post_type_exists( $post_type ) ) {
+			$this->register_storage_units_post_type_for_overview();
+		}
+	}
+
+	/**
 	 * Handle setup/admin utility actions (for example auto-creating the container product).
 	 *
 	 * @since    1.0.20
@@ -2217,6 +2249,12 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	private function register_storage_units_post_type_for_overview() {
 		if ( function_exists( 'comarine_storage_booking_with_woocommerce_register_storage_units_cpt_fallback' ) ) {
 			comarine_storage_booking_with_woocommerce_register_storage_units_cpt_fallback();
+		}
+
+		$post_type = defined( 'COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE' )
+			? COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE
+			: 'comarine_storage_unit';
+		if ( post_type_exists( $post_type ) ) {
 			return;
 		}
 

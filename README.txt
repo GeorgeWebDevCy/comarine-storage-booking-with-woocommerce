@@ -5,7 +5,7 @@ Tags: storage, booking, woocommerce
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.22
+Stable tag: 1.0.23
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Requires Plugins: woocommerce, jcc-payment-gateway-for-wc
@@ -86,6 +86,11 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 3. Admin booking management screen.
 
 == Changelog ==
+
+= 1.0.23 =
+* Hardened the Overview/admin CPT auto-repair path so it retries direct registration if the fallback helper does not restore the Storage Units post type.
+* Added an early `admin_init` safeguard to ensure the Storage Units CPT is registered on CoMarine plugin admin page requests before rendering setup checks.
+* Refreshed the Overview, Settings, and Storage Units admin UI styling for clearer hierarchy and improved usability.
 
 = 1.0.22 =
 * Overview now checks that required plugin post types are registered and attempts to auto-register missing ones before rendering setup checks.
@@ -207,6 +212,9 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 * Added activation/runtime dependency checks for WooCommerce and JCC Payment Gateway for WooCommerce.
 
 == Upgrade Notice ==
+
+= 1.0.23 =
+Improves admin-side CPT recovery for Storage Units and refreshes the Overview, Settings, and Storage Units admin UI styling.
 
 = 1.0.22 =
 Overview now verifies required post type registrations and auto-registers missing plugin post types before rendering setup checks.
