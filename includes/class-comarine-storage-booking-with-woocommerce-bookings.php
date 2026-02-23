@@ -471,20 +471,26 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 		}
 
 		$defaults = array(
-			'limit'     => 20,
-			'offset'    => 0,
-			'status'    => '',
-			'order_id'  => 0,
-			'booking_id' => 0,
+			'limit'       => 20,
+			'offset'      => 0,
+			'status'      => '',
+			'order_id'    => 0,
+			'booking_id'  => 0,
+			'unit_post_id'=> 0,
+			'created_from'=> '',
+			'created_to'  => '',
 		);
 		$args     = wp_parse_args( $args, $defaults );
 
-		$table_name = self::get_table_name();
-		$limit      = max( 1, min( 200, (int) $args['limit'] ) );
-		$offset     = max( 0, (int) $args['offset'] );
-		$status     = sanitize_key( (string) $args['status'] );
-		$order_id   = absint( $args['order_id'] );
-		$booking_id = absint( $args['booking_id'] );
+		$table_name   = self::get_table_name();
+		$limit        = max( 1, min( 200, (int) $args['limit'] ) );
+		$offset       = max( 0, (int) $args['offset'] );
+		$status       = sanitize_key( (string) $args['status'] );
+		$order_id     = absint( $args['order_id'] );
+		$booking_id   = absint( $args['booking_id'] );
+		$unit_post_id = absint( $args['unit_post_id'] );
+		$created_from = self::normalize_filter_date( $args['created_from'], false );
+		$created_to   = self::normalize_filter_date( $args['created_to'], true );
 
 		$where_parts = array( '1=1' );
 		$params      = array();
@@ -502,6 +508,21 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 		if ( $booking_id > 0 ) {
 			$where_parts[] = 'id = %d';
 			$params[]      = $booking_id;
+		}
+
+		if ( $unit_post_id > 0 ) {
+			$where_parts[] = 'unit_post_id = %d';
+			$params[]      = $unit_post_id;
+		}
+
+		if ( '' !== $created_from ) {
+			$where_parts[] = 'created_ts >= %s';
+			$params[]      = $created_from;
+		}
+
+		if ( '' !== $created_to ) {
+			$where_parts[] = 'created_ts <= %s';
+			$params[]      = $created_to;
 		}
 
 		$where_sql = implode( ' AND ', $where_parts );
@@ -533,16 +554,22 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 		}
 
 		$defaults = array(
-			'status'   => '',
-			'order_id' => 0,
-			'booking_id' => 0,
+			'status'      => '',
+			'order_id'    => 0,
+			'booking_id'  => 0,
+			'unit_post_id'=> 0,
+			'created_from'=> '',
+			'created_to'  => '',
 		);
 		$args     = wp_parse_args( $args, $defaults );
 
-		$table_name = self::get_table_name();
-		$status     = sanitize_key( (string) $args['status'] );
-		$order_id   = absint( $args['order_id'] );
-		$booking_id = absint( $args['booking_id'] );
+		$table_name   = self::get_table_name();
+		$status       = sanitize_key( (string) $args['status'] );
+		$order_id     = absint( $args['order_id'] );
+		$booking_id   = absint( $args['booking_id'] );
+		$unit_post_id = absint( $args['unit_post_id'] );
+		$created_from = self::normalize_filter_date( $args['created_from'], false );
+		$created_to   = self::normalize_filter_date( $args['created_to'], true );
 
 		$where_parts = array( '1=1' );
 		$params      = array();
@@ -562,6 +589,21 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 			$params[]      = $booking_id;
 		}
 
+		if ( $unit_post_id > 0 ) {
+			$where_parts[] = 'unit_post_id = %d';
+			$params[]      = $unit_post_id;
+		}
+
+		if ( '' !== $created_from ) {
+			$where_parts[] = 'created_ts >= %s';
+			$params[]      = $created_from;
+		}
+
+		if ( '' !== $created_to ) {
+			$where_parts[] = 'created_ts <= %s';
+			$params[]      = $created_to;
+		}
+
 		$where_sql = implode( ' AND ', $where_parts );
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$query_template = "SELECT COUNT(*) FROM {$table_name} WHERE {$where_sql}";
@@ -569,6 +611,40 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 		$count          = $wpdb->get_var( $query );
 
 		return (int) $count;
+	}
+
+	/**
+	 * Normalize a YYYY-MM-DD admin filter into a DATETIME string.
+	 *
+	 * @since 1.0.7
+	 *
+	 * @param mixed $value      Raw date value.
+	 * @param bool  $end_of_day Whether to use 23:59:59 instead of 00:00:00.
+	 * @return string Empty string when invalid.
+	 */
+	private static function normalize_filter_date( $value, $end_of_day = false ) {
+		$value = sanitize_text_field( (string) $value );
+		if ( '' === $value || ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $value ) ) {
+			return '';
+		}
+
+		$parts = array_map( 'intval', explode( '-', $value ) );
+		if ( 3 !== count( $parts ) ) {
+			return '';
+		}
+
+		list( $year, $month, $day ) = $parts;
+		if ( ! checkdate( $month, $day, $year ) ) {
+			return '';
+		}
+
+		return sprintf(
+			'%04d-%02d-%02d %s',
+			$year,
+			$month,
+			$day,
+			$end_of_day ? '23:59:59' : '00:00:00'
+		);
 	}
 
 	/**

@@ -337,22 +337,32 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			return;
 		}
 
-		$status_filter  = isset( $_GET['status_filter'] ) ? sanitize_key( wp_unslash( $_GET['status_filter'] ) ) : '';
-		$order_filter   = isset( $_GET['order_id'] ) ? absint( $_GET['order_id'] ) : 0;
-		$booking_filter = isset( $_GET['booking_id'] ) ? absint( $_GET['booking_id'] ) : 0;
+		$filters        = $this->get_bookings_filters_from_request();
+		$status_filter  = $filters['status_filter'];
+		$order_filter   = $filters['order_id'];
+		$booking_filter = $filters['booking_id'];
+		$unit_filter    = $filters['unit_post_id'];
+		$created_from   = $filters['created_from'];
+		$created_to     = $filters['created_to'];
 
 		$query_args = array(
-			'limit'      => 50,
-			'status'     => $status_filter,
-			'order_id'   => $order_filter,
-			'booking_id' => $booking_filter,
+			'limit'       => 50,
+			'status'      => $status_filter,
+			'order_id'    => $order_filter,
+			'booking_id'  => $booking_filter,
+			'unit_post_id'=> $unit_filter,
+			'created_from'=> $created_from,
+			'created_to'  => $created_to,
 		);
 
 		$count         = Comarine_Storage_Booking_With_Woocommerce_Bookings::count_bookings_filtered(
 			array(
-				'status'    => $status_filter,
-				'order_id'  => $order_filter,
-				'booking_id' => $booking_filter,
+				'status'      => $status_filter,
+				'order_id'    => $order_filter,
+				'booking_id'  => $booking_filter,
+				'unit_post_id'=> $unit_filter,
+				'created_from'=> $created_from,
+				'created_to'  => $created_to,
 			)
 		);
 		$recent_rows   = Comarine_Storage_Booking_With_Woocommerce_Bookings::get_bookings( $query_args );
@@ -375,11 +385,14 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			echo '<option value="' . esc_attr( $status_key ) . '" ' . selected( $status_filter, $status_key, false ) . '>' . esc_html( $status_label ) . '</option>';
 		}
 		echo '</select></label>';
+		echo '<label style="margin-right:12px;">' . esc_html__( 'Unit ID', 'comarine-storage-booking-with-woocommerce' ) . ' <input class="small-text" type="number" min="0" name="unit_post_id" value="' . esc_attr( (string) $unit_filter ) . '" /></label>';
 		echo '<label style="margin-right:12px;">' . esc_html__( 'Order ID', 'comarine-storage-booking-with-woocommerce' ) . ' <input class="small-text" type="number" min="0" name="order_id" value="' . esc_attr( (string) $order_filter ) . '" /></label>';
 		echo '<label style="margin-right:12px;">' . esc_html__( 'Booking ID', 'comarine-storage-booking-with-woocommerce' ) . ' <input class="small-text" type="number" min="0" name="booking_id" value="' . esc_attr( (string) $booking_filter ) . '" /></label>';
+		echo '<label style="margin-right:12px;">' . esc_html__( 'Created From', 'comarine-storage-booking-with-woocommerce' ) . ' <input type="date" name="created_from" value="' . esc_attr( $created_from ) . '" /></label>';
+		echo '<label style="margin-right:12px;">' . esc_html__( 'Created To', 'comarine-storage-booking-with-woocommerce' ) . ' <input type="date" name="created_to" value="' . esc_attr( $created_to ) . '" /></label>';
 		submit_button( __( 'Filter', 'comarine-storage-booking-with-woocommerce' ), 'secondary', '', false );
 		echo ' <a class="button" href="' . esc_url( $this->get_bookings_page_url() ) . '">' . esc_html__( 'Reset', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
-		echo ' <a class="button" href="' . esc_url( $this->build_bookings_export_link( $status_filter, $order_filter, $booking_filter ) ) . '">' . esc_html__( 'Export CSV', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
+		echo ' <a class="button" href="' . esc_url( $this->build_bookings_export_link( $filters ) ) . '">' . esc_html__( 'Export CSV', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
 		echo '</form>';
 
 		echo '<h2>' . esc_html__( 'Recent bookings', 'comarine-storage-booking-with-woocommerce' ) . '</h2>';
@@ -394,6 +407,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		echo '<table class="widefat striped"><thead><tr>';
 		echo '<th>' . esc_html__( 'ID', 'comarine-storage-booking-with-woocommerce' ) . '</th>';
 		echo '<th>' . esc_html__( 'Unit', 'comarine-storage-booking-with-woocommerce' ) . '</th>';
+		echo '<th>' . esc_html__( 'Customer', 'comarine-storage-booking-with-woocommerce' ) . '</th>';
 		echo '<th>' . esc_html__( 'Unit Status', 'comarine-storage-booking-with-woocommerce' ) . '</th>';
 		echo '<th>' . esc_html__( 'Order', 'comarine-storage-booking-with-woocommerce' ) . '</th>';
 		echo '<th>' . esc_html__( 'Duration', 'comarine-storage-booking-with-woocommerce' ) . '</th>';
@@ -409,6 +423,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			$unit_status   = (int) $row->unit_post_id > 0 ? (string) get_post_meta( (int) $row->unit_post_id, '_csu_status', true ) : '';
 			$unit_link     = (int) $row->unit_post_id > 0 ? get_edit_post_link( (int) $row->unit_post_id ) : '';
 			$order_link    = (int) $row->order_id > 0 ? admin_url( 'post.php?post=' . absint( $row->order_id ) . '&action=edit' ) : '';
+			$customer      = $this->get_booking_customer_summary( $row );
 			$actions       = $this->get_booking_row_actions( $row );
 
 			echo '<tr>';
@@ -420,6 +435,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 				echo esc_html( (string) $row->unit_code );
 			}
 			echo '</td>';
+			echo '<td>' . esc_html( $customer['label'] ) . '</td>';
 			echo '<td>' . esc_html( $unit_status ? ucfirst( $unit_status ) : '-' ) . '</td>';
 			echo '<td>';
 			if ( $order_link ) {
@@ -716,6 +732,109 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	}
 
 	/**
+	 * Parse bookings admin filters from the current request.
+	 *
+	 * @since    1.0.7
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function get_bookings_filters_from_request() {
+		return array(
+			'status_filter' => isset( $_GET['status_filter'] ) ? sanitize_key( wp_unslash( $_GET['status_filter'] ) ) : '',
+			'order_id'      => isset( $_GET['order_id'] ) ? absint( $_GET['order_id'] ) : 0,
+			'booking_id'    => isset( $_GET['booking_id'] ) ? absint( $_GET['booking_id'] ) : 0,
+			'unit_post_id'  => isset( $_GET['unit_post_id'] ) ? absint( $_GET['unit_post_id'] ) : 0,
+			'created_from'  => isset( $_GET['created_from'] ) ? $this->normalize_admin_date_input( wp_unslash( $_GET['created_from'] ) ) : '',
+			'created_to'    => isset( $_GET['created_to'] ) ? $this->normalize_admin_date_input( wp_unslash( $_GET['created_to'] ) ) : '',
+		);
+	}
+
+	/**
+	 * Normalize an admin date input (`YYYY-MM-DD`) or return empty string.
+	 *
+	 * @since    1.0.7
+	 *
+	 * @param mixed $value Raw request value.
+	 * @return string
+	 */
+	private function normalize_admin_date_input( $value ) {
+		$value = sanitize_text_field( (string) $value );
+		if ( '' === $value || ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $value ) ) {
+			return '';
+		}
+
+		$parts = array_map( 'intval', explode( '-', $value ) );
+		if ( 3 !== count( $parts ) ) {
+			return '';
+		}
+
+		if ( ! checkdate( $parts[1], $parts[2], $parts[0] ) ) {
+			return '';
+		}
+
+		return $value;
+	}
+
+	/**
+	 * Get customer display info for a booking row.
+	 *
+	 * @since    1.0.7
+	 *
+	 * @param object $booking Booking row.
+	 * @return array{label:string,email:string}
+	 */
+	private function get_booking_customer_summary( $booking ) {
+		$default = array(
+			'label' => __( 'Guest', 'comarine-storage-booking-with-woocommerce' ),
+			'email' => '',
+		);
+
+		if ( ! is_object( $booking ) ) {
+			return $default;
+		}
+
+		$user_id = isset( $booking->user_id ) ? absint( $booking->user_id ) : 0;
+		if ( $user_id > 0 ) {
+			$user = get_userdata( $user_id );
+			if ( $user instanceof WP_User ) {
+				$label = ! empty( $user->display_name ) ? (string) $user->display_name : (string) $user->user_login;
+
+				return array(
+					'label' => $label,
+					'email' => (string) $user->user_email,
+				);
+			}
+		}
+
+		$order_id = isset( $booking->order_id ) ? absint( $booking->order_id ) : 0;
+		if ( $order_id > 0 && function_exists( 'wc_get_order' ) ) {
+			$order = wc_get_order( $order_id );
+			if ( $order && is_object( $order ) ) {
+				$name = '';
+				if ( method_exists( $order, 'get_formatted_billing_full_name' ) ) {
+					$name = trim( (string) $order->get_formatted_billing_full_name() );
+				}
+				$email = method_exists( $order, 'get_billing_email' ) ? (string) $order->get_billing_email() : '';
+
+				if ( '' === $name ) {
+					$name = '' !== $email ? $email : sprintf(
+						/* translators: %d: order ID */
+						__( 'Guest (Order #%d)', 'comarine-storage-booking-with-woocommerce' ),
+						$order_id
+					);
+				}
+
+				return array(
+					'label' => $name,
+					'email' => $email,
+				);
+			}
+		}
+
+		return $default;
+	}
+
+	/**
 	 * Build the Bookings admin page URL.
 	 *
 	 * @since    1.0.5
@@ -766,20 +885,33 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 	 *
 	 * @since    1.0.6
 	 *
-	 * @param string $status_filter  Optional status filter.
-	 * @param int    $order_filter   Optional order filter.
-	 * @param int    $booking_filter Optional booking filter.
+	 * @param array<string, mixed> $filters Optional bookings filters.
 	 * @return string
 	 */
-	private function build_bookings_export_link( $status_filter = '', $order_filter = 0, $booking_filter = 0 ) {
+	private function build_bookings_export_link( $filters = array() ) {
 		$args = array(
 			'comarine_booking_admin_action' => 'export_csv',
 			'_comarine_nonce'               => wp_create_nonce( 'comarine_booking_admin_action' ),
 		);
 
-		$status_filter = sanitize_key( (string) $status_filter );
-		$order_filter  = absint( $order_filter );
-		$booking_filter = absint( $booking_filter );
+		$filters = wp_parse_args(
+			is_array( $filters ) ? $filters : array(),
+			array(
+				'status_filter' => '',
+				'order_id'      => 0,
+				'booking_id'    => 0,
+				'unit_post_id'  => 0,
+				'created_from'  => '',
+				'created_to'    => '',
+			)
+		);
+
+		$status_filter  = sanitize_key( (string) $filters['status_filter'] );
+		$order_filter   = absint( $filters['order_id'] );
+		$booking_filter = absint( $filters['booking_id'] );
+		$unit_filter    = absint( $filters['unit_post_id'] );
+		$created_from   = $this->normalize_admin_date_input( $filters['created_from'] );
+		$created_to     = $this->normalize_admin_date_input( $filters['created_to'] );
 
 		if ( '' !== $status_filter ) {
 			$args['status_filter'] = $status_filter;
@@ -791,6 +923,18 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 
 		if ( $booking_filter > 0 ) {
 			$args['booking_id'] = $booking_filter;
+		}
+
+		if ( $unit_filter > 0 ) {
+			$args['unit_post_id'] = $unit_filter;
+		}
+
+		if ( '' !== $created_from ) {
+			$args['created_from'] = $created_from;
+		}
+
+		if ( '' !== $created_to ) {
+			$args['created_to'] = $created_to;
 		}
 
 		return $this->get_bookings_page_url( $args );
@@ -812,9 +956,13 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			wp_die( esc_html__( 'Bookings helper class is not loaded.', 'comarine-storage-booking-with-woocommerce' ) );
 		}
 
-		$status_filter  = isset( $_GET['status_filter'] ) ? sanitize_key( wp_unslash( $_GET['status_filter'] ) ) : '';
-		$order_filter   = isset( $_GET['order_id'] ) ? absint( $_GET['order_id'] ) : 0;
-		$booking_filter = isset( $_GET['booking_id'] ) ? absint( $_GET['booking_id'] ) : 0;
+		$filters        = $this->get_bookings_filters_from_request();
+		$status_filter  = $filters['status_filter'];
+		$order_filter   = $filters['order_id'];
+		$booking_filter = $filters['booking_id'];
+		$unit_filter    = $filters['unit_post_id'];
+		$created_from   = $filters['created_from'];
+		$created_to     = $filters['created_to'];
 
 		$filename = 'comarine-bookings-export-' . gmdate( 'Ymd-His' ) . '.csv';
 
@@ -834,6 +982,8 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 				'unit_post_id',
 				'unit_code',
 				'unit_status',
+				'customer',
+				'customer_email',
 				'order_id',
 				'user_id',
 				'duration_key',
@@ -854,11 +1004,14 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 		while ( true ) {
 			$rows = Comarine_Storage_Booking_With_Woocommerce_Bookings::get_bookings(
 				array(
-					'limit'      => $batch_size,
-					'offset'     => $offset,
-					'status'     => $status_filter,
-					'order_id'   => $order_filter,
-					'booking_id' => $booking_filter,
+					'limit'       => $batch_size,
+					'offset'      => $offset,
+					'status'      => $status_filter,
+					'order_id'    => $order_filter,
+					'booking_id'  => $booking_filter,
+					'unit_post_id'=> $unit_filter,
+					'created_from'=> $created_from,
+					'created_to'  => $created_to,
 				)
 			);
 
@@ -869,6 +1022,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 			foreach ( $rows as $row ) {
 				$unit_post_id = isset( $row->unit_post_id ) ? (int) $row->unit_post_id : 0;
 				$unit_status  = $unit_post_id > 0 ? (string) get_post_meta( $unit_post_id, '_csu_status', true ) : '';
+				$customer     = $this->get_booking_customer_summary( $row );
 
 				fputcsv(
 					$output,
@@ -877,6 +1031,8 @@ class Comarine_Storage_Booking_With_Woocommerce_Admin {
 						$unit_post_id,
 						isset( $row->unit_code ) ? (string) $row->unit_code : '',
 						$unit_status,
+						$customer['label'],
+						$customer['email'],
 						isset( $row->order_id ) ? (int) $row->order_id : 0,
 						isset( $row->user_id ) ? (int) $row->user_id : 0,
 						isset( $row->duration_key ) ? (string) $row->duration_key : '',

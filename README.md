@@ -2,7 +2,7 @@
 
 WordPress plugin for CoMarine storage unit bookings with WooCommerce checkout integration.
 
-## Current Status (Milestone 5)
+## Current Status (Milestone 6)
 
 Implemented in the codebase so far:
 
@@ -15,6 +15,8 @@ Implemented in the codebase so far:
 - Audit log custom database table (`wp_comarine_booking_audit_log` with prefix-aware table name)
 - Automatic DB schema upgrade checks for custom tables after plugin updates
 - Bookings admin management screen (filters, manual actions, CSV export, audit log)
+- Bookings admin reporting filters for unit/date range (used by on-screen list and CSV export)
+- Customer column in bookings admin and customer fields in CSV export
 - Settings page for booking container product, lock TTL, paid unit status, and currency
 - Shortcode `[comarine_storage_units]` for initial frontend booking entry
 - Booking lock creation + cart item metadata + price snapshot handling
@@ -73,4 +75,5 @@ If you deploy from source, include `vendor/` (or run `composer install` as part 
 4. Add the shortcode `[comarine_storage_units]` to a page.
 5. Book a unit and complete checkout (JCC sets order status to `completed` on success).
 6. Test lock expiry behavior by leaving a booking in the cart beyond the configured TTL, then reopening cart/checkout (invalid locks should be removed with a notice).
-7. In `Storage Units > Bookings`, use a manual booking/unit action and confirm the new audit entry appears; test the filtered `Export CSV` button.
+7. In `Storage Units > Bookings`, apply unit/date filters and confirm the list and `Export CSV` output match.
+8. Use a manual booking/unit action and confirm the new audit entry appears.

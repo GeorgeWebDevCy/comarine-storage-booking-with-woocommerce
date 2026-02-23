@@ -574,8 +574,14 @@ Create settings page:
 - Added audit logging for manual booking status and unit status admin actions
 - Added recent audit events table to the Bookings admin screen (filter-aware by booking/order)
 
+### Milestone 6 (Implemented - Bookings Reporting Filters)
+- Bookings admin filters now support Unit ID and Created date range
+- CSV export now honors the same unit/date filters as the Bookings admin screen
+- Bookings admin list includes a Customer column (user/order-derived when available)
+- CSV export includes customer label/email columns when available
+
 ### Next Milestone (Planned)
 - Frontend UX improvements (availability messaging, clearer unit details, add-ons UI)
 - Stronger concurrency controls / atomic locking for unit reservation conflicts
-- Reporting enhancements (date-range filters, richer CSV columns, exports beyond admin table filters)
+- Reporting enhancements (exports beyond admin table filters, richer analytics summaries)
 - Admin workflow refinements (audit reasons/notes, safer bulk actions)
