@@ -154,6 +154,242 @@
 	grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.comarine-storage-units--category-home {
+	display: grid;
+	gap: 18px;
+}
+
+.comarine-home-categories-grid {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 18px;
+}
+
+.comarine-home-category-card {
+	background:
+		radial-gradient(circle at top right, rgba(46, 163, 242, 0.12), transparent 58%),
+		linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 251, 255, 0.96));
+	border: 1px solid var(--comarine-border);
+	border-radius: 18px;
+	box-shadow: 0 14px 28px rgba(17, 36, 51, 0.06);
+	overflow: hidden;
+}
+
+.comarine-home-category-card[open] {
+	border-color: var(--comarine-border-strong);
+	box-shadow: 0 18px 34px rgba(17, 36, 51, 0.1);
+}
+
+.comarine-home-category-card__summary {
+	list-style: none;
+	cursor: pointer;
+	padding: 18px;
+	display: grid;
+	gap: 12px;
+}
+
+.comarine-home-category-card__summary::-webkit-details-marker {
+	display: none;
+}
+
+.comarine-home-category-card__header {
+	display: grid;
+	gap: 4px;
+}
+
+.comarine-home-category-card__eyebrow {
+	font-size: 0.76rem;
+	text-transform: uppercase;
+	letter-spacing: 0.12em;
+	color: var(--comarine-muted);
+	font-weight: 700;
+}
+
+.comarine-home-category-card__title {
+	margin: 0;
+	font-size: 1.15rem;
+	line-height: 1.15;
+	letter-spacing: -0.01em;
+	color: var(--comarine-text);
+}
+
+.comarine-home-category-card__count {
+	margin: 0;
+	color: var(--comarine-muted);
+	font-weight: 600;
+}
+
+.comarine-home-category-card__stats {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.comarine-home-category-card__chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 10px;
+	border-radius: 999px;
+	background: var(--comarine-accent-soft);
+	color: var(--comarine-accent-strong);
+	border: 1px solid rgba(46, 163, 242, 0.18);
+	font-size: 0.82rem;
+	font-weight: 600;
+	line-height: 1.2;
+}
+
+.comarine-home-category-card__chip em {
+	font-style: normal;
+	opacity: 0.85;
+}
+
+.comarine-home-category-card__toggle {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	padding: 10px 12px;
+	border-radius: 12px;
+	background: linear-gradient(180deg, var(--comarine-accent), var(--comarine-accent-strong));
+	color: #fff;
+	font-weight: 700;
+	letter-spacing: 0.01em;
+	box-shadow: 0 10px 18px rgba(22, 134, 210, 0.22);
+}
+
+.comarine-home-category-card[open] .comarine-home-category-card__toggle {
+	background: linear-gradient(180deg, #154a73, #123e62);
+	box-shadow: 0 10px 18px rgba(17, 36, 51, 0.16);
+}
+
+.comarine-home-category-card__panel {
+	padding: 0 18px 18px;
+	border-top: 1px solid var(--comarine-border);
+	background: rgba(255, 255, 255, 0.75);
+}
+
+.comarine-home-category-card__panel-copy,
+.comarine-home-category-card__empty {
+	margin: 14px 0 0;
+	color: var(--comarine-muted);
+	font-size: 0.92rem;
+}
+
+.comarine-home-category-card__empty {
+	padding: 8px 0 2px;
+}
+
+.comarine-home-category-units-grid {
+	margin-top: 14px;
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 10px;
+}
+
+.comarine-home-category-unit {
+	display: grid;
+	gap: 8px;
+	padding: 14px;
+	border-radius: 14px;
+	border: 1px solid var(--comarine-border);
+	background: #fff;
+	text-decoration: none;
+	color: inherit;
+	box-shadow: 0 8px 20px rgba(17, 36, 51, 0.05);
+	transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.comarine-home-category-unit:hover,
+.comarine-home-category-unit:focus-visible {
+	transform: translateY(-1px);
+	border-color: var(--comarine-border-strong);
+	box-shadow: 0 12px 24px rgba(17, 36, 51, 0.08);
+}
+
+.comarine-home-category-unit__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.comarine-home-category-unit__code {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 4px 8px;
+	border-radius: 999px;
+	background: var(--comarine-accent-soft);
+	color: var(--comarine-accent-strong);
+	border: 1px solid rgba(46, 163, 242, 0.18);
+	font-weight: 700;
+	font-size: 0.82rem;
+}
+
+.comarine-home-category-unit__status {
+	font-size: 0.78rem;
+	font-weight: 700;
+	color: var(--comarine-muted);
+}
+
+.comarine-home-category-unit.comarine-status-available .comarine-home-category-unit__status {
+	color: var(--comarine-ok-text);
+}
+
+.comarine-home-category-unit.comarine-status-reserved .comarine-home-category-unit__status,
+.comarine-home-category-unit.comarine-status-occupied .comarine-home-category-unit__status {
+	color: var(--comarine-warning-text);
+}
+
+.comarine-home-category-unit.comarine-status-maintenance .comarine-home-category-unit__status,
+.comarine-home-category-unit.comarine-status-archived .comarine-home-category-unit__status {
+	color: var(--comarine-danger-text);
+}
+
+.comarine-home-category-unit__title {
+	margin: 0;
+	font-size: 1rem;
+	line-height: 1.2;
+	color: var(--comarine-text);
+}
+
+.comarine-home-category-unit__excerpt {
+	margin: 0;
+	color: var(--comarine-muted);
+	font-size: 0.88rem;
+	line-height: 1.35;
+}
+
+.comarine-home-category-unit__meta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.comarine-home-category-unit__meta > span {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 8px;
+	border-radius: 10px;
+	border: 1px solid var(--comarine-border);
+	background: #f8fbfe;
+	color: var(--comarine-text);
+	font-size: 0.82rem;
+}
+
+.comarine-home-category-unit__meta em {
+	font-style: normal;
+	color: var(--comarine-muted);
+}
+
+.comarine-home-category-unit__cta {
+	color: var(--comarine-accent-strong);
+	font-weight: 700;
+	font-size: 0.86rem;
+}
+
 .comarine-storage-unit-card {
 	background:
 		radial-gradient(circle at top right, rgba(46, 163, 242, 0.12), transparent 50%),
@@ -610,10 +846,18 @@
 	.comarine-storage-units--latest-home .comarine-storage-units-grid {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
+
+	.comarine-home-categories-grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
 }
 
 @media (max-width: 640px) {
 	.comarine-storage-units--latest-home .comarine-storage-units-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.comarine-home-categories-grid {
 		grid-template-columns: 1fr;
 	}
 
@@ -645,6 +889,14 @@
 	.comarine-storage-unit-card__addon-price {
 		grid-column: 2;
 		justify-self: start;
+	}
+
+	.comarine-home-category-card__summary {
+		padding: 16px;
+	}
+
+	.comarine-home-category-card__panel {
+		padding: 0 16px 16px;
 	}
 }
 

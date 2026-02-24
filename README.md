@@ -44,7 +44,7 @@ Implemented in the codebase so far:
 - Storage Units admin submenu clicks now normalize to the correct CPT URLs to avoid `Invalid post type` errors on some WP admin menu setups
 - Settings page for booking container product, lock TTL, paid unit status, and currency
 - Shortcode `[comarine_storage_units]` for initial frontend booking entry
-- Shortcode `[comarine_storage_units_latest]` for a homepage-friendly latest 3 units preview (no filter/search UI, 3-column desktop grid, CTA links to each unit single page)
+- Shortcode `[comarine_storage_units_latest]` for a homepage category explorer (A-F) with expandable unit grids and links to each unit single page
 - Booking lock creation + cart item metadata + price snapshot handling
 - WooCommerce order synchronization hooks (JCC `completed` treated as paid)
 - Checkout/cart lock validation and automatic cleanup of invalid booking items
@@ -101,7 +101,7 @@ If you deploy from source, include `vendor/` (or run `composer install` as part 
 1. Open `CoMarine Storage > Overview` (or `Settings`) and use the auto-create action for the booking container product, or create/select a virtual WooCommerce product manually.
 2. Open `CoMarine Storage > Settings` and confirm the booking container product is selected.
 3. Use `Seed Spec v2 Units (Replace All)` from `CoMarine Storage > Overview` (or `Settings`) to create the current catalog, or manually create storage units if you are testing a custom setup.
-4. Add the shortcode `[comarine_storage_units]` to a page.
+4. Add the shortcode `[comarine_storage_units]` to a page (and optionally `[comarine_storage_units_latest]` on the homepage for the category explorer layout).
 5. Book a unit and complete checkout (JCC sets order status to `completed` on success).
 6. Test lock expiry behavior by leaving a booking in the cart beyond the configured TTL, then reopening cart/checkout (invalid locks should be removed with a notice).
 7. In `CoMarine Storage > Bookings`, apply unit/date filters using `dd/mm/yyyy` and confirm the list and `Export CSV` output match.

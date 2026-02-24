@@ -5,7 +5,7 @@ Tags: storage, booking, woocommerce
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.42
+Stable tag: 1.0.43
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Requires Plugins: woocommerce, jcc-payment-gateway-for-wc
@@ -27,7 +27,7 @@ Current implemented milestone includes:
 - Basic Bookings admin overview page
 - Booking settings page (container product / lock TTL / paid unit status)
 - Shortcode `[comarine_storage_units]` and initial booking form flow
-- Added shortcode `[comarine_storage_units_latest]` for a homepage-friendly latest 3 units preview (no search/filter UI) with CTA buttons linking to each unit single post page
+- Added shortcode `[comarine_storage_units_latest]` for a homepage category explorer (A-F) with expandable unit grids linking to each unit single post page
 - Booking locks + WooCommerce cart/order metadata synchronization
 - JCC-compatible paid trigger via WooCommerce `completed` status
 - Cart/checkout lock validation with invalid booking cleanup
@@ -91,6 +91,11 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 3. Admin booking management screen.
 
 == Changelog ==
+
+= 1.0.43 =
+* Changed `[comarine_storage_units_latest]` homepage output from a latest-units list to expandable category blocks (`A`-`F`) with per-category unit grids.
+* Category cards now show quick stats (unit count, sizes, from-price) and each unit tile links to its single unit template page.
+* Added responsive public CSS for the new homepage category explorer layout.
 
 = 1.0.42 =
 * Added a new `Calendar` admin submenu with a monthly bookings calendar view and booking cards linked to booking details.
@@ -261,6 +266,9 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 * Added activation/runtime dependency checks for WooCommerce and JCC Payment Gateway for WooCommerce.
 
 == Upgrade Notice ==
+
+= 1.0.43 =
+Updates the homepage shortcode (`[comarine_storage_units_latest]`) to show expandable category blocks (`A`-`F`) and unit grids that link to each unit’s single page.
 
 = 1.0.42 =
 Adds a bookings calendar admin screen, a destructive Spec v2 unit seeding action (replace-all), and fixed-period whole-unit booking defaults for the current catalog.

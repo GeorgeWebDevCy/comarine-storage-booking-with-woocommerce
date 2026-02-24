@@ -1259,10 +1259,11 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 	}
 
 	/**
-	 * Render a homepage-friendly shortcode with the latest storage units.
+	 * Render a homepage-friendly category explorer shortcode for storage units.
 	 *
-	 * This shortcode reuses the same card UI as the main storage units shortcode
-	 * but hides the search/filter form and defaults to the latest 3 available units.
+	 * The shortcode keeps the legacy name (`comarine_storage_units_latest`) for
+	 * backwards compatibility, but now renders expandable category blocks (A-F)
+	 * and a unit grid per category that links to each unit single page.
 	 *
 	 * Usage example: [comarine_storage_units_latest]
 	 *
@@ -1274,21 +1275,299 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 	public function render_latest_storage_units_shortcode( $atts ) {
 		$atts = shortcode_atts(
 			array(
-				'limit'    => 3,
 				'status'   => 'available',
 				'show_all' => '0',
-				'checkout' => '1',
+				'open'     => '',
 			),
 			$atts,
 			'comarine_storage_units_latest'
 		);
 
-		$atts['show_filters'] = '0';
-		$atts['sort']         = 'latest';
-		$atts['wrapper_class'] = 'comarine-storage-units--latest-home';
-		$atts['card_action']   = 'single';
+		$category_order = array( 'A', 'B', 'C', 'D', 'E', 'F' );
+		$status_only    = '1' !== (string) $atts['show_all'];
+		$default_status = sanitize_key( (string) $atts['status'] );
+		$open_category  = strtoupper( substr( sanitize_key( (string) $atts['open'] ), 0, 1 ) );
 
-		return $this->render_storage_units_shortcode( $atts );
+		if ( isset( $_GET['comarine_su_category'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$requested_open = strtoupper( substr( sanitize_text_field( wp_unslash( $_GET['comarine_su_category'] ) ), 0, 1 ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			if ( in_array( $requested_open, $category_order, true ) ) {
+				$open_category = $requested_open;
+			}
+		}
+
+		$categories = array();
+		foreach ( $category_order as $category_key ) {
+			$categories[ $category_key ] = array(
+				'key'              => $category_key,
+				'label'            => sprintf(
+					/* translators: %s: category letter */
+					__( 'Category %s', 'comarine-storage-booking-with-woocommerce' ),
+					$category_key
+				),
+				'units'            => array(),
+				'count'            => 0,
+				'from_price'       => null,
+				'from_duration'    => '',
+				'min_size'         => null,
+				'max_size'         => null,
+				'available_count'  => 0,
+			);
+		}
+
+		$query_args = array(
+			'post_type'      => COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE,
+			'post_status'    => 'publish',
+			'posts_per_page' => -1,
+			'orderby'        => array( 'menu_order' => 'ASC', 'title' => 'ASC' ),
+		);
+
+		if ( $status_only && $default_status && 'all' !== $default_status ) {
+			$query_args['meta_query'] = array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+				array(
+					'key'   => '_csu_status',
+					'value' => $default_status,
+				),
+			);
+		}
+
+		$units = get_posts( $query_args );
+
+		foreach ( $units as $unit ) {
+			$unit_id = (int) $unit->ID;
+			if ( $unit_id <= 0 ) {
+				continue;
+			}
+
+			$unit_code     = trim( (string) get_post_meta( $unit_id, '_csu_unit_code', true ) );
+			$category_key  = $this->get_homepage_unit_category_key( $unit_code, (string) get_the_title( $unit ) );
+			$unit_status   = sanitize_key( (string) get_post_meta( $unit_id, '_csu_status', true ) );
+			$unit_size_raw = trim( (string) get_post_meta( $unit_id, '_csu_size_m2', true ) );
+			$unit_size_val = ( '' !== $unit_size_raw && is_numeric( $unit_size_raw ) ) ? (float) $unit_size_raw : null;
+			$durations     = $this->get_unit_duration_prices( $unit_id );
+			$permalink     = get_permalink( $unit_id );
+			$excerpt       = has_excerpt( $unit_id ) ? get_the_excerpt( $unit_id ) : wp_trim_words( wp_strip_all_tags( (string) $unit->post_content ), 16 );
+
+			if ( '' === $category_key || ! isset( $categories[ $category_key ] ) ) {
+				continue;
+			}
+
+			$from_price        = null;
+			$from_duration_key = '';
+			foreach ( $durations as $duration_key => $price ) {
+				$price = (float) $price;
+				if ( $price <= 0 ) {
+					continue;
+				}
+				if ( null === $from_price || $price < $from_price ) {
+					$from_price        = $price;
+					$from_duration_key = (string) $duration_key;
+				}
+			}
+
+			$categories[ $category_key ]['units'][] = array(
+				'id'              => $unit_id,
+				'title'           => (string) get_the_title( $unit ),
+				'code'            => '' !== $unit_code ? $unit_code : (string) $unit_id,
+				'status'          => '' !== $unit_status ? $unit_status : 'available',
+				'size_raw'        => $unit_size_raw,
+				'size_value'      => $unit_size_val,
+				'from_price'      => $from_price,
+				'from_duration'   => $from_duration_key,
+				'permalink'       => is_string( $permalink ) ? $permalink : '',
+				'excerpt'         => (string) $excerpt,
+				'available_label' => $this->format_storage_unit_status_label( '' !== $unit_status ? $unit_status : 'available' ),
+			);
+
+			$categories[ $category_key ]['count']++;
+			if ( 'available' === ( '' !== $unit_status ? $unit_status : 'available' ) ) {
+				$categories[ $category_key ]['available_count']++;
+			}
+
+			if ( null !== $from_price && ( null === $categories[ $category_key ]['from_price'] || $from_price < (float) $categories[ $category_key ]['from_price'] ) ) {
+				$categories[ $category_key ]['from_price']    = $from_price;
+				$categories[ $category_key ]['from_duration'] = $from_duration_key;
+			}
+
+			if ( null !== $unit_size_val ) {
+				if ( null === $categories[ $category_key ]['min_size'] || $unit_size_val < (float) $categories[ $category_key ]['min_size'] ) {
+					$categories[ $category_key ]['min_size'] = $unit_size_val;
+				}
+				if ( null === $categories[ $category_key ]['max_size'] || $unit_size_val > (float) $categories[ $category_key ]['max_size'] ) {
+					$categories[ $category_key ]['max_size'] = $unit_size_val;
+				}
+			}
+		}
+
+		foreach ( $categories as $category_key => $category ) {
+			if ( empty( $category['units'] ) ) {
+				continue;
+			}
+
+			usort(
+				$categories[ $category_key ]['units'],
+				static function( $left, $right ) {
+					$left_code  = isset( $left['code'] ) ? (string) $left['code'] : '';
+					$right_code = isset( $right['code'] ) ? (string) $right['code'] : '';
+					$code_cmp   = strnatcasecmp( $left_code, $right_code );
+					if ( 0 !== $code_cmp ) {
+						return $code_cmp;
+					}
+
+					$left_title  = isset( $left['title'] ) ? (string) $left['title'] : '';
+					$right_title = isset( $right['title'] ) ? (string) $right['title'] : '';
+					return strnatcasecmp( $left_title, $right_title );
+				}
+			);
+		}
+
+		if ( ! in_array( $open_category, $category_order, true ) ) {
+			$open_category = '';
+			foreach ( $category_order as $category_key ) {
+				if ( ! empty( $categories[ $category_key ]['units'] ) ) {
+					$open_category = $category_key;
+					break;
+				}
+			}
+		}
+
+		ob_start();
+		echo '<div class="comarine-storage-units comarine-storage-units--latest-home comarine-storage-units--category-home">';
+		echo '<div class="comarine-home-categories-grid">';
+
+		foreach ( $category_order as $category_key ) {
+			$category      = $categories[ $category_key ];
+			$is_open       = ( $open_category === $category_key );
+			$unit_count    = (int) $category['count'];
+			$category_id   = 'comarine-storage-category-' . strtolower( $category_key );
+			$summary_label = sprintf(
+				/* translators: %s: category letter */
+				__( 'Storage units in category %s', 'comarine-storage-booking-with-woocommerce' ),
+				$category_key
+			);
+
+			echo '<details class="comarine-home-category-card" id="' . esc_attr( $category_id ) . '"' . ( $is_open ? ' open' : '' ) . '>';
+			echo '<summary class="comarine-home-category-card__summary" aria-label="' . esc_attr( $summary_label ) . '">';
+			echo '<div class="comarine-home-category-card__header">';
+			echo '<span class="comarine-home-category-card__eyebrow">' . esc_html__( 'Storage Category', 'comarine-storage-booking-with-woocommerce' ) . '</span>';
+			echo '<h3 class="comarine-home-category-card__title">' . esc_html( (string) $category['label'] ) . '</h3>';
+			echo '<p class="comarine-home-category-card__count">' . esc_html(
+				sprintf(
+					/* translators: %d: number of units */
+					_n( '%d unit', '%d units', $unit_count, 'comarine-storage-booking-with-woocommerce' ),
+					$unit_count
+				)
+			) . '</p>';
+			echo '</div>';
+			echo '<div class="comarine-home-category-card__stats">';
+
+			if ( null !== $category['from_price'] ) {
+				$from_duration_label = '' !== (string) $category['from_duration'] ? $this->format_duration_label( (string) $category['from_duration'] ) : __( 'pricing', 'comarine-storage-booking-with-woocommerce' );
+				echo '<span class="comarine-home-category-card__chip">';
+				echo '<strong>' . esc_html__( 'From', 'comarine-storage-booking-with-woocommerce' ) . ':</strong> ';
+				echo esc_html( $this->format_money( (float) $category['from_price'] ) );
+				echo ' <em>' . esc_html( $from_duration_label ) . '</em>';
+				echo '</span>';
+			}
+
+			if ( null !== $category['min_size'] ) {
+				$size_label = ( null !== $category['max_size'] && (float) $category['max_size'] !== (float) $category['min_size'] )
+					? sprintf(
+						/* translators: 1: min size, 2: max size */
+						__( '%1$s-%2$s m2', 'comarine-storage-booking-with-woocommerce' ),
+						$this->format_area_m2( (float) $category['min_size'] ),
+						$this->format_area_m2( (float) $category['max_size'] )
+					)
+					: sprintf(
+						/* translators: %s: size in square meters */
+						__( '%s m2', 'comarine-storage-booking-with-woocommerce' ),
+						$this->format_area_m2( (float) $category['min_size'] )
+					);
+				echo '<span class="comarine-home-category-card__chip">' . esc_html__( 'Sizes', 'comarine-storage-booking-with-woocommerce' ) . ': ' . esc_html( $size_label ) . '</span>';
+			}
+
+			echo '<span class="comarine-home-category-card__chip">' . esc_html__( 'Available', 'comarine-storage-booking-with-woocommerce' ) . ': ' . esc_html( (string) (int) $category['available_count'] ) . '</span>';
+			echo '</div>';
+			echo '<span class="comarine-home-category-card__toggle">' . esc_html__( 'View Details', 'comarine-storage-booking-with-woocommerce' ) . '</span>';
+			echo '</summary>';
+
+			echo '<div class="comarine-home-category-card__panel">';
+			if ( empty( $category['units'] ) ) {
+				echo '<p class="comarine-home-category-card__empty">' . esc_html__( 'No units are currently listed in this category.', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
+			} else {
+				echo '<p class="comarine-home-category-card__panel-copy">' . esc_html__( 'Select a unit to open its full details page with gallery and booking options.', 'comarine-storage-booking-with-woocommerce' ) . '</p>';
+				echo '<div class="comarine-home-category-units-grid">';
+
+				foreach ( $category['units'] as $unit_item ) {
+					$unit_permalink = isset( $unit_item['permalink'] ) ? (string) $unit_item['permalink'] : '';
+					$unit_status    = isset( $unit_item['status'] ) ? sanitize_key( (string) $unit_item['status'] ) : 'available';
+					$unit_classes   = 'comarine-home-category-unit comarine-status-' . sanitize_html_class( $unit_status );
+
+					echo '<a class="' . esc_attr( $unit_classes ) . '" href="' . esc_url( $unit_permalink ) . '">';
+					echo '<div class="comarine-home-category-unit__header">';
+					echo '<span class="comarine-home-category-unit__code">' . esc_html( (string) $unit_item['code'] ) . '</span>';
+					echo '<span class="comarine-home-category-unit__status">' . esc_html( (string) $unit_item['available_label'] ) . '</span>';
+					echo '</div>';
+					echo '<h4 class="comarine-home-category-unit__title">' . esc_html( (string) $unit_item['title'] ) . '</h4>';
+
+					if ( ! empty( $unit_item['excerpt'] ) ) {
+						echo '<p class="comarine-home-category-unit__excerpt">' . esc_html( (string) $unit_item['excerpt'] ) . '</p>';
+					}
+
+					echo '<div class="comarine-home-category-unit__meta">';
+					if ( '' !== (string) $unit_item['size_raw'] ) {
+						echo '<span>' . esc_html( (string) $unit_item['size_raw'] ) . ' m2</span>';
+					}
+					if ( isset( $unit_item['from_price'] ) && null !== $unit_item['from_price'] ) {
+						$unit_duration_label = ! empty( $unit_item['from_duration'] ) ? $this->format_duration_label( (string) $unit_item['from_duration'] ) : '';
+						echo '<span>' . esc_html__( 'From', 'comarine-storage-booking-with-woocommerce' ) . ': ' . esc_html( $this->format_money( (float) $unit_item['from_price'] ) );
+						if ( '' !== $unit_duration_label ) {
+							echo ' <em>' . esc_html( $unit_duration_label ) . '</em>';
+						}
+						echo '</span>';
+					}
+					echo '</div>';
+					echo '<span class="comarine-home-category-unit__cta">' . esc_html__( 'Open Unit', 'comarine-storage-booking-with-woocommerce' ) . '</span>';
+					echo '</a>';
+				}
+
+				echo '</div>';
+			}
+			echo '</div>';
+			echo '</details>';
+		}
+
+		echo '</div>';
+		echo '</div>';
+
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * Resolve homepage category key (A-F) from a unit code/title.
+	 *
+	 * @since 1.0.43
+	 *
+	 * @param string $unit_code Unit code meta value.
+	 * @param string $unit_title Unit title fallback.
+	 * @return string
+	 */
+	private function get_homepage_unit_category_key( $unit_code, $unit_title = '' ) {
+		$unit_code = strtoupper( trim( (string) $unit_code ) );
+		if ( '' !== $unit_code && preg_match( '/^\s*([A-F])/', $unit_code, $matches ) && ! empty( $matches[1] ) ) {
+			return (string) $matches[1];
+		}
+
+		$unit_title = trim( (string) $unit_title );
+		if ( '' !== $unit_title ) {
+			if ( preg_match( '/\b([A-F])\d+\b/i', $unit_title, $matches ) && ! empty( $matches[1] ) ) {
+				return strtoupper( (string) $matches[1] );
+			}
+			if ( preg_match( '/^\s*([A-F])\b/i', $unit_title, $matches ) && ! empty( $matches[1] ) ) {
+				return strtoupper( (string) $matches[1] );
+			}
+		}
+
+		return '';
 	}
 
 	/**
