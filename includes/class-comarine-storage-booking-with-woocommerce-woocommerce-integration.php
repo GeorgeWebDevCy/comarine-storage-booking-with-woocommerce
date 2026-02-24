@@ -1720,7 +1720,6 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 		$map          = array();
 
 		$candidates = array(
-			'daily'   => '_csu_price_daily',
 			'monthly' => '_csu_price_monthly',
 			'6m'      => '_csu_price_6m',
 			'12m'     => '_csu_price_12m',
@@ -1774,6 +1773,11 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 			if ( is_array( $snapshot ) ) {
 				return wp_parse_args( $snapshot, $fallback );
 			}
+		}
+
+		$booking_mode = sanitize_key( (string) get_post_meta( $unit_post_id, '_csu_booking_mode', true ) );
+		if ( 'partial_area' !== $booking_mode ) {
+			return $fallback;
 		}
 
 		$raw_capacity = get_post_meta( $unit_post_id, '_csu_size_m2', true );

@@ -102,7 +102,6 @@ $comarine_parse_gallery_image_ids = static function ( $raw ) {
 };
 
 $comarine_duration_labels = array(
-	'daily'   => __( 'Daily', 'comarine-storage-booking-with-woocommerce' ),
 	'monthly' => __( 'Monthly', 'comarine-storage-booking-with-woocommerce' ),
 	'6m'      => __( '6 Months', 'comarine-storage-booking-with-woocommerce' ),
 	'12m'     => __( '12 Months', 'comarine-storage-booking-with-woocommerce' ),
@@ -194,7 +193,6 @@ get_header();
 
 			$duration_prices = array();
 			$duration_keys   = array(
-				'daily'   => '_csu_price_daily',
 				'monthly' => '_csu_price_monthly',
 				'6m'      => '_csu_price_6m',
 				'12m'     => '_csu_price_12m',
@@ -233,14 +231,6 @@ get_header();
 					'value' => '' !== $unit_size_m2 ? $comarine_format_area( $unit_size_m2 ) . ' m2' : __( 'Not specified', 'comarine-storage-booking-with-woocommerce' ),
 				),
 				array(
-					'label' => __( 'Dimensions', 'comarine-storage-booking-with-woocommerce' ),
-					'value' => '' !== $unit_dimensions ? $unit_dimensions : __( 'Not specified', 'comarine-storage-booking-with-woocommerce' ),
-				),
-				array(
-					'label' => __( 'Floor / level', 'comarine-storage-booking-with-woocommerce' ),
-					'value' => '' !== $unit_floor ? $unit_floor : __( 'Not specified', 'comarine-storage-booking-with-woocommerce' ),
-				),
-				array(
 					'label' => __( 'Booking options', 'comarine-storage-booking-with-woocommerce' ),
 					'value' => ! empty( $duration_prices ) ? implode( ', ', array_map(
 						static function ( $key ) use ( $comarine_duration_labels ) {
@@ -250,6 +240,18 @@ get_header();
 					) ) : __( 'Pricing not configured yet', 'comarine-storage-booking-with-woocommerce' ),
 				),
 			);
+			if ( '' !== $unit_dimensions ) {
+				$detail_rows[] = array(
+					'label' => __( 'Dimensions', 'comarine-storage-booking-with-woocommerce' ),
+					'value' => $unit_dimensions,
+				);
+			}
+			if ( '' !== $unit_floor ) {
+				$detail_rows[] = array(
+					'label' => __( 'Floor / level', 'comarine-storage-booking-with-woocommerce' ),
+					'value' => $unit_floor,
+				);
+			}
 			?>
 
 			<article <?php post_class( 'comarine-storage-unit-single__article comarine-status-' . sanitize_html_class( $unit_status ) ); ?>>

@@ -163,6 +163,9 @@ class Comarine_Storage_Booking_With_Woocommerce_Storage_Units {
 		echo '<table class="form-table" role="presentation"><tbody>';
 		foreach ( $fields as $meta_key => $field ) {
 			$value = get_post_meta( $post->ID, $meta_key, true );
+			if ( '' === (string) $value && isset( $field['default'] ) && ! is_array( $value ) ) {
+				$value = (string) $field['default'];
+			}
 			echo '<tr>';
 			echo '<th scope="row"><label for="' . esc_attr( $meta_key ) . '">' . esc_html( $field['label'] ) . '</label></th>';
 			echo '<td>';
@@ -306,7 +309,6 @@ class Comarine_Storage_Booking_With_Woocommerce_Storage_Units {
 			if ( 'title' === $key ) {
 				$updated['csu_unit_code'] = __( 'Unit Code', 'comarine-storage-booking-with-woocommerce' );
 				$updated['csu_size_m2']   = __( 'Size (m2)', 'comarine-storage-booking-with-woocommerce' );
-				$updated['csu_floor']     = __( 'Floor', 'comarine-storage-booking-with-woocommerce' );
 				$updated['csu_status']    = __( 'Status', 'comarine-storage-booking-with-woocommerce' );
 				$updated['csu_pricing']   = __( 'Pricing', 'comarine-storage-booking-with-woocommerce' );
 			}
@@ -345,15 +347,13 @@ class Comarine_Storage_Booking_With_Woocommerce_Storage_Units {
 				break;
 
 			case 'csu_pricing':
-				$daily   = (string) get_post_meta( $post_id, '_csu_price_daily', true );
 				$monthly = (string) get_post_meta( $post_id, '_csu_price_monthly', true );
 				$price_6 = (string) get_post_meta( $post_id, '_csu_price_6m', true );
 				$price_12 = (string) get_post_meta( $post_id, '_csu_price_12m', true );
 
 				echo esc_html(
 					sprintf(
-						'D: %1$s | M: %2$s | 6M: %3$s | 12M: %4$s',
-						$daily ?: '-',
+						'M: %1$s | 6M: %2$s | 12M: %3$s',
 						$monthly ?: '-',
 						$price_6 ?: '-',
 						$price_12 ?: '-'
@@ -384,28 +384,10 @@ class Comarine_Storage_Booking_With_Woocommerce_Storage_Units {
 				'step'                => '0.01',
 				'allow_empty_delete'  => true,
 			),
-			'_csu_dimensions'     => array(
-				'label'               => __( 'Dimensions', 'comarine-storage-booking-with-woocommerce' ),
-				'type'                => 'text',
-				'description'         => __( 'Example: 2.5 x 2', 'comarine-storage-booking-with-woocommerce' ),
-				'allow_empty_delete'  => true,
-			),
 			'_csu_gallery_image_ids' => array(
 				'label'               => __( 'Unit image gallery', 'comarine-storage-booking-with-woocommerce' ),
 				'type'                => 'gallery',
 				'description'         => __( 'Optional gallery images for the unit single page. The featured image is used as the main cover image, and gallery images appear as thumbnails/lightbox images.', 'comarine-storage-booking-with-woocommerce' ),
-				'allow_empty_delete'  => true,
-			),
-			'_csu_floor'          => array(
-				'label'               => __( 'Floor / Level', 'comarine-storage-booking-with-woocommerce' ),
-				'type'                => 'text',
-				'allow_empty_delete'  => true,
-			),
-			'_csu_price_daily'    => array(
-				'label'               => __( 'Daily price', 'comarine-storage-booking-with-woocommerce' ),
-				'type'                => 'number',
-				'step'                => '0.01',
-				'description'         => __( 'Full-unit price per day. Enables date-range booking (start/end dates) on the frontend.', 'comarine-storage-booking-with-woocommerce' ),
 				'allow_empty_delete'  => true,
 			),
 			'_csu_price_monthly'  => array(
@@ -465,7 +447,8 @@ class Comarine_Storage_Booking_With_Woocommerce_Storage_Units {
 
 		if ( 'select' === $field['type'] ) {
 			$options = isset( $field['options'] ) ? $field['options'] : array();
-			return isset( $options[ $raw_value ] ) ? $raw_value : 'available';
+			$default = isset( $field['default'] ) ? (string) $field['default'] : 'available';
+			return isset( $options[ $raw_value ] ) ? $raw_value : $default;
 		}
 
 		if ( 'gallery' === $field['type'] ) {

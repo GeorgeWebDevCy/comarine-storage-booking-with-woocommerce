@@ -9,7 +9,7 @@ Implemented in the codebase so far:
 - Dependency guards for WooCommerce + JCC plugin activation/runtime
 - GitHub-based plugin update checks (Composer + `plugin-update-checker`)
 - Storage Unit custom post type (`comarine_storageunit`)
-- Storage Unit admin meta fields (unit code, size, floor, pricing, status)
+- Storage Unit admin meta fields (unit code, size, pricing, status)
 - Storage Unit admin list columns for key metadata
 - Bookings custom database table (`wp_comarine_bookings` with prefix-aware table name)
 - Audit log custom database table (`wp_comarine_booking_audit_log` with prefix-aware table name)
@@ -39,7 +39,8 @@ Implemented in the codebase so far:
 - Storage Units CPT now has an early bootstrap registration fallback so direct admin URLs do not fail with `Invalid post type`
 - New `Overview` admin screen provides a setup checklist for required/recommended plugin configuration
 - One-click admin action to auto-create/reuse the WooCommerce booking container product and save it in plugin settings
-- One-click admin action to create 5 demo Storage Units with random capacities/prices for testing (deletable later)
+- One-click destructive admin action to seed the Spec v2 Storage Unit catalog (A1-F2) and replace all existing units
+- `Calendar` admin screen for a monthly visual booking overview across all booking records
 - Storage Units admin submenu clicks now normalize to the correct CPT URLs to avoid `Invalid post type` errors on some WP admin menu setups
 - Settings page for booking container product, lock TTL, paid unit status, and currency
 - Shortcode `[comarine_storage_units]` for initial frontend booking entry
@@ -50,9 +51,9 @@ Implemented in the codebase so far:
 - Admin configuration warnings for missing/invalid booking container product setup
 - Booking summary panel on WooCommerce order admin pages
 - Audit log entries for manual booking/unit status actions
-- Capacity-managed units (size in m2) now support partial-area bookings with checkout price proration and full-capacity-only locking
 - Booking forms now require a customer-selected start date (stored in booking records and shown in cart/order metadata)
-- Units can now define a daily price for calendar date-range bookings (start/end dates) with live frontend estimate updates based on selected m2 and days
+- Frontend booking uses fixed periods (`monthly`, `6m`, `12m`) and computes the booking end date internally (no customer-facing end-date field)
+- Spec v2 seeded units use whole-unit booking mode (no partial-area booking) and the Storage Unit admin UI hides unneeded daily/floor/dimensions fields
 
 Not implemented yet (next milestones):
 
@@ -99,7 +100,7 @@ If you deploy from source, include `vendor/` (or run `composer install` as part 
 
 1. Open `CoMarine Storage > Overview` (or `Settings`) and use the auto-create action for the booking container product, or create/select a virtual WooCommerce product manually.
 2. Open `CoMarine Storage > Settings` and confirm the booking container product is selected.
-3. Open `CoMarine Storage > Storage Units` and create one or more storage units with prices/status.
+3. Use `Seed Spec v2 Units (Replace All)` from `CoMarine Storage > Overview` (or `Settings`) to create the current catalog, or manually create storage units if you are testing a custom setup.
 4. Add the shortcode `[comarine_storage_units]` to a page.
 5. Book a unit and complete checkout (JCC sets order status to `completed` on success).
 6. Test lock expiry behavior by leaving a booking in the cart beyond the configured TTL, then reopening cart/checkout (invalid locks should be removed with a notice).
@@ -116,4 +117,5 @@ If you deploy from source, include `vendor/` (or run `composer install` as part 
 17. Open `CoMarine Storage > Overview` and confirm the setup checklist reports container product, dependencies, storage units/pricing, and key configuration status.
 18. If the container product is missing, use the `Create Container Product` action and confirm the setting is populated automatically.
 19. Click `CoMarine Storage > Storage Units` and `CoMarine Storage > Add New` and confirm both open the correct CPT screens (no `Invalid post type` message).
-20. For a unit with `Size (m2)` set (for example `1000`), book a partial area (for example `250`) and confirm the checkout price is prorated and the unit remains bookable until total reserved area reaches full capacity.
+20. Confirm the Spec v2 seed action removes old/demo units and creates the expected v2 catalog (`A1`-`F2`).
+21. Open a seeded unit on the frontend and confirm booking uses a required start date plus a fixed duration (`monthly`, `6m`, `12m`) without a customer-facing end-date field.

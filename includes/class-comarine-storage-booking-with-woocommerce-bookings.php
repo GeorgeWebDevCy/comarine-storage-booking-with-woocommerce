@@ -753,6 +753,34 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 	}
 
 	/**
+	 * Whether the unit is configured for partial-area (m2) bookings.
+	 *
+	 * Partial-area booking is opt-in via `_csu_booking_mode = partial_area`.
+	 * Units without this explicit flag are treated as whole-unit bookings.
+	 *
+	 * @since 1.0.31
+	 *
+	 * @param int $unit_post_id Unit post ID.
+	 * @return bool
+	 */
+	public static function is_unit_partial_area_booking_enabled( $unit_post_id ) {
+		$unit_post_id = absint( $unit_post_id );
+		if ( $unit_post_id <= 0 ) {
+			return false;
+		}
+
+		$mode = sanitize_key( (string) get_post_meta( $unit_post_id, '_csu_booking_mode', true ) );
+		if ( 'full_unit' === $mode ) {
+			return false;
+		}
+		if ( 'partial_area' === $mode ) {
+			return self::get_unit_capacity_m2( $unit_post_id ) > 0;
+		}
+
+		return false;
+	}
+
+	/**
 	 * Get reserved vs remaining capacity for a unit based on active bookings/locks.
 	 *
 	 * For legacy bookings created before capacity support, rows with no stored
@@ -771,9 +799,11 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 		global $wpdb;
 
 		$unit_post_id = absint( $unit_post_id );
-		$capacity_m2  = self::get_unit_capacity_m2( $unit_post_id );
+		$raw_size_m2  = self::get_unit_capacity_m2( $unit_post_id );
+		$is_capacity_managed = $raw_size_m2 > 0 && self::is_unit_partial_area_booking_enabled( $unit_post_id );
+		$capacity_m2  = $is_capacity_managed ? $raw_size_m2 : 0.0;
 		$result       = array(
-			'is_capacity_managed' => $capacity_m2 > 0,
+			'is_capacity_managed' => $is_capacity_managed,
 			'capacity_m2'         => $capacity_m2,
 			'reserved_m2'         => 0.0,
 			'remaining_m2'        => $capacity_m2 > 0 ? $capacity_m2 : 0.0,
@@ -879,8 +909,9 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 
 		$unit_post_id = absint( $unit_post_id );
 		$range        = self::normalize_daily_availability_date_range( $range_start_date, $range_end_date );
-		$capacity_m2  = self::get_unit_capacity_m2( $unit_post_id );
-		$is_capacity_managed = $capacity_m2 > 0;
+		$raw_size_m2  = self::get_unit_capacity_m2( $unit_post_id );
+		$is_capacity_managed = $raw_size_m2 > 0 && self::is_unit_partial_area_booking_enabled( $unit_post_id );
+		$capacity_m2  = $is_capacity_managed ? $raw_size_m2 : 0.0;
 		$result = array(
 			'unit_post_id'          => $unit_post_id,
 			'is_capacity_managed'   => $is_capacity_managed,
@@ -1370,7 +1401,7 @@ class Comarine_Storage_Booking_With_Woocommerce_Bookings {
 			}
 		}
 
-		if ( $unit_capacity_m2 <= 0 ) {
+		if ( $unit_capacity_m2 <= 0 && self::is_unit_partial_area_booking_enabled( $unit_post_id ) ) {
 			$unit_capacity_m2 = self::get_unit_capacity_m2( $unit_post_id );
 		}
 

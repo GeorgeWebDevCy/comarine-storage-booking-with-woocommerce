@@ -5,7 +5,7 @@ Tags: storage, booking, woocommerce
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.30
+Stable tag: 1.0.42
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Requires Plugins: woocommerce, jcc-payment-gateway-for-wc
@@ -58,11 +58,11 @@ Current implemented milestone includes:
 - Storage Units CPT is registered via an early fallback so direct `edit.php?post_type=comarine_storageunit` links remain valid
 - Added an Overview admin screen with a setup checklist for required and recommended plugin configuration
 - Added a one-click admin action to auto-create/reuse the WooCommerce booking container product from Overview/Settings
-- Added a one-click admin action to create 5 demo Storage Units with random capacities/prices from Overview/Settings for test data setup
+- Added a one-click admin action to seed the Spec v2 catalog (A1-F2) and replace all existing Storage Units
 - Added a defensive Storage Units admin menu URL normalization fix to prevent `Invalid post type` on some setups
-- Capacity-managed units (using unit size in m2) now support partial bookings with prorated pricing and only become unavailable when fully booked
-- Booking forms now require customers to choose a booking start date (stored in booking records and shown in cart/order metadata)
-- Units can now use a daily price for calendar date-range bookings (start/end dates) with frontend price estimates that react to selected m2 and booked days
+- Added a Bookings Calendar admin screen for a monthly visual view of all bookings
+- Booking forms use fixed periods (`monthly`, `6m`, `12m`) with a required start date and internally calculated end date
+- Spec v2 units are seeded as whole-unit bookings (no partial m2 booking), and unneeded daily/floor/dimensions fields are hidden from the Storage Unit editor UI
 
 == Installation ==
 
@@ -91,6 +91,13 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 3. Admin booking management screen.
 
 == Changelog ==
+
+= 1.0.42 =
+* Added a new `Calendar` admin submenu with a monthly bookings calendar view and booking cards linked to booking details.
+* Added a destructive `Seed Spec v2 Units (Replace All)` setup action that deletes existing Storage Units (and related booking/audit rows for those units) and creates the 40-unit v2 catalog (`A1`-`F2`).
+* Spec v2 units now default to whole-unit fixed-period bookings (`monthly`, `6m`, `12m`) with no customer-selected end date (end date remains internal).
+* Storage Unit admin UI now hides unneeded `Daily price`, `Floor`, `Dimensions`, and booking-mode fields for the current spec.
+* Overview and Settings screens now surface the Spec v2 seed action and hide demo-data setup buttons to avoid setup confusion.
 
 = 1.0.30 =
 * Added a per-unit `Daily price` field and daily booking mode support using start/end date range selection.
@@ -254,6 +261,9 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 * Added activation/runtime dependency checks for WooCommerce and JCC Payment Gateway for WooCommerce.
 
 == Upgrade Notice ==
+
+= 1.0.42 =
+Adds a bookings calendar admin screen, a destructive Spec v2 unit seeding action (replace-all), and fixed-period whole-unit booking defaults for the current catalog.
 
 = 1.0.30 =
 Adds daily pricing with start/end date range booking, m2-aware live price estimates on the frontend, and homepage preview cards that link to unit single pages.
