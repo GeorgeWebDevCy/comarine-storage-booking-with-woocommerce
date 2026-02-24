@@ -941,7 +941,6 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 			$filters = array(
 				'query'         => '',
 				'status'        => $status_only ? $default_status : 'all',
-				'floor'         => '',
 				'min_size'      => null,
 				'max_size'      => null,
 				'max_price'     => null,
@@ -994,8 +993,7 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 		}
 
 		if ( $show_filters ) {
-			$floor_options = $this->get_storage_units_floor_options( $units );
-			$this->render_storage_units_filter_form( $filters, $status_only, $default_status, $floor_options );
+			$this->render_storage_units_filter_form( $filters, $status_only, $default_status );
 		}
 
 		if ( empty( $units ) ) {
@@ -1012,7 +1010,6 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 			$unit_status  = (string) get_post_meta( $unit_id, '_csu_status', true );
 			$unit_size    = (string) get_post_meta( $unit_id, '_csu_size_m2', true );
 			$unit_dimensions = (string) get_post_meta( $unit_id, '_csu_dimensions', true );
-			$unit_floor   = (string) get_post_meta( $unit_id, '_csu_floor', true );
 			$durations    = $this->get_unit_duration_prices( $unit_id );
 			$uses_daily_date_range = isset( $durations['daily'] ) && is_numeric( $durations['daily'] ) && (float) $durations['daily'] > 0;
 			$normalized_status = $unit_status ? sanitize_key( $unit_status ) : 'available';
@@ -1039,7 +1036,6 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 				'size_value'        => $unit_size_float,
 				'capacity_snapshot' => $capacity_snapshot,
 				'dimensions'        => $unit_dimensions,
-				'floor'             => $unit_floor,
 				'durations'         => $durations,
 				'default_duration'  => $default_key,
 				'can_book'          => $can_book,
@@ -1066,7 +1062,30 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 			return (string) ob_get_clean();
 		}
 
-		$cards = array_slice( $cards, 0, $limit );
+		$total_cards         = count( $cards );
+		$pagination_enabled  = empty( $include_ids );
+		$current_page_number = $pagination_enabled ? $this->get_storage_units_frontend_page_from_request() : 1;
+		$total_pages         = max( 1, (int) ceil( $total_cards / $limit ) );
+		if ( $current_page_number > $total_pages ) {
+			$current_page_number = $total_pages;
+		}
+
+		$offset = max( 0, ( $current_page_number - 1 ) * $limit );
+		$cards  = array_slice( $cards, $offset, $limit );
+
+		if ( $show_filters || $total_pages > 1 ) {
+			echo '<div class="comarine-storage-units__results-summary">';
+			echo esc_html(
+				sprintf(
+					/* translators: 1: first result number, 2: last result number, 3: total results */
+					__( 'Showing %1$d-%2$d of %3$d units', 'comarine-storage-booking-with-woocommerce' ),
+					$offset + 1,
+					$offset + count( $cards ),
+					$total_cards
+				)
+			);
+			echo '</div>';
+		}
 		echo '<div class="comarine-storage-units-grid">';
 
 		foreach ( $cards as $card ) {
@@ -1118,9 +1137,6 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 			}
 			if ( '' !== (string) $card['dimensions'] ) {
 				echo '<span class="comarine-storage-unit-card__chip">' . esc_html__( 'Dimensions', 'comarine-storage-booking-with-woocommerce' ) . ': ' . esc_html( (string) $card['dimensions'] ) . '</span>';
-			}
-			if ( '' !== (string) $card['floor'] ) {
-				echo '<span class="comarine-storage-unit-card__chip">' . esc_html__( 'Floor', 'comarine-storage-booking-with-woocommerce' ) . ': ' . esc_html( (string) $card['floor'] ) . '</span>';
 			}
 			echo '</div>';
 
@@ -1253,6 +1269,9 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 		}
 
 		echo '</div>';
+		if ( $pagination_enabled && $total_pages > 1 ) {
+			$this->render_storage_units_shortcode_pagination( $current_page_number, $total_pages );
+		}
 		echo '</div>';
 
 		return (string) ob_get_clean();
@@ -1593,7 +1612,6 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 		return array(
 			'query'        => isset( $_GET['comarine_su_q'] ) ? sanitize_text_field( wp_unslash( $_GET['comarine_su_q'] ) ) : '',
 			'status'       => $status,
-			'floor'        => isset( $_GET['comarine_su_floor'] ) ? sanitize_text_field( wp_unslash( $_GET['comarine_su_floor'] ) ) : '',
 			'min_size'     => isset( $_GET['comarine_su_min_size'] ) && is_numeric( wp_unslash( $_GET['comarine_su_min_size'] ) ) ? (float) wp_unslash( $_GET['comarine_su_min_size'] ) : null,
 			'max_size'     => isset( $_GET['comarine_su_max_size'] ) && is_numeric( wp_unslash( $_GET['comarine_su_max_size'] ) ) ? (float) wp_unslash( $_GET['comarine_su_max_size'] ) : null,
 			'max_price'    => isset( $_GET['comarine_su_max_price'] ) && is_numeric( wp_unslash( $_GET['comarine_su_max_price'] ) ) ? (float) wp_unslash( $_GET['comarine_su_max_price'] ) : null,
@@ -1609,19 +1627,18 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 	 * @param array<string, mixed>  $filters        Active filters.
 	 * @param bool                  $status_locked  Whether status is fixed by shortcode attrs.
 	 * @param string                $default_status Fixed status value when locked.
-	 * @param array<int, string>    $floor_options  Available floor options.
 	 * @return void
 	 */
-	private function render_storage_units_filter_form( $filters, $status_locked, $default_status, $floor_options ) {
+	private function render_storage_units_filter_form( $filters, $status_locked, $default_status ) {
 		$reset_url = remove_query_arg(
 			array(
 				'comarine_su_q',
 				'comarine_su_status',
-				'comarine_su_floor',
 				'comarine_su_min_size',
 				'comarine_su_max_size',
 				'comarine_su_max_price',
 				'comarine_su_bookable',
+				'comarine_su_page',
 			)
 		);
 
@@ -1654,16 +1671,6 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 		} else {
 			echo '<input type="hidden" name="comarine_su_status" value="' . esc_attr( $default_status ) . '" />';
 		}
-
-		echo '<label class="comarine-storage-units__filter-field">';
-		echo '<span>' . esc_html__( 'Floor', 'comarine-storage-booking-with-woocommerce' ) . '</span>';
-		echo '<select name="comarine_su_floor">';
-		echo '<option value="">' . esc_html__( 'All floors', 'comarine-storage-booking-with-woocommerce' ) . '</option>';
-		foreach ( $floor_options as $floor_option ) {
-			echo '<option value="' . esc_attr( $floor_option ) . '" ' . selected( (string) $filters['floor'], (string) $floor_option, false ) . '>' . esc_html( $floor_option ) . '</option>';
-		}
-		echo '</select>';
-		echo '</label>';
 
 		echo '<label class="comarine-storage-units__filter-field">';
 		echo '<span>' . esc_html__( 'Min size (m2)', 'comarine-storage-booking-with-woocommerce' ) . '</span>';
@@ -1700,11 +1707,11 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 		$skip_keys = array(
 			'comarine_su_q',
 			'comarine_su_status',
-			'comarine_su_floor',
 			'comarine_su_min_size',
 			'comarine_su_max_size',
 			'comarine_su_max_price',
 			'comarine_su_bookable',
+			'comarine_su_page',
 		);
 
 		foreach ( $_GET as $key => $value ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
@@ -1718,33 +1725,73 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 	}
 
 	/**
-	 * Build unique floor options for the shortcode filter UI.
+	 * Get the current page number for the frontend storage units shortcode.
 	 *
-	 * @since 1.0.11
+	 * @since 1.0.44
 	 *
-	 * @param array<int, WP_Post> $units Unit posts.
-	 * @return array<int, string>
+	 * @return int
 	 */
-	private function get_storage_units_floor_options( $units ) {
-		$floors = array();
-
-		foreach ( $units as $unit ) {
-			if ( ! $unit || ! isset( $unit->ID ) ) {
-				continue;
-			}
-
-			$floor = trim( (string) get_post_meta( (int) $unit->ID, '_csu_floor', true ) );
-			if ( '' === $floor ) {
-				continue;
-			}
-
-			$floors[] = $floor;
+	private function get_storage_units_frontend_page_from_request() {
+		if ( ! isset( $_GET['comarine_su_page'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			return 1;
 		}
 
-		$floors = array_values( array_unique( $floors ) );
-		natcasesort( $floors );
+		$page = absint( wp_unslash( $_GET['comarine_su_page'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
-		return array_values( $floors );
+		return $page > 0 ? $page : 1;
+	}
+
+	/**
+	 * Render pagination links for the frontend storage units shortcode.
+	 *
+	 * @since 1.0.44
+	 *
+	 * @param int $current_page Current page number.
+	 * @param int $total_pages  Total number of pages.
+	 * @return void
+	 */
+	private function render_storage_units_shortcode_pagination( $current_page, $total_pages ) {
+		$current_page = max( 1, (int) $current_page );
+		$total_pages  = max( 1, (int) $total_pages );
+		if ( $total_pages <= 1 ) {
+			return;
+		}
+
+		$base_url = remove_query_arg( 'comarine_su_page' );
+		echo '<nav class="comarine-storage-units__pagination" aria-label="' . esc_attr__( 'Storage units pagination', 'comarine-storage-booking-with-woocommerce' ) . '">';
+
+		if ( $current_page > 1 ) {
+			$prev_url = add_query_arg( 'comarine_su_page', $current_page - 1, $base_url );
+			echo '<a class="comarine-storage-units__pagination-link is-prev" href="' . esc_url( $prev_url ) . '">' . esc_html__( 'Previous', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
+		}
+
+		for ( $page = 1; $page <= $total_pages; $page++ ) {
+			if ( $page < $current_page - 2 || $page > $current_page + 2 ) {
+				if ( 1 === $page || $total_pages === $page ) {
+					// Keep first/last pages visible.
+				} else {
+					if ( $page === $current_page - 3 || $page === $current_page + 3 ) {
+						echo '<span class="comarine-storage-units__pagination-ellipsis" aria-hidden="true">…</span>';
+					}
+					continue;
+				}
+			}
+
+			if ( $page === $current_page ) {
+				echo '<span class="comarine-storage-units__pagination-link is-current" aria-current="page">' . esc_html( (string) $page ) . '</span>';
+				continue;
+			}
+
+			$page_url = add_query_arg( 'comarine_su_page', $page, $base_url );
+			echo '<a class="comarine-storage-units__pagination-link" href="' . esc_url( $page_url ) . '">' . esc_html( (string) $page ) . '</a>';
+		}
+
+		if ( $current_page < $total_pages ) {
+			$next_url = add_query_arg( 'comarine_su_page', $current_page + 1, $base_url );
+			echo '<a class="comarine-storage-units__pagination-link is-next" href="' . esc_url( $next_url ) . '">' . esc_html__( 'Next', 'comarine-storage-booking-with-woocommerce' ) . '</a>';
+		}
+
+		echo '</nav>';
 	}
 
 	/**
@@ -1768,11 +1815,6 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 
 		$status = isset( $filters['status'] ) ? sanitize_key( (string) $filters['status'] ) : 'all';
 		if ( '' !== $status && 'all' !== $status && $status !== (string) $unit_data['status'] ) {
-			return false;
-		}
-
-		$floor_filter = trim( (string) ( isset( $filters['floor'] ) ? $filters['floor'] : '' ) );
-		if ( '' !== $floor_filter && 0 !== strcasecmp( $floor_filter, (string) $unit_data['floor'] ) ) {
 			return false;
 		}
 

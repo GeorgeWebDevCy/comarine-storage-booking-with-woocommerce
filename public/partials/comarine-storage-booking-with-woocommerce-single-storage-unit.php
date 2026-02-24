@@ -125,7 +125,6 @@ get_header();
 			$unit_status     = '' !== $unit_status ? $unit_status : 'available';
 			$unit_size_m2    = (string) get_post_meta( $unit_id, '_csu_size_m2', true );
 			$unit_dimensions = (string) get_post_meta( $unit_id, '_csu_dimensions', true );
-			$unit_floor      = (string) get_post_meta( $unit_id, '_csu_floor', true );
 			$raw_features    = get_post_meta( $unit_id, '_csu_features', true );
 			$unit_features   = $comarine_parse_features( $raw_features );
 			$archive_link    = get_post_type_archive_link( COMARINE_STORAGE_BOOKING_WITH_WOOCOMMERCE_UNIT_POST_TYPE );
@@ -246,12 +245,6 @@ get_header();
 					'value' => $unit_dimensions,
 				);
 			}
-			if ( '' !== $unit_floor ) {
-				$detail_rows[] = array(
-					'label' => __( 'Floor / level', 'comarine-storage-booking-with-woocommerce' ),
-					'value' => $unit_floor,
-				);
-			}
 			?>
 
 			<article <?php post_class( 'comarine-storage-unit-single__article comarine-status-' . sanitize_html_class( $unit_status ) ); ?>>
@@ -322,9 +315,6 @@ get_header();
 							<span class="comarine-storage-unit-single__chip"><?php echo esc_html__( 'Code', 'comarine-storage-booking-with-woocommerce' ) . ': ' . esc_html( '' !== $unit_code ? $unit_code : (string) $unit_id ); ?></span>
 							<?php if ( '' !== $unit_size_m2 ) : ?>
 								<span class="comarine-storage-unit-single__chip"><?php echo esc_html( $comarine_format_area( $unit_size_m2 ) ); ?> m2</span>
-							<?php endif; ?>
-							<?php if ( '' !== $unit_floor ) : ?>
-								<span class="comarine-storage-unit-single__chip"><?php echo esc_html__( 'Floor', 'comarine-storage-booking-with-woocommerce' ) . ': ' . esc_html( $unit_floor ); ?></span>
 							<?php endif; ?>
 							<?php if ( '' !== $unit_dimensions ) : ?>
 								<span class="comarine-storage-unit-single__chip"><?php echo esc_html__( 'Dimensions', 'comarine-storage-booking-with-woocommerce' ) . ': ' . esc_html( $unit_dimensions ); ?></span>

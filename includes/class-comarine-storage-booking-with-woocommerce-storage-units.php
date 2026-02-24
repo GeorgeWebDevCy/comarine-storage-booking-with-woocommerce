@@ -336,10 +336,6 @@ class Comarine_Storage_Booking_With_Woocommerce_Storage_Units {
 				echo esc_html( get_post_meta( $post_id, '_csu_size_m2', true ) );
 				break;
 
-			case 'csu_floor':
-				echo esc_html( get_post_meta( $post_id, '_csu_floor', true ) );
-				break;
-
 			case 'csu_status':
 				$status  = (string) get_post_meta( $post_id, '_csu_status', true );
 				$options = $this->get_status_options();

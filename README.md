@@ -23,7 +23,7 @@ Implemented in the codebase so far:
 - Audit logging for bulk booking status changes and bulk unit status overrides
 - Destructive row actions now require confirmation prompts (cancel/refund/unit available)
 - Bulk actions support optional audit notes and require explicit confirmation for destructive bulk actions
-- Frontend shortcode now includes filter controls (search/status/floor/size/price/bookable-now)
+- Frontend shortcode now includes filter controls (search/status/size/price/bookable-now) and paginates results
 - Frontend unit cards now show richer details (status badge, dimensions, features, pricing summary)
 - Frontend availability messaging improved (locked/reserved/configuration/pricing reasons)
 - MVP configurable add-ons via plugin settings (JSON definitions)
@@ -119,3 +119,4 @@ If you deploy from source, include `vendor/` (or run `composer install` as part 
 19. Click `CoMarine Storage > Storage Units` and `CoMarine Storage > Add New` and confirm both open the correct CPT screens (no `Invalid post type` message).
 20. Confirm the Spec v2 seed action removes old/demo units and creates the expected v2 catalog (`A1`-`F2`).
 21. Open a seeded unit on the frontend and confirm booking uses a required start date plus a fixed duration (`monthly`, `6m`, `12m`) without a customer-facing end-date field.
+22. Open a page with `[comarine_storage_units]`, confirm the floor filter is no longer shown, and verify multi-page pagination appears when there are more units than the shortcode `limit`.
