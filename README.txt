@@ -5,7 +5,7 @@ Tags: storage, booking, woocommerce
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.44
+Stable tag: 1.0.45
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Requires Plugins: woocommerce, jcc-payment-gateway-for-wc
@@ -27,7 +27,7 @@ Current implemented milestone includes:
 - Basic Bookings admin overview page
 - Booking settings page (container product / lock TTL / paid unit status)
 - Shortcode `[comarine_storage_units]` and initial booking form flow
-- Added shortcode `[comarine_storage_units_latest]` for a homepage category explorer (A-F) with expandable unit grids linking to each unit single post page
+- Added shortcode `[comarine_storage_units_latest]` for a homepage category explorer (A-F) with expandable unit grids (collapsed by default) linking to each unit single post page
 - Booking locks + WooCommerce cart/order metadata synchronization
 - JCC-compatible paid trigger via WooCommerce `completed` status
 - Cart/checkout lock validation with invalid booking cleanup
@@ -91,6 +91,10 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 3. Admin booking management screen.
 
 == Changelog ==
+
+= 1.0.45 =
+* Changed `[comarine_storage_units_latest]` category blocks to start fully collapsed by default on initial page load.
+* Optional explicit category opening (`open="A"` or `comarine_su_category`) is still supported.
 
 = 1.0.44 =
 * Added pagination to `[comarine_storage_units]` so the main storage-units list can show all matching units across pages (instead of only the first batch).
@@ -271,6 +275,9 @@ The plugin uses a GitHub-based update checker (`plugin-update-checker`) and chec
 * Added activation/runtime dependency checks for WooCommerce and JCC Payment Gateway for WooCommerce.
 
 == Upgrade Notice ==
+
+= 1.0.45 =
+Makes the homepage category shortcode (`[comarine_storage_units_latest]`) start with all category blocks collapsed by default.
 
 = 1.0.44 =
 Adds pagination to the main `[comarine_storage_units]` shortcode and removes floor filtering/display from the frontend unit listing UI.

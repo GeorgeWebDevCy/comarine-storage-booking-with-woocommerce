@@ -1441,12 +1441,6 @@ class Comarine_Storage_Booking_With_Woocommerce_WooCommerce_Integration {
 
 		if ( ! in_array( $open_category, $category_order, true ) ) {
 			$open_category = '';
-			foreach ( $category_order as $category_key ) {
-				if ( ! empty( $categories[ $category_key ]['units'] ) ) {
-					$open_category = $category_key;
-					break;
-				}
-			}
 		}
 
 		ob_start();
